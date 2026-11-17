@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Cloud } from 'lucide-react';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface IntroHatchingProps {
@@ -6,6 +7,7 @@ interface IntroHatchingProps {
   onComplete: (petName: string) => void;
   onEggTapSound: () => void;
   onHatchSound: () => void;
+  onOpenCloudAuth?: () => void;
 }
 
 export const IntroHatching: React.FC<IntroHatchingProps> = ({
@@ -13,6 +15,7 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
   onComplete,
   onEggTapSound,
   onHatchSound,
+  onOpenCloudAuth,
 }) => {
   const [taps, setTaps] = useState(0);
   const [wobbleKey, setWobbleKey] = useState(0);
@@ -193,9 +196,21 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
         )}
       </div>
 
-      <p className="text-xs text-[#917973] text-center">
-        所有成長與體重紀錄皆安全保存在本機裝置中
-      </p>
+      <div className="flex flex-col items-center gap-2 text-center">
+        {onOpenCloudAuth && (
+          <button
+            type="button"
+            onClick={onOpenCloudAuth}
+            className="min-h-[40px] px-4 rounded-2xl bg-white/80 border border-[#F0D3DC] text-xs font-extrabold text-[#B85776] inline-flex items-center gap-1.5 hover:bg-white active:scale-95 transition"
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>已有雲端帳號？登入載入小豬</span>
+          </button>
+        )}
+        <p className="text-xs text-[#917973]">
+          所有成長與體重紀錄皆安全保存在本機裝置中
+        </p>
+      </div>
     </div>
   );
 };

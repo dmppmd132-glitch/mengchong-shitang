@@ -124,3 +124,16 @@ export interface FloatingFeedback {
   text: string;
   emoji?: string;
 }
+
+export type CloudSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
+
+export interface CloudUser {
+  id: string;
+  email: string;
+}
+
+export interface CloudSavePayload {
+  state: GameState;
+  updatedAt: string;
+}
+

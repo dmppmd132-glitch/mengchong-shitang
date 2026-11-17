@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
 import { HomeView } from './components/HomeView';
@@ -13,8 +14,17 @@ import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
+import {
+  fetchCloudSave,
+  signOutCloud,
+  upsertCloudSave,
+} from './services/cloudSync';
 import {
   Accessory,
+  CloudSavePayload,
+  CloudSyncStatus,
+  CloudUser,
   FeedLog,
   FloatingFeedback,
   Food,
@@ -48,14 +58,169 @@ export default function App() {
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
   const [levelUpStage, setLevelUpStage] = useState<GrowthStageInfo | null>(null);
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
+  const [cloudUser, setCloudUser] = useState<CloudUser | null>(null);
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('local');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
 
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
   const prevStageLevelRef = useRef<number>(getGrowthStage(game.pet.growth).level);
+  const gameRef = useRef<GameState>(game);
+  const skipNextCloudUploadRef = useRef<boolean>(false);
+  const lastHandledUserIdRef = useRef<string | null>(null);
+
+  gameRef.current = game;
 
   useEffect(() => {
     saveGameState(game);
   }, [game]);
+
+  const applyCloudStateLocally = useCallback((cloudState: GameState) => {
+    skipNextCloudUploadRef.current = true;
+    prevStageLevelRef.current = getGrowthStage(cloudState.pet.growth).level;
+    setGame(cloudState);
+    setSpeech(`歡迎回來，${cloudState.pet.name}！`);
+  }, []);
+
+  const syncAfterSignIn = useCallback(
+    async (user: CloudUser, openModalOnConflict: boolean) => {
+      setSyncStatus('syncing');
+      setSyncError(null);
+      const { state: cloudState, updatedAt, error } = await fetchCloudSave(user.id);
+
+      if (error) {
+        setSyncStatus('error');
+        setSyncError(error);
+        return;
+      }
+
+      const currentLocal = gameRef.current;
+
+      if (cloudState) {
+        if (!currentLocal.pet.hatched) {
+          applyCloudStateLocally(cloudState);
+          setSyncStatus('synced');
+          setLastSyncedAt(updatedAt);
+          setPendingCloudSave(null);
+          return;
+        }
+
+        if (cloudState.lastSavedAt === currentLocal.lastSavedAt) {
+          setSyncStatus('synced');
+          setLastSyncedAt(updatedAt);
+          setPendingCloudSave(null);
+          return;
+        }
+
+        setPendingCloudSave({
+          state: cloudState,
+          updatedAt: updatedAt ?? new Date().toISOString(),
+        });
+        setSyncStatus('local');
+        if (openModalOnConflict) {
+          setAuthModalOpen(true);
+        }
+        return;
+      }
+
+      if (currentLocal.pet.hatched) {
+        const uploaded = await upsertCloudSave(user.id, currentLocal);
+        if (uploaded.error) {
+          setSyncStatus('error');
+          setSyncError(uploaded.error);
+        } else {
+          setSyncStatus('synced');
+          setLastSyncedAt(uploaded.updatedAt);
+        }
+      } else {
+        setSyncStatus('synced');
+      }
+    },
+    [applyCloudStateLocally]
+  );
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    let mounted = true;
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      const sessionUser = data.session?.user;
+      if (sessionUser) {
+        const nextUser: CloudUser = {
+          id: sessionUser.id,
+          email: sessionUser.email ?? '',
+        };
+        setCloudUser(nextUser);
+        if (lastHandledUserIdRef.current !== nextUser.id) {
+          lastHandledUserIdRef.current = nextUser.id;
+          void syncAfterSignIn(nextUser, false);
+        }
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const sessionUser = session?.user;
+      if (sessionUser) {
+        const nextUser: CloudUser = {
+          id: sessionUser.id,
+          email: sessionUser.email ?? '',
+        };
+        setCloudUser(nextUser);
+        if (lastHandledUserIdRef.current !== nextUser.id) {
+          lastHandledUserIdRef.current = nextUser.id;
+          void syncAfterSignIn(nextUser, true);
+        }
+      } else {
+        lastHandledUserIdRef.current = null;
+        setCloudUser(null);
+        setPendingCloudSave(null);
+        setSyncStatus('local');
+        setSyncError(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [syncAfterSignIn]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !cloudUser || pendingCloudSave || !game.pet.hatched) {
+      return;
+    }
+
+    if (skipNextCloudUploadRef.current) {
+      skipNextCloudUploadRef.current = false;
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSyncStatus('syncing');
+      setSyncError(null);
+      void upsertCloudSave(cloudUser.id, game).then((res) => {
+        if (res.error) {
+          setSyncStatus('error');
+          setSyncError(res.error);
+        } else {
+          setSyncStatus('synced');
+          setLastSyncedAt(res.updatedAt);
+        }
+      });
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [game, cloudUser, pendingCloudSave]);
 
   useEffect(() => {
     const currentStage = getGrowthStage(game.pet.growth);
@@ -449,6 +614,79 @@ export default function App() {
     });
   };
 
+  const handleForceUpload = async () => {
+    if (!cloudUser) return;
+    setSyncStatus('syncing');
+    setSyncError(null);
+    const res = await upsertCloudSave(cloudUser.id, gameRef.current);
+    if (res.error) {
+      setSyncStatus('error');
+      setSyncError(res.error);
+    } else {
+      setSyncStatus('synced');
+      setLastSyncedAt(res.updatedAt);
+      pushFeedback('已上傳至雲端！', '☁️');
+    }
+  };
+
+  const handleForceDownload = async () => {
+    if (!cloudUser) return;
+    setSyncStatus('syncing');
+    setSyncError(null);
+    const res = await fetchCloudSave(cloudUser.id);
+    if (res.error) {
+      setSyncStatus('error');
+      setSyncError(res.error);
+      return;
+    }
+    if (!res.state) {
+      setSyncStatus('synced');
+      setSyncError('雲端目前還沒有任何存檔喔！');
+      return;
+    }
+    applyCloudStateLocally(res.state);
+    setSyncStatus('synced');
+    setLastSyncedAt(res.updatedAt);
+    pushFeedback('已載入雲端存檔！', '☁️');
+  };
+
+  const handleResolveConflictUseCloud = () => {
+    if (!pendingCloudSave) return;
+    applyCloudStateLocally(pendingCloudSave.state);
+    setLastSyncedAt(pendingCloudSave.updatedAt);
+    setPendingCloudSave(null);
+    setSyncStatus('synced');
+    setAuthModalOpen(false);
+    pushFeedback('已載入雲端小豬！', '☁️');
+  };
+
+  const handleResolveConflictUseLocal = async () => {
+    if (!cloudUser) return;
+    setSyncStatus('syncing');
+    setSyncError(null);
+    const res = await upsertCloudSave(cloudUser.id, gameRef.current);
+    if (res.error) {
+      setSyncStatus('error');
+      setSyncError(res.error);
+      return;
+    }
+    setPendingCloudSave(null);
+    setSyncStatus('synced');
+    setLastSyncedAt(res.updatedAt);
+    setAuthModalOpen(false);
+    pushFeedback('已將本機進度同步至雲端！', '☁️');
+  };
+
+  const handleCloudSignOut = async () => {
+    await signOutCloud();
+    lastHandledUserIdRef.current = null;
+    setCloudUser(null);
+    setPendingCloudSave(null);
+    setSyncStatus('local');
+    setSyncError(null);
+    setAuthModalOpen(false);
+  };
+
   const handleConfirmReset = () => {
     clearAnimationTimers();
     const fresh = resetGameState();
@@ -467,6 +705,15 @@ export default function App() {
     (t) => t.completed && !t.claimed
   ).length;
 
+  const cloudDotColor =
+    syncStatus === 'synced'
+      ? 'bg-[#3BA886]'
+      : syncStatus === 'syncing'
+      ? 'bg-[#E6A222]'
+      : syncStatus === 'error'
+      ? 'bg-[#D64470]'
+      : 'bg-[#BBA7A2]';
+
   return (
     <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-hidden">
       <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-hidden">
@@ -476,6 +723,7 @@ export default function App() {
             onComplete={handleHatchComplete}
             onEggTapSound={() => soundFX.pop(game.soundEnabled)}
             onHatchSound={() => soundFX.hatch(game.soundEnabled)}
+            onOpenCloudAuth={() => setAuthModalOpen(true)}
           />
         ) : (
           <>
@@ -494,6 +742,20 @@ export default function App() {
                 </div>
 
                 <PWAInstallButton />
+
+                <button
+                  type="button"
+                  onClick={() => setAuthModalOpen(true)}
+                  aria-label="雲端存檔與帳號"
+                  title="雲端存檔與帳號"
+                  className="relative min-h-[38px] min-w-[38px] rounded-xl bg-[#E9F7F2] text-[#256D57] flex items-center justify-center hover:bg-[#D7F0E7] transition"
+                >
+                  <Cloud className="w-4 h-4" />
+                  <span
+                    className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${cloudDotColor}`}
+                    aria-hidden="true"
+                  />
+                </button>
 
                 <button
                   type="button"
@@ -571,6 +833,9 @@ export default function App() {
                   weightLogs={game.weightLogs}
                   onRecordWeight={handleRecordWeight}
                   onRequestReset={() => setResetModalOpen(true)}
+                  cloudUser={cloudUser}
+                  syncStatus={syncStatus}
+                  onOpenCloudAuth={() => setAuthModalOpen(true)}
                 />
               )}
 
@@ -603,6 +868,33 @@ export default function App() {
             />
           </>
         )}
+
+        <AuthSyncModal
+          open={authModalOpen}
+          onClose={() => setAuthModalOpen(false)}
+          isConfigured={isSupabaseConfigured}
+          user={cloudUser}
+          syncStatus={syncStatus}
+          lastSyncedAt={lastSyncedAt}
+          syncError={syncError}
+          pendingCloudSave={pendingCloudSave}
+          localPetName={game.pet.name}
+          localPetLevel={game.pet.level}
+          localPetWeight={game.pet.weight}
+          localHatched={game.pet.hatched}
+          onAuthSuccess={(loggedInUser) => {
+            setCloudUser(loggedInUser);
+            if (lastHandledUserIdRef.current !== loggedInUser.id) {
+              lastHandledUserIdRef.current = loggedInUser.id;
+              void syncAfterSignIn(loggedInUser, true);
+            }
+          }}
+          onSignOut={handleCloudSignOut}
+          onForceUpload={handleForceUpload}
+          onForceDownload={handleForceDownload}
+          onResolveConflictUseCloud={handleResolveConflictUseCloud}
+          onResolveConflictUseLocal={handleResolveConflictUseLocal}
+        />
       </div>
     </div>
   );

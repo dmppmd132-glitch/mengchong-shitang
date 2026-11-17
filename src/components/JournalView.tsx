@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Minus, Plus, RotateCcw, Scale } from 'lucide-react';
+import { Cloud, Minus, Plus, RotateCcw, Scale } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
-import { Pet, WeightLog } from '../types';
+import { CloudSyncStatus, CloudUser, Pet, WeightLog } from '../types';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 
 interface JournalViewProps {
@@ -9,6 +9,9 @@ interface JournalViewProps {
   weightLogs: WeightLog[];
   onRecordWeight: (newWeight: number, note?: string) => void;
   onRequestReset: () => void;
+  cloudUser?: CloudUser | null;
+  syncStatus?: CloudSyncStatus;
+  onOpenCloudAuth?: () => void;
 }
 
 interface ChartPoint {
@@ -22,6 +25,9 @@ export const JournalView: React.FC<JournalViewProps> = ({
   weightLogs,
   onRecordWeight,
   onRequestReset,
+  cloudUser = null,
+  syncStatus = 'local',
+  onOpenCloudAuth,
 }) => {
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
@@ -415,6 +421,35 @@ export const JournalView: React.FC<JournalViewProps> = ({
           </div>
         )}
       </section>
+
+      {onOpenCloudAuth && (
+        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-[#4A3531]">雲端存檔與帳號</h2>
+            <p className="text-xs text-[#7D635D] mt-0.5 truncate">
+              {cloudUser
+                ? `${cloudUser.email}（${
+                    syncStatus === 'synced'
+                      ? '已同步'
+                      : syncStatus === 'syncing'
+                      ? '同步中…'
+                      : syncStatus === 'error'
+                      ? '同步異常'
+                      : '本機暫存'
+                  }）`
+                : '登入帳號即可跨裝置備份與同步進度'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenCloudAuth}
+            className="min-h-[44px] px-4 rounded-2xl bg-[#E3F7F0] border border-[#AEE3D0] text-xs font-extrabold text-[#256D57] inline-flex items-center gap-1.5 hover:bg-[#D2F2E7] active:scale-95 transition whitespace-nowrap shrink-0"
+          >
+            <Cloud className="w-3.5 h-3.5" />
+            <span>{cloudUser ? '管理同步' : '登入 / 註冊'}</span>
+          </button>
+        </section>
+      )}
 
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
         <div>

@@ -306,62 +306,68 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   };
 }
 
+export function normalizeGameState(parsed: unknown): GameState | null {
+  if (!isRecord(parsed)) return null;
+  const base = createInitialGameState();
+  const now = Date.now();
+  const lastSavedAt = asNumber(parsed.lastSavedAt, now);
+  const rawPet = isRecord(parsed.pet) ? parsed.pet : {};
+  const growth = asNumber(rawPet.growth, base.pet.growth);
+
+  let pet: Pet = {
+    id: asString(rawPet.id, base.pet.id),
+    name: asString(rawPet.name, base.pet.name),
+    species: asSpecies(rawPet.species),
+    level: getGrowthStage(growth).level,
+    growth,
+    intimacy: Math.max(0, asNumber(rawPet.intimacy, base.pet.intimacy)),
+    hunger: clampStat(asNumber(rawPet.hunger, base.pet.hunger)),
+    mood: clampStat(asNumber(rawPet.mood, base.pet.mood)),
+    cleanliness: clampStat(asNumber(rawPet.cleanliness, base.pet.cleanliness)),
+    energy: clampStat(asNumber(rawPet.energy, base.pet.energy)),
+    weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
+    roundness: clampStat(asNumber(rawPet.roundness, base.pet.roundness)),
+    accessories: parseAccessoriesRecord(rawPet.accessories, base.pet.accessories),
+    hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
+    consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
+  };
+
+  if (pet.hatched) {
+    pet = applyTimeDecay(pet, now - lastSavedAt);
+  }
+
+  const rawUnlocked = Array.isArray(parsed.accessories)
+    ? parsed.accessories.filter((x): x is string => typeof x === 'string')
+    : [];
+
+  const syncedTasks = syncDailyTasks(
+    parseDailyTasks(parsed.dailyTasks),
+    asString(parsed.dailyTasksDate, formatLocalDate())
+  );
+
+  return {
+    version: 2,
+    pet,
+    coins: asNumber(parsed.coins, base.coins),
+    foods: parseStringNumberRecord(parsed.foods, base.foods),
+    accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
+    weightLogs: parseWeightLogs(parsed.weightLogs),
+    feedLogs: parseFeedLogs(parsed.feedLogs),
+    dailyTasks: syncedTasks.dailyTasks,
+    dailyTasksDate: syncedTasks.dailyTasksDate,
+    soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
+    lastSavedAt: now,
+  };
+}
+
 export function loadGameState(): GameState {
   try {
     const rawV2 = localStorage.getItem(STORAGE_KEY);
     if (rawV2) {
       const parsed: unknown = JSON.parse(rawV2);
-      if (isRecord(parsed)) {
-        const base = createInitialGameState();
-        const now = Date.now();
-        const lastSavedAt = asNumber(parsed.lastSavedAt, now);
-        const rawPet = isRecord(parsed.pet) ? parsed.pet : {};
-        const growth = asNumber(rawPet.growth, base.pet.growth);
-
-        let pet: Pet = {
-          id: asString(rawPet.id, base.pet.id),
-          name: asString(rawPet.name, base.pet.name),
-          species: asSpecies(rawPet.species),
-          level: getGrowthStage(growth).level,
-          growth,
-          intimacy: Math.max(0, asNumber(rawPet.intimacy, base.pet.intimacy)),
-          hunger: clampStat(asNumber(rawPet.hunger, base.pet.hunger)),
-          mood: clampStat(asNumber(rawPet.mood, base.pet.mood)),
-          cleanliness: clampStat(asNumber(rawPet.cleanliness, base.pet.cleanliness)),
-          energy: clampStat(asNumber(rawPet.energy, base.pet.energy)),
-          weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
-          roundness: clampStat(asNumber(rawPet.roundness, base.pet.roundness)),
-          accessories: parseAccessoriesRecord(rawPet.accessories, base.pet.accessories),
-          hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
-          consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
-        };
-
-        if (pet.hatched) {
-          pet = applyTimeDecay(pet, now - lastSavedAt);
-        }
-
-        const rawUnlocked = Array.isArray(parsed.accessories)
-          ? parsed.accessories.filter((x): x is string => typeof x === 'string')
-          : [];
-
-        const syncedTasks = syncDailyTasks(
-          parseDailyTasks(parsed.dailyTasks),
-          asString(parsed.dailyTasksDate, formatLocalDate())
-        );
-
-        return {
-          version: 2,
-          pet,
-          coins: asNumber(parsed.coins, base.coins),
-          foods: parseStringNumberRecord(parsed.foods, base.foods),
-          accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
-          weightLogs: parseWeightLogs(parsed.weightLogs),
-          feedLogs: parseFeedLogs(parsed.feedLogs),
-          dailyTasks: syncedTasks.dailyTasks,
-          dailyTasksDate: syncedTasks.dailyTasksDate,
-          soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
-          lastSavedAt: now,
-        };
+      const normalized = normalizeGameState(parsed);
+      if (normalized) {
+        return normalized;
       }
     }
 
