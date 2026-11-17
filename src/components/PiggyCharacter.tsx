@@ -7,6 +7,7 @@ interface PiggyCharacterProps {
   roundness: number;
   action: PiggyActionState;
   equipped: Record<AccessorySlot, string | null>;
+  flyingFoodEmoji?: string | null;
   onPet?: () => void;
   size?: number;
   interactive?: boolean;
@@ -18,18 +19,23 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   roundness,
   action,
   equipped,
+  flyingFoodEmoji = null,
   onPet,
   size = 216,
   interactive = true,
   isDropTarget = false,
 }) => {
   const [isBlinking, setIsBlinking] = useState(false);
+  const [chewTick, setChewTick] = useState(false);
   const [tapKey, setTapKey] = useState(0);
 
   const stage = getGrowthStage(growth);
-  const chubbyFactor = 0.97 + Math.min(roundness, 100) * 0.0012;
+  const clampedRoundness = Math.min(100, Math.max(0, roundness));
+  const chubbyFactor = 0.95 + clampedRoundness * 0.0018;
   const scaleX = stage.bodyScaleX * chubbyFactor;
-  const scaleY = stage.bodyScaleY;
+  const scaleY = stage.bodyScaleY * (0.97 + clampedRoundness * 0.0006);
+  const bodyRx = 68 + clampedRoundness * 0.1;
+  const bodyRy = 61 + clampedRoundness * 0.05;
 
   useEffect(() => {
     let blinkTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -42,6 +48,17 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
       if (blinkTimeout) clearTimeout(blinkTimeout);
     };
   }, []);
+
+  useEffect(() => {
+    if (action !== 'eating') {
+      setChewTick(false);
+      return;
+    }
+    const interval = setInterval(() => {
+      setChewTick((prev) => !prev);
+    }, 180);
+    return () => clearInterval(interval);
+  }, [action]);
 
   const handleTap = () => {
     if (!interactive) return;
@@ -57,7 +74,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
       : 'animate-piggy-float';
 
   const eyesClosed = isBlinking || action === 'sleeping';
-  const happyArcEyes = action === 'petted' || action === 'eating' || action === 'walking';
+  const happyArcEyes =
+    action === 'petted' || action === 'eating' || action === 'opening' || action === 'walking';
 
   return (
     <div
@@ -74,7 +92,9 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
       }}
       style={{ width: size, height: size }}
       className={`relative select-none flex items-center justify-center transition-transform duration-200 ${
-        interactive ? 'cursor-pointer active:scale-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#FF7A9E]/40 rounded-full' : ''
+        interactive
+          ? 'cursor-pointer active:scale-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#FF7A9E]/40 rounded-full'
+          : ''
       } ${action === 'petted' ? 'animate-piggy-squish' : ''} ${
         isDropTarget ? 'scale-105' : ''
       }`}
@@ -83,10 +103,23 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
         <div className="absolute inset-2 rounded-full bg-[#FFE082]/45 border-2 border-dashed border-[#FF7A9E] pointer-events-none" />
       )}
 
+      {/* Flying food animation toward piggy mouth */}
+      {flyingFoodEmoji && (
+        <div
+          key={flyingFoodEmoji + '_' + action}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
+          aria-hidden="true"
+        >
+          <span className="text-4xl animate-food-fly drop-shadow-sm translate-y-6">
+            {flyingFoodEmoji}
+          </span>
+        </div>
+      )}
+
       {stage.level === 4 && (
         <svg
           viewBox="0 0 240 240"
-          className="absolute inset-0 w-full h-full pointer-events-none opacity-80"
+          className="absolute inset-0 w-full h-full pointer-events-none opacity-85"
           aria-hidden="true"
         >
           <circle cx="120" cy="126" r="92" fill="#FFF3C4" opacity="0.55" />
@@ -114,7 +147,10 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
       )}
 
       {action === 'sleeping' && (
-        <div className="absolute right-5 top-4 pointer-events-none flex flex-col items-end font-extrabold text-[#7B6594]" aria-hidden="true">
+        <div
+          className="absolute right-5 top-4 pointer-events-none flex flex-col items-end font-extrabold text-[#7B6594]"
+          aria-hidden="true"
+        >
           <span className="text-lg animate-bounce">Z</span>
           <span className="text-sm -mt-1 mr-2 opacity-80">z</span>
         </div>
@@ -154,9 +190,9 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <g>
             <ellipse
               cx="68"
-              cy="72"
-              rx="20"
-              ry="26"
+              cy={stage.level >= 3 ? 68 : 72}
+              rx={stage.level >= 2 ? 21 : 19}
+              ry={stage.level >= 2 ? 27 : 24}
               transform="rotate(-24 68 72)"
               fill="#FF9EB8"
               stroke="#5A3E36"
@@ -164,7 +200,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             />
             <ellipse
               cx="69"
-              cy="75"
+              cy={stage.level >= 3 ? 71 : 75}
               rx="10"
               ry="14"
               transform="rotate(-24 69 75)"
@@ -172,9 +208,9 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             />
             <ellipse
               cx="172"
-              cy="72"
-              rx="20"
-              ry="26"
+              cy={stage.level >= 3 ? 68 : 72}
+              rx={stage.level >= 2 ? 21 : 19}
+              ry={stage.level >= 2 ? 27 : 24}
               transform="rotate(24 172 72)"
               fill="#FF9EB8"
               stroke="#5A3E36"
@@ -182,7 +218,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             />
             <ellipse
               cx="171"
-              cy="75"
+              cy={stage.level >= 3 ? 71 : 75}
               rx="10"
               ry="14"
               transform="rotate(24 171 75)"
@@ -190,17 +226,36 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             />
           </g>
 
+          {/* Main Chubby Piggy Body / Head (scales dynamically with growth & roundness) */}
           <ellipse
             cx="120"
             cy="134"
-            rx="72"
-            ry="64"
-            fill="#FFB7CB"
+            rx={bodyRx}
+            ry={bodyRy}
+            fill={stage.level >= 4 ? '#FFACC3' : '#FFB7CB'}
             stroke="#5A3E36"
             strokeWidth="4.5"
           />
 
-          <ellipse cx="120" cy="162" rx="44" ry="26" fill="#FFD3E0" opacity="0.7" />
+          <ellipse
+            cx="120"
+            cy="162"
+            rx={38 + clampedRoundness * 0.1}
+            ry={23 + clampedRoundness * 0.05}
+            fill="#FFD3E0"
+            opacity="0.75"
+          />
+
+          {/* Cute roundness belly curve when chubby */}
+          {clampedRoundness >= 60 && (
+            <path
+              d="M 102 174 Q 120 182 138 174"
+              fill="none"
+              stroke="#E991AA"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+            />
+          )}
 
           {equipped.body === 'mint_apron' && (
             <g>
@@ -255,7 +310,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             rx={stage.level >= 3 ? 14 : 11}
             ry={stage.level >= 3 ? 8 : 6.5}
             fill="#FF7B9C"
-            opacity={action === 'petted' || stage.level >= 3 ? 0.78 : 0.55}
+            opacity={action === 'petted' || stage.level >= 3 ? 0.8 : 0.55}
           />
           <ellipse
             cx="168"
@@ -263,7 +318,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             rx={stage.level >= 3 ? 14 : 11}
             ry={stage.level >= 3 ? 8 : 6.5}
             fill="#FF7B9C"
-            opacity={action === 'petted' || stage.level >= 3 ? 0.78 : 0.55}
+            opacity={action === 'petted' || stage.level >= 3 ? 0.8 : 0.55}
           />
 
           {eyesClosed ? (
@@ -308,8 +363,27 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <ellipse cx="110" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
           <ellipse cx="130" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
 
-          {action === 'eating' ? (
-            <ellipse cx="120" cy="155" rx="9" ry="7" fill="#E85B7B" stroke="#5A3E36" strokeWidth="3.5" />
+          {/* Mouth: Wide open -> chewing -> stuffed -> sleeping -> smile */}
+          {action === 'opening' ? (
+            <ellipse
+              cx="120"
+              cy="158"
+              rx="13"
+              ry="11"
+              fill="#E85B7B"
+              stroke="#5A3E36"
+              strokeWidth="3.8"
+            />
+          ) : action === 'eating' ? (
+            <ellipse
+              cx="120"
+              cy="156"
+              rx={chewTick ? 11 : 7}
+              ry={chewTick ? 8 : 4.5}
+              fill="#E85B7B"
+              stroke="#5A3E36"
+              strokeWidth="3.5"
+            />
           ) : action === 'stuffed' ? (
             <path
               d="M 110 156 Q 115 151 120 156 Q 125 161 130 156"

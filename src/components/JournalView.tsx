@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Minus, Plus, Scale } from 'lucide-react';
+import { Minus, Plus, RotateCcw, Scale } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
 import { Pet, WeightLog } from '../types';
-import { formatLocalDate, roundWeight } from '../utils/storage';
+import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 
 interface JournalViewProps {
   pet: Pet;
   weightLogs: WeightLog[];
   onRecordWeight: (newWeight: number, note?: string) => void;
+  onRequestReset: () => void;
 }
 
 interface ChartPoint {
@@ -20,6 +21,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
   pet,
   weightLogs,
   onRecordWeight,
+  onRequestReset,
 }) => {
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
@@ -126,18 +128,18 @@ export const JournalView: React.FC<JournalViewProps> = ({
   const handleStep = (delta: number) => {
     const cur = parseFloat(inputWeight);
     const base = Number.isFinite(cur) ? cur : pet.weight;
-    const next = Math.min(99.9, Math.max(1.0, roundWeight(base + delta)));
+    const next = clampWeight(base + delta);
     setInputWeight(next.toFixed(1));
   };
 
   const handleWeightSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseFloat(inputWeight);
-    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 99.9) {
-      setFeedbackMsg('請輸入 1.0 ～ 99.9 kg 之間的數值');
+    if (!Number.isFinite(parsed) || parsed < 0.5 || parsed > 30) {
+      setFeedbackMsg('請輸入 0.5 ～ 30.0 kg 之間的數值');
       return;
     }
-    const clean = roundWeight(parsed);
+    const clean = clampWeight(parsed);
     setInputWeight(clean.toFixed(1));
     onRecordWeight(clean, customNote.trim() || undefined);
     setCustomNote('');
@@ -313,8 +315,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
               <input
                 type="number"
                 step="0.1"
-                min="1"
-                max="99.9"
+                min="0.5"
+                max="30"
                 value={inputWeight}
                 onChange={(e) => setInputWeight(e.target.value)}
                 aria-label="體重公斤數"
@@ -342,7 +344,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
               placeholder="備註（例如：散步後量體重）"
-              className="flex-1 min-h-[44px] rounded-2xl bg-[#FFFDF8] border border-[#EED9D0] px-3.5 text-xs font-medium text-[#4A3531] placeholder:text-[#B5A19B] focus:outline-none focus:border-[#FF7A9E]"
+              className="flex-1 min-w-0 min-h-[44px] rounded-2xl bg-[#FFFDF8] border border-[#EED9D0] px-3.5 text-base font-medium text-[#4A3531] placeholder:text-xs placeholder:text-[#B5A19B] focus:outline-none focus:border-[#FF7A9E]"
             />
             <button
               type="submit"
@@ -412,6 +414,21 @@ export const JournalView: React.FC<JournalViewProps> = ({
             })}
           </div>
         )}
+      </section>
+
+      <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-extrabold text-[#4A3531]">存檔與重置管理</h2>
+          <p className="text-xs text-[#7D635D] mt-0.5">想重新孵化一隻新小豬時可重置存檔</p>
+        </div>
+        <button
+          type="button"
+          onClick={onRequestReset}
+          className="min-h-[44px] px-4 rounded-2xl bg-[#FFE9EF] border border-[#F5B4C6] text-xs font-extrabold text-[#C4315B] inline-flex items-center gap-1.5 hover:bg-[#FFD9E3] active:scale-95 transition whitespace-nowrap shrink-0"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>重置遊戲</span>
+        </button>
       </section>
     </div>
   );

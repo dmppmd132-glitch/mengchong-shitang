@@ -10,9 +10,33 @@
     font-family: var(--font-rounded);
     background-color: #FFF6E9;
     color: #4A3531;
+    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: contain;
   }
+}
+
+@keyframes foodFlyToPiggy {
+  0% {
+    opacity: 0;
+    transform: translateY(72px) scale(0.75) rotate(-12deg);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(34px) scale(1.25) rotate(8deg);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(6px) scale(0.95) rotate(-4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.25) rotate(0deg);
+  }
+}
+
+.animate-food-fly {
+  animation: foodFlyToPiggy 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes piggyFloat {

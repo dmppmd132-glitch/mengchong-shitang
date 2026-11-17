@@ -32,7 +32,11 @@ export function roundWeight(val: number): number {
   return Math.round(val * 10) / 10;
 }
 
-export function clampStat(val: number, min = 12, max = 100): number {
+export function clampWeight(val: number): number {
+  return Math.min(30, Math.max(0.5, roundWeight(val)));
+}
+
+export function clampStat(val: number, min = 0, max = 100): number {
   return Math.min(max, Math.max(min, Math.round(val)));
 }
 
@@ -88,10 +92,10 @@ export function applyTimeDecay(pet: Pet, elapsedMs: number): Pet {
 
   return {
     ...pet,
-    hunger: clampStat(pet.hunger - hungerLoss, 12, 100),
-    mood: clampStat(pet.mood - moodLoss, 15, 100),
-    cleanliness: clampStat(pet.cleanliness - cleanLoss, 15, 100),
-    energy: clampStat(pet.energy - energyLoss, 15, 100),
+    hunger: clampStat(pet.hunger - hungerLoss, 0, 100),
+    mood: clampStat(pet.mood - moodLoss, 0, 100),
+    cleanliness: clampStat(pet.cleanliness - cleanLoss, 0, 100),
+    energy: clampStat(pet.energy - energyLoss, 0, 100),
   };
 }
 
@@ -249,13 +253,13 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     species: 'pig',
     level: getGrowthStage(growth).level,
     growth,
-    intimacy: asNumber(rawPet.intimacy, base.pet.intimacy),
-    hunger: asNumber(rawStats.satiety, base.pet.hunger),
-    mood: asNumber(rawStats.mood, base.pet.mood),
-    cleanliness: asNumber(rawStats.cleanliness, base.pet.cleanliness),
-    energy: asNumber(rawStats.energy, base.pet.energy),
-    weight: asNumber(rawPet.weight, base.pet.weight),
-    roundness: asNumber(rawPet.chubbiness, base.pet.roundness),
+    intimacy: clampStat(asNumber(rawPet.intimacy, base.pet.intimacy), 0, 99999),
+    hunger: clampStat(asNumber(rawStats.satiety, base.pet.hunger)),
+    mood: clampStat(asNumber(rawStats.mood, base.pet.mood)),
+    cleanliness: clampStat(asNumber(rawStats.cleanliness, base.pet.cleanliness)),
+    energy: clampStat(asNumber(rawStats.energy, base.pet.energy)),
+    weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
+    roundness: clampStat(asNumber(rawPet.chubbiness, base.pet.roundness)),
     accessories: parseAccessoriesRecord(rawPet.equipped, base.pet.accessories),
     hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
     consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
@@ -320,13 +324,13 @@ export function loadGameState(): GameState {
           species: asSpecies(rawPet.species),
           level: getGrowthStage(growth).level,
           growth,
-          intimacy: asNumber(rawPet.intimacy, base.pet.intimacy),
-          hunger: asNumber(rawPet.hunger, base.pet.hunger),
-          mood: asNumber(rawPet.mood, base.pet.mood),
-          cleanliness: asNumber(rawPet.cleanliness, base.pet.cleanliness),
-          energy: asNumber(rawPet.energy, base.pet.energy),
-          weight: asNumber(rawPet.weight, base.pet.weight),
-          roundness: asNumber(rawPet.roundness, base.pet.roundness),
+          intimacy: Math.max(0, asNumber(rawPet.intimacy, base.pet.intimacy)),
+          hunger: clampStat(asNumber(rawPet.hunger, base.pet.hunger)),
+          mood: clampStat(asNumber(rawPet.mood, base.pet.mood)),
+          cleanliness: clampStat(asNumber(rawPet.cleanliness, base.pet.cleanliness)),
+          energy: clampStat(asNumber(rawPet.energy, base.pet.energy)),
+          weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
+          roundness: clampStat(asNumber(rawPet.roundness, base.pet.roundness)),
           accessories: parseAccessoriesRecord(rawPet.accessories, base.pet.accessories),
           hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
           consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
@@ -385,4 +389,16 @@ export function saveGameState(state: GameState): void {
   } catch {
     // Ignore storage quota errors gracefully
   }
+}
+
+export function resetGameState(): GameState {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors gracefully
+  }
+  const fresh = createInitialGameState();
+  saveGameState(fresh);
+  return fresh;
 }

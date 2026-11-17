@@ -9,6 +9,7 @@ export type AccessorySlot = 'head' | 'face' | 'neck' | 'body';
 export type PiggyActionState =
   | 'idle'
   | 'petted'
+  | 'opening'
   | 'eating'
   | 'sleeping'
   | 'bathing'

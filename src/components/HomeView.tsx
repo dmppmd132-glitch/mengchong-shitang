@@ -8,6 +8,7 @@ import { PiggyCharacter } from './PiggyCharacter';
 interface HomeViewProps {
   pet: Pet;
   action: PiggyActionState;
+  flyingFoodEmoji: string | null;
   speech: string;
   feedbacks: FloatingFeedback[];
   inventory: Record<string, number>;
@@ -36,6 +37,7 @@ const STAT_CONFIG: {
 export const HomeView: React.FC<HomeViewProps> = ({
   pet,
   action,
+  flyingFoodEmoji,
   speech,
   feedbacks,
   inventory,
@@ -183,6 +185,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           roundness={pet.roundness}
           action={action}
           equipped={pet.accessories}
+          flyingFoodEmoji={flyingFoodEmoji}
           onPet={onPet}
           size={206}
           isDropTarget={isDropOver}
@@ -248,6 +251,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
+
+          {pet.hunger >= 100 && (
+            <div className="rounded-2xl bg-[#FFEAF0] border border-[#F5B4C6] px-3 py-2 text-xs font-extrabold text-[#B83B64] text-center">
+              {pet.name}已經吃飽了！
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-1.5 bg-[#F8EFEA] p-1 rounded-2xl">
             {FOOD_CATEGORIES.map((cat) => (

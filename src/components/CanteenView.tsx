@@ -7,6 +7,7 @@ import { PiggyCharacter } from './PiggyCharacter';
 interface CanteenViewProps {
   pet: Pet;
   action: PiggyActionState;
+  flyingFoodEmoji: string | null;
   speech: string;
   coins: number;
   inventory: Record<string, number>;
@@ -27,6 +28,7 @@ const FILTER_OPTIONS: { key: CategoryFilter; label: string }[] = [
 export const CanteenView: React.FC<CanteenViewProps> = ({
   pet,
   action,
+  flyingFoodEmoji,
   speech,
   coins,
   inventory,
@@ -47,6 +49,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             roundness={pet.roundness}
             action={action}
             equipped={pet.accessories}
+            flyingFoodEmoji={flyingFoodEmoji}
             interactive={false}
             size={84}
           />
@@ -61,10 +64,16 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             </span>
           </div>
           <p className="text-xs font-bold text-[#6E544E] leading-snug">
-            {speech || (isFull ? '吃得飽嘟嘟了，先去散步或休息吧！' : '今天想吃點什麼好料呢？')}
+            {isFull ? `${pet.name}已經吃飽了！` : speech || '今天想吃點什麼好料呢？'}
           </p>
         </div>
       </section>
+
+      {isFull && (
+        <div className="rounded-2xl bg-[#FFEAF0] border border-[#F5B4C6] px-4 py-2.5 text-xs font-extrabold text-[#B83B64] text-center">
+          {pet.name}已經吃飽了！目前飽食度已達 100%，先陪牠散步或休息吧。
+        </div>
+      )}
 
       <div className="grid grid-cols-4 gap-1.5 bg-[#F6ECE6] p-1.5 rounded-2xl">
         {FILTER_OPTIONS.map((opt) => (

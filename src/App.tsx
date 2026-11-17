@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Coins, Volume2, VolumeX } from 'lucide-react';
+import { Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
 import { HomeView } from './components/HomeView';
@@ -9,6 +9,7 @@ import { LevelUpModal } from './components/LevelUpModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { QuestsView } from './components/QuestsView';
+import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
@@ -27,10 +28,12 @@ import { soundFX } from './utils/sound';
 import {
   applyTimeDecay,
   clampStat,
+  clampWeight,
   formatLocalDate,
   formatLocalTime,
   incrementTaskProgress,
   loadGameState,
+  resetGameState,
   roundWeight,
   saveGameState,
   syncDailyTasks,
@@ -40,11 +43,14 @@ export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
+  const [flyingFoodEmoji, setFlyingFoodEmoji] = useState<string | null>(null);
   const [speech, setSpeech] = useState<string>('今天也想吃好吃的！');
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
   const [levelUpStage, setLevelUpStage] = useState<GrowthStageInfo | null>(null);
+  const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
 
   const actionTimerRef = useRef<number | null>(null);
+  const feedPhaseTimerRef = useRef<number | null>(null);
   const prevStageLevelRef = useRef<number>(getGrowthStage(game.pet.growth).level);
 
   useEffect(() => {
@@ -76,10 +82,20 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [game.pet.hatched]);
 
-  const setTemporaryAction = (nextAction: PiggyActionState, durationMs = 1500) => {
+  const clearAnimationTimers = () => {
     if (actionTimerRef.current) {
       window.clearTimeout(actionTimerRef.current);
+      actionTimerRef.current = null;
     }
+    if (feedPhaseTimerRef.current) {
+      window.clearTimeout(feedPhaseTimerRef.current);
+      feedPhaseTimerRef.current = null;
+    }
+  };
+
+  const setTemporaryAction = (nextAction: PiggyActionState, durationMs = 1500) => {
+    clearAnimationTimers();
+    setFlyingFoodEmoji(null);
     setActionState(nextAction);
     actionTimerRef.current = window.setTimeout(() => {
       setActionState('idle');
@@ -131,7 +147,7 @@ export default function App() {
         ...prev,
         pet: {
           ...prev.pet,
-          mood: clampStat(prev.pet.mood + 6),
+          mood: clampStat(prev.pet.mood + 6, 0, 100),
           intimacy: prev.pet.intimacy + 2,
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
@@ -150,25 +166,40 @@ export default function App() {
 
     if (game.pet.hunger >= 100) {
       soundFX.pop(game.soundEnabled);
-      setSpeech('已經吃飽飽囉～先消化一下或散步吧！');
-      pushFeedback('肚子飽飽了！', '🐷');
+      const fullMessage = `${game.pet.name}已經吃飽了！`;
+      setSpeech(fullMessage);
+      pushFeedback(fullMessage, '🐷');
       return;
     }
 
     const nextFastFoodStreak =
       food.category === 'fastFood' ? game.pet.consecutiveFastFood + 1 : 0;
 
-    soundFX.chew(game.soundEnabled);
+    // Phase 1: Food flies toward piggy + piggy opens mouth
+    clearAnimationTimers();
+    setFlyingFoodEmoji(food.emoji);
+    setActionState('opening');
+    soundFX.pop(game.soundEnabled);
 
-    if (nextFastFoodStreak >= 3) {
-      setTemporaryAction('stuffed', 2200);
-      setSpeech('有點撐了… 要不要帶我去散步呢？');
-      pushFeedback('有點撐了…', '💦');
-    } else {
-      setTemporaryAction('eating', 1600);
-      setSpeech(`${food.name}好好吃喔！幸福～`);
-      pushFeedback('好吃！', '💖');
-    }
+    // Phase 2: Piggy chews + hearts appear
+    feedPhaseTimerRef.current = window.setTimeout(() => {
+      setFlyingFoodEmoji(null);
+      soundFX.chew(game.soundEnabled);
+
+      if (nextFastFoodStreak >= 3) {
+        setActionState('stuffed');
+        setSpeech('有點撐了… 要不要帶我去散步呢？');
+        pushFeedback('有點撐了…', '💦');
+      } else {
+        setActionState('eating');
+        setSpeech(`${food.name}好好吃喔！幸福～`);
+        pushFeedback('好吃！', '💖');
+      }
+
+      actionTimerRef.current = window.setTimeout(() => {
+        setActionState('idle');
+      }, 1350);
+    }, 480);
 
     const now = new Date();
     const dateStr = formatLocalDate(now);
@@ -176,7 +207,8 @@ export default function App() {
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const newWeight = roundWeight(prev.pet.weight + food.weightGain);
+      const newWeight = clampWeight(prev.pet.weight + food.weightGain);
+      const actualDelta = roundWeight(newWeight - prev.pet.weight);
       const nextGrowth = prev.pet.growth + food.growthGain;
 
       const newWeightLog: WeightLog = {
@@ -188,7 +220,7 @@ export default function App() {
           nextFastFoodStreak >= 3
             ? '連吃三次速食，肚子圓鼓鼓建議散步'
             : `享用美味${FOOD_CATEGORY_LABELS[food.category]}，心情超好！`,
-        weightDelta: food.weightGain,
+        weightDelta: actualDelta,
         timeStr,
         timestamp: now.getTime(),
       };
@@ -197,7 +229,7 @@ export default function App() {
         id: `flog_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
         date: dateStr,
         foodId: food.id,
-        weightChange: food.weightGain,
+        weightChange: actualDelta,
       };
 
       return {
@@ -208,10 +240,10 @@ export default function App() {
         },
         pet: {
           ...prev.pet,
-          hunger: clampStat(prev.pet.hunger + food.hunger),
-          mood: clampStat(prev.pet.mood + food.mood),
+          hunger: clampStat(prev.pet.hunger + food.hunger, 0, 100),
+          mood: clampStat(prev.pet.mood + food.mood, 0, 100),
           weight: newWeight,
-          roundness: Math.max(0, prev.pet.roundness + food.roundness),
+          roundness: clampStat(prev.pet.roundness + food.roundness, 0, 100),
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
           intimacy: prev.pet.intimacy + 2,
@@ -237,7 +269,7 @@ export default function App() {
         ...prev,
         pet: {
           ...prev.pet,
-          energy: clampStat(prev.pet.energy + 28),
+          energy: clampStat(prev.pet.energy + 28, 0, 100),
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
@@ -258,8 +290,8 @@ export default function App() {
         ...prev,
         pet: {
           ...prev.pet,
-          cleanliness: clampStat(prev.pet.cleanliness + 35),
-          mood: clampStat(prev.pet.mood + 6),
+          cleanliness: clampStat(prev.pet.cleanliness + 35, 0, 100),
+          mood: clampStat(prev.pet.mood + 6, 0, 100),
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
@@ -277,16 +309,16 @@ export default function App() {
 
     setGame((prev) => {
       const nextGrowth = prev.pet.growth + 8;
-      const newWeight = roundWeight(Math.max(3.0, prev.pet.weight - 0.1));
+      const newWeight = clampWeight(prev.pet.weight - 0.1);
       return {
         ...prev,
         pet: {
           ...prev.pet,
-          mood: clampStat(prev.pet.mood + 12),
-          energy: clampStat(prev.pet.energy + 10),
-          hunger: clampStat(prev.pet.hunger - 6),
+          mood: clampStat(prev.pet.mood + 12, 0, 100),
+          energy: clampStat(prev.pet.energy + 10, 0, 100),
+          hunger: clampStat(prev.pet.hunger - 6, 0, 100),
           weight: newWeight,
-          roundness: Math.max(8, prev.pet.roundness - 8),
+          roundness: clampStat(prev.pet.roundness - 8, 0, 100),
           consecutiveFastFood: 0,
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
@@ -350,16 +382,17 @@ export default function App() {
 
   const handleRecordWeight = (newWeight: number, note?: string) => {
     soundFX.pop(game.soundEnabled);
+    const boundedWeight = clampWeight(newWeight);
     const now = new Date();
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const delta = roundWeight(newWeight - prev.pet.weight);
+      const delta = roundWeight(boundedWeight - prev.pet.weight);
       const nextGrowth = prev.pet.growth + 6;
 
       const newWeightLog: WeightLog = {
         id: `wlog_${Date.now()}`,
         date: formatLocalDate(now),
-        weight: newWeight,
+        weight: boundedWeight,
         foodName: '手動紀錄',
         note: note || '在成長手帳更新體重紀錄',
         weightDelta: delta,
@@ -371,7 +404,7 @@ export default function App() {
         ...prev,
         pet: {
           ...prev.pet,
-          weight: newWeight,
+          weight: boundedWeight,
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
@@ -416,13 +449,27 @@ export default function App() {
     });
   };
 
+  const handleConfirmReset = () => {
+    clearAnimationTimers();
+    const fresh = resetGameState();
+    prevStageLevelRef.current = getGrowthStage(fresh.pet.growth).level;
+    setGame(fresh);
+    setActiveTab('home');
+    setActionState('idle');
+    setFlyingFoodEmoji(null);
+    setSpeech('今天也想吃好吃的！');
+    setFeedbacks([]);
+    setLevelUpStage(null);
+    setResetModalOpen(false);
+  };
+
   const claimableQuestsCount = game.dailyTasks.filter(
     (t) => t.completed && !t.claimed
   ).length;
 
   return (
-    <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center">
-      <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col">
+    <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-hidden">
+      <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-hidden">
         {!game.pet.hatched ? (
           <IntroHatching
             defaultName={game.pet.name}
@@ -432,14 +479,14 @@ export default function App() {
           />
         ) : (
           <>
-            <header className="sticky top-0 z-30 h-14 px-4 bg-[#FFFDF8]/92 backdrop-blur-md border-b-2 border-[#F4DFD8] flex items-center justify-between gap-2">
+            <header className="sticky top-0 z-30 h-14 px-3.5 bg-[#FFFDF8]/92 backdrop-blur-md border-b-2 border-[#F4DFD8] flex items-center justify-between gap-2">
               <h1 className="text-lg font-extrabold text-[#4A3531] tracking-tight whitespace-nowrap shrink-0">
                 萌寵食堂
               </h1>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <div
-                  className="inline-flex items-center gap-1 text-sm font-extrabold text-[#A46D0F] tabular-nums"
+                  className="inline-flex items-center gap-1 text-sm font-extrabold text-[#A46D0F] tabular-nums mr-0.5"
                   aria-label={`目前擁有 ${game.coins} 金幣`}
                 >
                   <Coins className="w-4 h-4 text-[#E6A222]" />
@@ -462,16 +509,27 @@ export default function App() {
                     <VolumeX className="w-4 h-4" />
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setResetModalOpen(true)}
+                  aria-label="重置遊戲"
+                  title="重置遊戲"
+                  className="min-h-[38px] min-w-[38px] rounded-xl bg-[#FFE9EF] text-[#C4315B] flex items-center justify-center hover:bg-[#FFD9E3] transition"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
               </div>
             </header>
 
             <OfflineIndicator />
 
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden">
               {activeTab === 'home' && (
                 <HomeView
                   pet={game.pet}
                   action={actionState}
+                  flyingFoodEmoji={flyingFoodEmoji}
                   speech={speech}
                   feedbacks={feedbacks}
                   inventory={game.foods}
@@ -488,6 +546,7 @@ export default function App() {
                 <CanteenView
                   pet={game.pet}
                   action={actionState}
+                  flyingFoodEmoji={flyingFoodEmoji}
                   speech={speech}
                   coins={game.coins}
                   inventory={game.foods}
@@ -511,6 +570,7 @@ export default function App() {
                   pet={game.pet}
                   weightLogs={game.weightLogs}
                   onRecordWeight={handleRecordWeight}
+                  onRequestReset={() => setResetModalOpen(true)}
                 />
               )}
 
@@ -533,6 +593,13 @@ export default function App() {
               stage={levelUpStage}
               petName={game.pet.name}
               onClose={() => setLevelUpStage(null)}
+            />
+
+            <ResetConfirmModal
+              open={resetModalOpen}
+              petName={game.pet.name}
+              onClose={() => setResetModalOpen(false)}
+              onConfirmReset={handleConfirmReset}
             />
           </>
         )}
