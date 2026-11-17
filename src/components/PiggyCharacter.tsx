@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { getGrowthStage } from '../data/growth';
-import { AccessorySlot, PiggyActionState } from '../types';
+import { getPetSpeciesInfo } from '../data/species';
+import { AccessorySlot, PetSpecies, PiggyActionState } from '../types';
 
 interface PiggyCharacterProps {
+  species?: PetSpecies;
   growth: number;
   roundness: number;
   action: PiggyActionState;
@@ -15,6 +17,7 @@ interface PiggyCharacterProps {
 }
 
 export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
+  species = 'pig',
   growth,
   roundness,
   action,
@@ -30,6 +33,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   const [tapKey, setTapKey] = useState(0);
 
   const stage = getGrowthStage(growth);
+  const speciesInfo = getPetSpeciesInfo(species);
   const clampedRoundness = Math.min(100, Math.max(0, roundness));
   const chubbyFactor = 0.95 + clampedRoundness * 0.0018;
   const scaleX = stage.bodyScaleX * chubbyFactor;
@@ -77,13 +81,38 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   const happyArcEyes =
     action === 'petted' || action === 'eating' || action === 'opening' || action === 'walking';
 
+  const palette =
+    species === 'rabbit'
+      ? {
+          body: stage.level >= 4 ? '#FFF9FC' : '#FFFDF9',
+          belly: '#FFEAF2',
+          bellyLine: '#F0B8CC',
+          limb: '#FFEFF5',
+          blush: '#FF9AB8',
+        }
+      : species === 'dog'
+      ? {
+          body: stage.level >= 4 ? '#FFE09E' : '#FFE7B3',
+          belly: '#FFF6DC',
+          bellyLine: '#DCA75B',
+          limb: '#F9D68D',
+          blush: '#FF8D8D',
+        }
+      : {
+          body: stage.level >= 4 ? '#FFACC3' : '#FFB7CB',
+          belly: '#FFD3E0',
+          bellyLine: '#E991AA',
+          limb: '#FF9EB8',
+          blush: '#FF7B9C',
+        };
+
   return (
     <div
       key={tapKey}
       onClick={handleTap}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? '摸摸小豬' : undefined}
+      aria-label={interactive ? `摸摸${speciesInfo.shortName}` : undefined}
       onKeyDown={(e) => {
         if (interactive && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
@@ -103,7 +132,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
         <div className="absolute inset-2 rounded-full bg-[#FFE082]/45 border-2 border-dashed border-[#FF7A9E] pointer-events-none" />
       )}
 
-      {/* Flying food animation toward piggy mouth */}
+      {/* Flying food animation toward pet mouth */}
       {flyingFoodEmoji && (
         <div
           key={flyingFoodEmoji + '_' + action}
@@ -164,13 +193,43 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
         <ellipse cx="120" cy="212" rx={58 * scaleX} ry="11" fill="#E8D2C8" opacity="0.7" />
 
         <g transform={`translate(120, 128) scale(${scaleX}, ${scaleY}) translate(-120, -128)`}>
-          <path
-            d="M 184 156 C 202 150, 206 134, 194 132 C 185 131, 185 144, 196 144 C 204 144, 210 138, 208 130"
-            fill="none"
-            stroke="#5A3E36"
-            strokeWidth="4.5"
-            strokeLinecap="round"
-          />
+          {/* Tail */}
+          {species === 'rabbit' ? (
+            <circle
+              cx="188"
+              cy="160"
+              r="14"
+              fill="#FFFFFF"
+              stroke="#5A3E36"
+              strokeWidth="4.2"
+            />
+          ) : species === 'dog' ? (
+            <path
+              d="M 182 162 Q 208 148 202 124"
+              fill="none"
+              stroke="#E4AA68"
+              strokeWidth="12"
+              strokeLinecap="round"
+            />
+          ) : (
+            <path
+              d="M 184 156 C 202 150, 206 134, 194 132 C 185 131, 185 144, 196 144 C 204 144, 210 138, 208 130"
+              fill="none"
+              stroke="#5A3E36"
+              strokeWidth="4.5"
+              strokeLinecap="round"
+            />
+          )}
+          {species === 'dog' && (
+            <path
+              d="M 182 162 Q 208 148 202 124"
+              fill="none"
+              stroke="#5A3E36"
+              strokeWidth="4.2"
+              strokeLinecap="round"
+              opacity="0.35"
+            />
+          )}
 
           {equipped.body === 'strawberry_cape' && (
             <g>
@@ -187,52 +246,135 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             </g>
           )}
 
-          <g>
-            <ellipse
-              cx="68"
-              cy={stage.level >= 3 ? 68 : 72}
-              rx={stage.level >= 2 ? 21 : 19}
-              ry={stage.level >= 2 ? 27 : 24}
-              transform="rotate(-24 68 72)"
-              fill="#FF9EB8"
-              stroke="#5A3E36"
-              strokeWidth="4.5"
-            />
-            <ellipse
-              cx="69"
-              cy={stage.level >= 3 ? 71 : 75}
-              rx="10"
-              ry="14"
-              transform="rotate(-24 69 75)"
-              fill="#FFD1DF"
-            />
-            <ellipse
-              cx="172"
-              cy={stage.level >= 3 ? 68 : 72}
-              rx={stage.level >= 2 ? 21 : 19}
-              ry={stage.level >= 2 ? 27 : 24}
-              transform="rotate(24 172 72)"
-              fill="#FF9EB8"
-              stroke="#5A3E36"
-              strokeWidth="4.5"
-            />
-            <ellipse
-              cx="171"
-              cy={stage.level >= 3 ? 71 : 75}
-              rx="10"
-              ry="14"
-              transform="rotate(24 171 75)"
-              fill="#FFD1DF"
-            />
-          </g>
+          {/* Ears behind body */}
+          {species === 'rabbit' ? (
+            <g>
+              <ellipse
+                cx="86"
+                cy="48"
+                rx="14"
+                ry="38"
+                transform="rotate(-12 86 58)"
+                fill="#FFFDF9"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="86"
+                cy="50"
+                rx="7"
+                ry="24"
+                transform="rotate(-12 86 58)"
+                fill="#FFBFCF"
+              />
+              <ellipse
+                cx="154"
+                cy="48"
+                rx="14"
+                ry="38"
+                transform="rotate(12 154 58)"
+                fill="#FFFDF9"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="154"
+                cy="50"
+                rx="7"
+                ry="24"
+                transform="rotate(12 154 58)"
+                fill="#FFBFCF"
+              />
+            </g>
+          ) : species === 'dog' ? (
+            <g>
+              <ellipse
+                cx="56"
+                cy="104"
+                rx="17"
+                ry="34"
+                transform="rotate(24 56 104)"
+                fill="#E4AA68"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="57"
+                cy="108"
+                rx="8"
+                ry="20"
+                transform="rotate(24 57 108)"
+                fill="#D3924E"
+                opacity="0.7"
+              />
+              <ellipse
+                cx="184"
+                cy="104"
+                rx="17"
+                ry="34"
+                transform="rotate(-24 184 104)"
+                fill="#E4AA68"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="183"
+                cy="108"
+                rx="8"
+                ry="20"
+                transform="rotate(-24 183 108)"
+                fill="#D3924E"
+                opacity="0.7"
+              />
+            </g>
+          ) : (
+            <g>
+              <ellipse
+                cx="68"
+                cy={stage.level >= 3 ? 68 : 72}
+                rx={stage.level >= 2 ? 21 : 19}
+                ry={stage.level >= 2 ? 27 : 24}
+                transform="rotate(-24 68 72)"
+                fill="#FF9EB8"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="69"
+                cy={stage.level >= 3 ? 71 : 75}
+                rx="10"
+                ry="14"
+                transform="rotate(-24 69 75)"
+                fill="#FFD1DF"
+              />
+              <ellipse
+                cx="172"
+                cy={stage.level >= 3 ? 68 : 72}
+                rx={stage.level >= 2 ? 21 : 19}
+                ry={stage.level >= 2 ? 27 : 24}
+                transform="rotate(24 172 72)"
+                fill="#FF9EB8"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+              />
+              <ellipse
+                cx="171"
+                cy={stage.level >= 3 ? 71 : 75}
+                rx="10"
+                ry="14"
+                transform="rotate(24 171 75)"
+                fill="#FFD1DF"
+              />
+            </g>
+          )}
 
-          {/* Main Chubby Piggy Body / Head (scales dynamically with growth & roundness) */}
+          {/* Main Chubby Pet Body / Head (scales dynamically with growth & roundness) */}
           <ellipse
             cx="120"
             cy="134"
             rx={bodyRx}
             ry={bodyRy}
-            fill={stage.level >= 4 ? '#FFACC3' : '#FFB7CB'}
+            fill={palette.body}
             stroke="#5A3E36"
             strokeWidth="4.5"
           />
@@ -242,8 +384,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             cy="162"
             rx={38 + clampedRoundness * 0.1}
             ry={23 + clampedRoundness * 0.05}
-            fill="#FFD3E0"
-            opacity="0.75"
+            fill={palette.belly}
+            opacity="0.82"
           />
 
           {/* Cute roundness belly curve when chubby */}
@@ -251,7 +393,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             <path
               d="M 102 174 Q 120 182 138 174"
               fill="none"
-              stroke="#E991AA"
+              stroke={palette.bellyLine}
               strokeWidth="2.8"
               strokeLinecap="round"
             />
@@ -280,8 +422,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             </g>
           )}
 
-          <ellipse cx="88" cy="194" rx="14" ry="10" fill="#FF9EB8" stroke="#5A3E36" strokeWidth="4" />
-          <ellipse cx="152" cy="194" rx="14" ry="10" fill="#FF9EB8" stroke="#5A3E36" strokeWidth="4" />
+          <ellipse cx="88" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
+          <ellipse cx="152" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
 
           <ellipse
             cx="54"
@@ -289,7 +431,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             rx="12"
             ry="16"
             transform={action === 'walking' ? 'rotate(25 54 148)' : 'rotate(16 54 148)'}
-            fill="#FFB7CB"
+            fill={palette.body}
             stroke="#5A3E36"
             strokeWidth="4"
           />
@@ -299,7 +441,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             rx="12"
             ry="16"
             transform={action === 'walking' ? 'rotate(-25 186 148)' : 'rotate(-16 186 148)'}
-            fill="#FFB7CB"
+            fill={palette.body}
             stroke="#5A3E36"
             strokeWidth="4"
           />
@@ -309,7 +451,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             cy="132"
             rx={stage.level >= 3 ? 14 : 11}
             ry={stage.level >= 3 ? 8 : 6.5}
-            fill="#FF7B9C"
+            fill={palette.blush}
             opacity={action === 'petted' || stage.level >= 3 ? 0.8 : 0.55}
           />
           <ellipse
@@ -317,7 +459,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             cy="132"
             rx={stage.level >= 3 ? 14 : 11}
             ry={stage.level >= 3 ? 8 : 6.5}
-            fill="#FF7B9C"
+            fill={palette.blush}
             opacity={action === 'petted' || stage.level >= 3 ? 0.8 : 0.55}
           />
 
@@ -351,49 +493,105 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             />
           )}
 
-          <ellipse
-            cx="120"
-            cy="128"
-            rx="27"
-            ry="19"
-            fill="#FF90AE"
-            stroke="#5A3E36"
-            strokeWidth="4"
-          />
-          <ellipse cx="110" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
-          <ellipse cx="130" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
+          {/* Species-specific Nose & Muzzle */}
+          {species === 'rabbit' ? (
+            <g>
+              {/* Soft whiskers */}
+              <g stroke="#C6A9A2" strokeWidth="2.4" strokeLinecap="round">
+                <path d="M 60 128 L 76 130" />
+                <path d="M 59 136 L 75 135" />
+                <path d="M 164 130 L 180 128" />
+                <path d="M 165 135 L 181 136" />
+              </g>
+              {/* Cute pink triangle bunny nose */}
+              <path
+                d="M 113 124 Q 120 121 127 124 Q 124 133 120 133 Q 116 133 113 124 Z"
+                fill="#FF85A6"
+                stroke="#5A3E36"
+                strokeWidth="3"
+                strokeLinejoin="round"
+              />
+            </g>
+          ) : species === 'dog' ? (
+            <g>
+              {/* Cream puppy muzzle patch */}
+              <ellipse cx="120" cy="134" rx="23" ry="15" fill="#FFF8E6" />
+              {/* Cute brown puppy nose */}
+              <ellipse
+                cx="120"
+                cy="126"
+                rx="10"
+                ry="7"
+                fill="#5A3E36"
+              />
+              <ellipse cx="117" cy="124" rx="3" ry="1.8" fill="#8C675B" />
+            </g>
+          ) : (
+            <g>
+              <ellipse
+                cx="120"
+                cy="128"
+                rx="27"
+                ry="19"
+                fill="#FF90AE"
+                stroke="#5A3E36"
+                strokeWidth="4"
+              />
+              <ellipse cx="110" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
+              <ellipse cx="130" cy="128" rx="4.2" ry="6.2" fill="#5A3E36" />
+            </g>
+          )}
 
           {/* Mouth: Wide open -> chewing -> stuffed -> sleeping -> smile */}
           {action === 'opening' ? (
             <ellipse
               cx="120"
-              cy="158"
-              rx="13"
-              ry="11"
+              cy="155"
+              rx="12"
+              ry="10"
               fill="#E85B7B"
               stroke="#5A3E36"
-              strokeWidth="3.8"
+              strokeWidth="3.6"
             />
           ) : action === 'eating' ? (
             <ellipse
               cx="120"
-              cy="156"
-              rx={chewTick ? 11 : 7}
-              ry={chewTick ? 8 : 4.5}
+              cy="154"
+              rx={chewTick ? 10 : 6.5}
+              ry={chewTick ? 7.5 : 4}
               fill="#E85B7B"
               stroke="#5A3E36"
-              strokeWidth="3.5"
+              strokeWidth="3.4"
             />
           ) : action === 'stuffed' ? (
             <path
-              d="M 110 156 Q 115 151 120 156 Q 125 161 130 156"
+              d="M 110 154 Q 115 149 120 154 Q 125 159 130 154"
               fill="none"
               stroke="#5A3E36"
               strokeWidth="3.8"
               strokeLinecap="round"
             />
           ) : action === 'sleeping' ? (
-            <circle cx="120" cy="155" r="3.5" fill="#5A3E36" />
+            <circle cx="120" cy="153" r="3.4" fill="#5A3E36" />
+          ) : species === 'rabbit' || species === 'dog' ? (
+            <g>
+              <path
+                d="M 108 144 Q 114 150 120 142 Q 126 150 132 144"
+                fill="none"
+                stroke="#5A3E36"
+                strokeWidth="3.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {species === 'dog' && action === 'petted' && (
+                <path
+                  d="M 115 146 Q 120 160 125 146 Z"
+                  fill="#FF7A9E"
+                  stroke="#5A3E36"
+                  strokeWidth="2.6"
+                />
+              )}
+            </g>
           ) : (
             <path
               d="M 108 152 Q 120 163 132 152"

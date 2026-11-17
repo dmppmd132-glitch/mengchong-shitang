@@ -3,6 +3,7 @@ import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
+import { CatchMinigameModal } from './components/CatchMinigameModal';
 import { HomeView } from './components/HomeView';
 import { IntroHatching } from './components/IntroHatching';
 import { JournalView } from './components/JournalView';
@@ -16,6 +17,8 @@ import { SharedPetModal } from './components/SharedPetModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
+import { INGREDIENTS } from './data/kitchen';
+import { getPetSpeciesInfo } from './data/species';
 import { getStickerById } from './data/stickers';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
@@ -40,6 +43,7 @@ import {
 } from './services/sharedPet';
 import {
   Accessory,
+  CatchGameMode,
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
@@ -48,7 +52,10 @@ import {
   Food,
   GameState,
   GrowthStageInfo,
+  IngredientId,
+  KitchenRecipe,
   PetMessage,
+  PetSpecies,
   PetStickerId,
   PiggyActionState,
   SharedPetRoom,
@@ -86,6 +93,7 @@ export default function App() {
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [sharedModalOpen, setSharedModalOpen] = useState<boolean>(false);
   const [messageModalOpen, setMessageModalOpen] = useState<boolean>(false);
+  const [minigameOpen, setMinigameOpen] = useState<boolean>(false);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
   const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
   const [sharedMessages, setSharedMessages] = useState<PetMessage[]>([]);
@@ -474,35 +482,54 @@ export default function App() {
     }, 1250);
   };
 
-  const handleHatchComplete = (petName: string) => {
+  const handleHatchComplete = (petName: string, species: PetSpecies) => {
     const now = new Date();
+    const speciesInfo = getPetSpeciesInfo(species);
     const initialWeightLog: WeightLog = {
       id: `wlog_${Date.now()}`,
       date: formatLocalDate(now),
       weight: game.pet.weight,
       foodName: '破殼報到',
-      note: `${petName} 來到萌寵食堂的第一天！`,
+      note: `${petName}（${speciesInfo.label}）來到萌寵食堂的第一天！`,
       weightDelta: 0,
       timeStr: formatLocalTime(now),
       timestamp: now.getTime(),
     };
+    soundFX.petVoice(game.soundEnabled, species);
     setGame((prev) => ({
       ...prev,
       pet: {
         ...prev.pet,
         name: petName,
+        species,
         hatched: true,
       },
       weightLogs: [initialWeightLog, ...prev.weightLogs],
     }));
-    setSpeech(`嗨～我是${petName}，請多多指教！`);
+    setSpeech(`嗨～我是${petName}，${speciesInfo.greeting}`);
+  };
+
+  const handleChangeSpecies = (species: PetSpecies) => {
+    if (game.pet.species === species) return;
+    const speciesInfo = getPetSpeciesInfo(species);
+    soundFX.petVoice(game.soundEnabled, species);
+    setGame((prev) => ({
+      ...prev,
+      pet: {
+        ...prev.pet,
+        species,
+      },
+    }));
+    setSpeech(`變身成「${speciesInfo.label}」囉！${speciesInfo.greeting}`);
+    pushFeedback(`切換為${speciesInfo.shortName}`, '✨');
   };
 
   const handlePet = () => {
-    soundFX.heart(game.soundEnabled);
+    const speciesInfo = getPetSpeciesInfo(game.pet.species);
+    soundFX.petVoice(game.soundEnabled, game.pet.species);
     setTemporaryAction('petted', 950);
     pushFeedback('好喜歡摸摸！', '🩷');
-    setSpeech('呼嚕呼嚕～好舒服喔！');
+    setSpeech(speciesInfo.pettedSpeech);
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
@@ -532,28 +559,37 @@ export default function App() {
       soundFX.pop(game.soundEnabled);
       const fullMessage = `${game.pet.name}已經吃飽了！`;
       setSpeech(fullMessage);
-      pushFeedback(fullMessage, '🐷');
+      pushFeedback(fullMessage, '🍽️');
       return;
     }
 
+    const speciesInfo = getPetSpeciesInfo(game.pet.species);
+    const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
     const nextFastFoodStreak =
       food.category === 'fastFood' ? game.pet.consecutiveFastFood + 1 : 0;
 
-    // Phase 1: Food flies toward piggy + piggy opens mouth
+    // Phase 1: Food flies toward pet + pet opens mouth
     clearAnimationTimers();
     setFlyingFoodEmoji(food.emoji);
     setActionState('opening');
     soundFX.pop(game.soundEnabled);
 
-    // Phase 2: Piggy chews + hearts appear
+    // Phase 2: Pet chews + favorite or regular reaction
     feedPhaseTimerRef.current = window.setTimeout(() => {
       setFlyingFoodEmoji(null);
       soundFX.chew(game.soundEnabled);
+      if (isFavorite) {
+        soundFX.petVoice(game.soundEnabled, game.pet.species);
+      }
 
       if (nextFastFoodStreak >= 3) {
         setActionState('stuffed');
         setSpeech('有點撐了… 要不要帶我去散步呢？');
         pushFeedback('有點撐了…', '💦');
+      } else if (isFavorite) {
+        setActionState('eating');
+        setSpeech(speciesInfo.favoriteFoodReaction);
+        pushFeedback('最愛料理加成！', '💖');
       } else {
         setActionState('eating');
         setSpeech(`${food.name}好好吃喔！幸福～`);
@@ -568,12 +604,15 @@ export default function App() {
     const now = new Date();
     const dateStr = formatLocalDate(now);
     const timeStr = formatLocalTime(now);
+    const bonusMood = isFavorite ? 6 : 0;
+    const bonusGrowth = isFavorite ? 4 : 0;
+    const bonusIntimacy = isFavorite ? 1 : 0;
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const newWeight = clampWeight(prev.pet.weight + food.weightGain);
       const actualDelta = roundWeight(newWeight - prev.pet.weight);
-      const nextGrowth = prev.pet.growth + food.growthGain;
+      const nextGrowth = prev.pet.growth + food.growthGain + bonusGrowth;
 
       const newWeightLog: WeightLog = {
         id: `wlog_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
@@ -583,6 +622,8 @@ export default function App() {
         note:
           nextFastFoodStreak >= 3
             ? '連吃三次速食，肚子圓鼓鼓建議散步'
+            : isFavorite
+            ? `吃到${speciesInfo.shortName}最愛料理！心情與成長額外加成`
             : `享用美味${FOOD_CATEGORY_LABELS[food.category]}，心情超好！`,
         weightDelta: actualDelta,
         timeStr,
@@ -605,12 +646,12 @@ export default function App() {
         pet: {
           ...prev.pet,
           hunger: clampStat(prev.pet.hunger + food.hunger, 0, 100),
-          mood: clampStat(prev.pet.mood + food.mood, 0, 100),
+          mood: clampStat(prev.pet.mood + food.mood + bonusMood, 0, 100),
           weight: newWeight,
           roundness: clampStat(prev.pet.roundness + food.roundness, 0, 100),
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
-          intimacy: prev.pet.intimacy + 2,
+          intimacy: prev.pet.intimacy + 2 + bonusIntimacy,
           consecutiveFastFood: nextFastFoodStreak,
         },
         weightLogs: [newWeightLog, ...prev.weightLogs],
@@ -704,6 +745,98 @@ export default function App() {
       },
     }));
     setSpeech(`買到「${food.name}」了，好期待開飯！`);
+  };
+
+  const handlePlantCrop = (plotId: number, ingredientId: IngredientId) => {
+    const info = INGREDIENTS[ingredientId];
+    if (game.coins < info.seedCost) return;
+    const targetPlot = game.farmPlots.find((p) => p.id === plotId);
+    if (!targetPlot || targetPlot.cropId !== null) return;
+
+    soundFX.pop(game.soundEnabled);
+    const plantedAt = Date.now();
+    const durationMs = info.growSeconds * 1000;
+
+    setGame((prev) => ({
+      ...prev,
+      coins: prev.coins - info.seedCost,
+      farmPlots: prev.farmPlots.map((p) =>
+        p.id === plotId ? { ...p, cropId: ingredientId, plantedAt, durationMs } : p
+      ),
+    }));
+    setSpeech(`種下${info.name}種子囉，再等 ${info.growSeconds} 秒就可以收成了！`);
+  };
+
+  const handleHarvestCrop = (plotId: number) => {
+    const targetPlot = game.farmPlots.find((p) => p.id === plotId);
+    if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
+    if (Date.now() < targetPlot.plantedAt + targetPlot.durationMs) return;
+
+    const cropInfo = INGREDIENTS[targetPlot.cropId];
+    const harvestedId = targetPlot.cropId;
+    soundFX.heart(game.soundEnabled);
+
+    setGame((prev) => ({
+      ...prev,
+      ingredients: {
+        ...prev.ingredients,
+        [harvestedId]: (prev.ingredients[harvestedId] ?? 0) + cropInfo.harvestYield,
+      },
+      farmPlots: prev.farmPlots.map((p) =>
+        p.id === plotId ? { ...p, cropId: null, plantedAt: null, durationMs: 0 } : p
+      ),
+    }));
+    pushFeedback(`${cropInfo.name} +${cropInfo.harvestYield}`, cropInfo.emoji);
+    setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做布丁或水果盒吧～`);
+  };
+
+  const handleCookRecipe = (recipe: KitchenRecipe) => {
+    const reqEntries = Object.entries(recipe.ingredients) as [IngredientId, number][];
+    const canCook = reqEntries.every(([id, need]) => (game.ingredients[id] ?? 0) >= need);
+    if (!canCook) return;
+
+    soundFX.levelUp(game.soundEnabled);
+    setGame((prev) => {
+      const nextIngredients = { ...prev.ingredients };
+      for (const [id, need] of reqEntries) {
+        nextIngredients[id] = Math.max(0, (nextIngredients[id] ?? 0) - need);
+      }
+      const nextGrowth = prev.pet.growth + recipe.bonusGrowth;
+      return {
+        ...prev,
+        ingredients: nextIngredients,
+        foods: {
+          ...prev.foods,
+          [recipe.outputFoodId]: (prev.foods[recipe.outputFoodId] ?? 0) + 1,
+        },
+        pet: {
+          ...prev.pet,
+          growth: nextGrowth,
+          level: getGrowthStage(nextGrowth).level,
+        },
+      };
+    });
+    pushFeedback(`做出 ${recipe.name}！`, recipe.emoji);
+    setSpeech(`香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`);
+  };
+
+  const handleFinishMinigame = (mode: CatchGameMode, earnedCoins: number, score: number) => {
+    const gameLabel = mode === 'apple' ? '蘋果接接樂' : '薯條接接樂';
+    setGame((prev) => {
+      const nextGrowth = prev.pet.growth + 4;
+      return {
+        ...prev,
+        coins: prev.coins + earnedCoins,
+        pet: {
+          ...prev.pet,
+          mood: clampStat(prev.pet.mood + 5, 0, 100),
+          growth: nextGrowth,
+          level: getGrowthStage(nextGrowth).level,
+        },
+      };
+    });
+    pushFeedback(`獲得 +${earnedCoins} 金幣`, '🪙');
+    setSpeech(`玩「${gameLabel}」拿了 ${score} 分，賺到 ${earnedCoins} 金幣好開心！`);
   };
 
   const handleToggleEquip = (item: Accessory) => {
@@ -1144,6 +1277,7 @@ export default function App() {
         {!game.pet.hatched ? (
           <IntroHatching
             defaultName={game.pet.name}
+            defaultSpecies={game.pet.species}
             onComplete={handleHatchComplete}
             onEggTapSound={() => soundFX.pop(game.soundEnabled)}
             onHatchSound={() => soundFX.hatch(game.soundEnabled)}
@@ -1226,6 +1360,7 @@ export default function App() {
                   onBath={handleBath}
                   onWalk={handleWalk}
                   onGoToCanteen={() => setActiveTab('canteen')}
+                  onOpenMinigame={() => setMinigameOpen(true)}
                   sharedRoom={sharedRoom}
                   currentUserId={cloudUser?.id ?? null}
                   onOpenSharedPet={() => setSharedModalOpen(true)}
@@ -1243,8 +1378,14 @@ export default function App() {
                   speech={speech}
                   coins={game.coins}
                   inventory={game.foods}
+                  ingredients={game.ingredients}
+                  farmPlots={game.farmPlots}
                   onFeed={handleFeed}
                   onBuyFood={handleBuyFood}
+                  onPlantCrop={handlePlantCrop}
+                  onHarvestCrop={handleHarvestCrop}
+                  onCookRecipe={handleCookRecipe}
+                  onOpenMinigame={() => setMinigameOpen(true)}
                 />
               )}
 
@@ -1255,6 +1396,7 @@ export default function App() {
                   unlockedAccessories={game.accessories}
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
+                  onChangeSpecies={handleChangeSpecies}
                 />
               )}
 
@@ -1361,6 +1503,14 @@ export default function App() {
           sharedRoom={sharedRoom}
           onSendMessage={handleSendMessage}
           onDeleteMessage={handleDeleteMessage}
+        />
+
+        <CatchMinigameModal
+          open={minigameOpen}
+          onClose={() => setMinigameOpen(false)}
+          pet={game.pet}
+          soundEnabled={game.soundEnabled}
+          onFinishMinigame={handleFinishMinigame}
         />
       </div>
     </div>

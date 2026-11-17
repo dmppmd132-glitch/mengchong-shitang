@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Check, Coins, Lock } from 'lucide-react';
 import { ACCESSORIES, ACCESSORY_SLOT_LABELS, ACCESSORY_SLOTS } from '../data/accessories';
 import { getGrowthStage } from '../data/growth';
-import { Accessory, AccessorySlot, Pet } from '../types';
+import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
+import { Accessory, AccessorySlot, Pet, PetSpecies } from '../types';
 import { AccessoryPreview } from './AccessoryPreview';
 import { PiggyCharacter } from './PiggyCharacter';
 
@@ -12,6 +13,7 @@ interface WardrobeViewProps {
   unlockedAccessories: string[];
   onToggleEquip: (item: Accessory) => void;
   onBuyAccessory: (item: Accessory) => void;
+  onChangeSpecies?: (species: PetSpecies) => void;
 }
 
 export const WardrobeView: React.FC<WardrobeViewProps> = ({
@@ -20,6 +22,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   unlockedAccessories,
   onToggleEquip,
   onBuyAccessory,
+  onChangeSpecies,
 }) => {
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
 
@@ -34,11 +37,12 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
           {pet.name}的更衣室
         </h2>
         <p className="text-xs text-[#7D635D] mt-0.5">
-          換上喜歡的可愛配件，即時預覽穿搭效果
+          換上喜歡的可愛配件或切換寵物外觀，即時預覽穿搭效果
         </p>
 
         <div className="my-2">
           <PiggyCharacter
+            species={pet.species}
             growth={pet.growth}
             roundness={pet.roundness}
             action="idle"
@@ -47,6 +51,39 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
             size={180}
           />
         </div>
+
+        {onChangeSpecies && (
+          <div className="w-full pt-2 border-t border-[#DFEFE9]">
+            <p className="text-[11px] font-bold text-[#6E544E] mb-1.5">
+              切換寵物造型（共用目前成長與好感度）
+            </p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {PET_SPECIES_LIST.map((sp) => {
+                const info = PET_SPECIES_INFO[sp];
+                const isSelected = pet.species === sp;
+                return (
+                  <button
+                    key={sp}
+                    type="button"
+                    onClick={() => onChangeSpecies(sp)}
+                    className={`min-h-[40px] rounded-xl px-2 text-xs font-extrabold border transition flex items-center justify-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#FF7A9E] border-[#E05E83] text-white shadow-xs'
+                        : 'bg-white border-[#E4D8D2] text-[#6E544E] hover:bg-[#FFF5F8]'
+                    }`}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full border border-[#5A3E36] shrink-0"
+                      style={{ backgroundColor: info.eggColor }}
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{info.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="grid grid-cols-4 gap-1.5 bg-[#F6ECE6] p-1.5 rounded-2xl">

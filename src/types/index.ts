@@ -131,11 +131,56 @@ export interface PetMessage {
   createdAt: number;
 }
 
+export type IngredientId = 'carrot' | 'corn' | 'strawberry';
+
+export interface IngredientInfo {
+  id: IngredientId;
+  name: string;
+  emoji: string;
+  growSeconds: number;
+  seedCost: number;
+  harvestYield: number;
+  description: string;
+}
+
+export interface CropPlot {
+  id: number;
+  cropId: IngredientId | null;
+  plantedAt: number | null;
+  durationMs: number;
+}
+
+export interface KitchenRecipe {
+  id: string;
+  outputFoodId: string;
+  name: string;
+  emoji: string;
+  description: string;
+  ingredients: Partial<Record<IngredientId, number>>;
+  bonusGrowth: number;
+}
+
+export interface PetSpeciesInfo {
+  id: PetSpecies;
+  label: string;
+  shortName: string;
+  eggColor: string;
+  accentColor: string;
+  favoriteFoodIds: string[];
+  greeting: string;
+  pettedSpeech: string;
+  favoriteFoodReaction: string;
+}
+
+export type CatchGameMode = 'apple' | 'fries';
+
 export interface GameState {
   version: number;
   pet: Pet;
   coins: number;
   foods: Record<string, number>;
+  ingredients: Record<IngredientId, number>;
+  farmPlots: CropPlot[];
   accessories: string[];
   weightLogs: WeightLog[];
   feedLogs: FeedLog[];

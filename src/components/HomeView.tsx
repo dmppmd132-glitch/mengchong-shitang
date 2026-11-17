@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Bath,
   Footprints,
+  Gamepad2,
   Heart,
   MessageCircleHeart,
   Moon,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
 import { getGrowthRemaining, getRoundnessTier } from '../data/growth';
+import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
 import {
   FloatingFeedback,
@@ -37,6 +39,7 @@ interface HomeViewProps {
   onBath: () => void;
   onWalk: () => void;
   onGoToCanteen: () => void;
+  onOpenMinigame?: () => void;
   sharedRoom?: SharedPetRoom | null;
   currentUserId?: string | null;
   onOpenSharedPet?: () => void;
@@ -72,6 +75,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onBath,
   onWalk,
   onGoToCanteen,
+  onOpenMinigame,
   sharedRoom = null,
   currentUserId = null,
   onOpenSharedPet,
@@ -86,6 +90,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const growthInfo = getGrowthRemaining(pet.growth);
   const roundnessTier = getRoundnessTier(pet.roundness);
+  const speciesInfo = getPetSpeciesInfo(pet.species);
 
   const filteredFoods = FOODS.filter((f) => f.category === selectedCategory);
 
@@ -243,6 +248,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         <PiggyCharacter
+          species={pet.species}
           growth={pet.growth}
           roundness={pet.roundness}
           action={action}
@@ -255,7 +261,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         <p className="mt-1 text-[11px] font-bold text-[#8A716B] flex items-center gap-1">
           <Sparkles className="w-3 h-3 text-[#FF7A9E]" />
-          <span>輕點小豬可以摸摸牠，或把食物拖過來餵食</span>
+          <span>輕點{speciesInfo.shortName}可以摸摸牠，或把食物拖過來餵食</span>
         </p>
       </section>
 
@@ -297,6 +303,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
+      {onOpenMinigame && (
+        <button
+          type="button"
+          onClick={onOpenMinigame}
+          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#F2D9A5] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF8E8] active:scale-[0.99] transition text-left"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FFF3D1] text-[#9D5B12] flex items-center justify-center shrink-0">
+              <Gamepad2 className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="block text-xs font-extrabold text-[#4A3531]">
+                接接樂小遊戲 · 賺金幣
+              </span>
+              <p className="text-[11px] text-[#7D635D] truncate">
+                蘋果接接樂 🍎 / 薯條接接樂 🍟，輕鬆賺金幣買點心
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">
+            開始玩 ›
+          </span>
+        </button>
+      )}
+
       {onOpenMessageBoard && (
         <button
           type="button"
@@ -309,7 +340,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-extrabold text-[#4A3531]">小豬留言板與貼圖</span>
+                <span className="text-xs font-extrabold text-[#4A3531]">萌寵留言板與貼圖</span>
                 {unreadMessagesCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-lg bg-[#FF5A87] text-white text-[10px] font-extrabold tabular-nums">
                     {unreadMessagesCount} 則新訊息
@@ -323,7 +354,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
                         : ''
                     }${latestMessage.content}`
-                  : '傳送可愛小豬貼圖或悄悄話給夥伴'}
+                  : '傳送可愛貼圖或悄悄話給夥伴'}
               </p>
             </div>
           </div>
@@ -337,8 +368,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
         <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#FAD5E0] p-4 shadow-lg space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-extrabold text-[#4A3531]">小豬點餐區</h3>
-              <p className="text-[11px] text-[#826862]">點擊食物餵食，或長按拖曳到小豬身上</p>
+              <h3 className="text-base font-extrabold text-[#4A3531]">{pet.name}點餐區</h3>
+              <p className="text-[11px] text-[#826862]">點擊食物餵食，或長按拖曳到{speciesInfo.shortName}身上</p>
             </div>
             <button
               type="button"
@@ -377,6 +408,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {filteredFoods.map((food) => {
               const count = inventory[food.id] ?? 0;
               const isFull = pet.hunger >= 100;
+              const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
               return (
                 <div
                   key={food.id}
@@ -389,7 +421,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     setDraggingFoodId(null);
                     setIsDropOver(false);
                   }}
-                  className="flex flex-col items-center rounded-2xl bg-[#FFF7EC] border border-[#F3DFD7] p-2.5 text-center"
+                  className={`flex flex-col items-center rounded-2xl bg-[#FFF7EC] border p-2.5 text-center ${
+                    isFavorite ? 'border-[#FF9AB8]' : 'border-[#F3DFD7]'
+                  }`}
                 >
                   <span className="text-3xl leading-none my-1" aria-hidden="true">
                     {food.emoji}
@@ -398,7 +432,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     {food.name}
                   </span>
                   <span className="text-[11px] font-bold text-[#826862] tabular-nums">
-                    庫存 {count}
+                    {isFavorite ? '♥ 最愛 · ' : ''}庫存 {count}
                   </span>
                   <button
                     type="button"

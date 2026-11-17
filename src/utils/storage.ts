@@ -1,13 +1,20 @@
 import { INITIAL_UNLOCKED_ACCESSORIES } from '../data/accessories';
 import { INITIAL_FOOD_INVENTORY } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
+import {
+  INGREDIENTS,
+  createInitialFarmPlots,
+  createInitialIngredients,
+} from '../data/kitchen';
 import { createInitialDailyTasks } from '../data/quests';
 import { isValidStickerId } from '../data/stickers';
 import {
   AccessorySlot,
+  CropPlot,
   DailyTask,
   FeedLog,
   GameState,
+  IngredientId,
   Pet,
   PetMessage,
   PetSpecies,
@@ -74,6 +81,8 @@ export function createInitialGameState(): GameState {
     pet: createInitialPet(),
     coins: 120,
     foods: { ...INITIAL_FOOD_INVENTORY },
+    ingredients: createInitialIngredients(),
+    farmPlots: createInitialFarmPlots(),
     accessories: [...INITIAL_UNLOCKED_ACCESSORIES],
     weightLogs: [],
     feedLogs: [],
@@ -180,6 +189,62 @@ function parseStringNumberRecord(
     }
   }
   return result;
+}
+
+function asIngredientId(value: unknown): IngredientId | null {
+  if (value === 'carrot' || value === 'corn' || value === 'strawberry') {
+    return value;
+  }
+  return null;
+}
+
+function parseIngredients(
+  raw: unknown,
+  fallback: Record<IngredientId, number>
+): Record<IngredientId, number> {
+  const result: Record<IngredientId, number> = { ...fallback };
+  if (!isRecord(raw)) return result;
+  (['carrot', 'corn', 'strawberry'] as IngredientId[]).forEach((key) => {
+    const val = raw[key];
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+      result[key] = Math.floor(val);
+    }
+  });
+  return result;
+}
+
+function parseFarmPlots(raw: unknown): CropPlot[] {
+  const defaults = createInitialFarmPlots();
+  if (!Array.isArray(raw)) return defaults;
+
+  const byId = new Map<number, Record<string, unknown>>();
+  for (const item of raw) {
+    if (isRecord(item) && typeof item.id === 'number' && Number.isInteger(item.id)) {
+      byId.set(item.id, item);
+    }
+  }
+
+  return defaults.map((template) => {
+    const saved = byId.get(template.id);
+    if (!saved) return template;
+    const cropId = asIngredientId(saved.cropId);
+    if (!cropId) return template;
+    const defaultDuration = INGREDIENTS[cropId].growSeconds * 1000;
+    const plantedAt =
+      typeof saved.plantedAt === 'number' && Number.isFinite(saved.plantedAt)
+        ? saved.plantedAt
+        : Date.now();
+    const durationMs =
+      typeof saved.durationMs === 'number' && Number.isFinite(saved.durationMs) && saved.durationMs > 0
+        ? saved.durationMs
+        : defaultDuration;
+    return {
+      id: template.id,
+      cropId,
+      plantedAt,
+      durationMs,
+    };
+  });
 }
 
 function parseWeightLogs(raw: unknown): WeightLog[] {
@@ -321,6 +386,8 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     pet,
     coins: asNumber(raw.coins, base.coins),
     foods: parseStringNumberRecord(raw.foodInventory, base.foods),
+    ingredients: createInitialIngredients(),
+    farmPlots: createInitialFarmPlots(),
     accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
     weightLogs: parseWeightLogs(raw.records),
     feedLogs: [],
@@ -376,6 +443,8 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     pet,
     coins: asNumber(parsed.coins, base.coins),
     foods: parseStringNumberRecord(parsed.foods, base.foods),
+    ingredients: parseIngredients(parsed.ingredients, base.ingredients),
+    farmPlots: parseFarmPlots(parsed.farmPlots),
     accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
     weightLogs: parseWeightLogs(parsed.weightLogs),
     feedLogs: parseFeedLogs(parsed.feedLogs),

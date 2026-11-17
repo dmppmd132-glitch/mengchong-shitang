@@ -1,3 +1,5 @@
+import { PetSpecies } from '../types';
+
 let audioCtx: AudioContext | null = null;
 
 function getCtx(): AudioContext | null {
@@ -50,11 +52,39 @@ export const soundFX = {
     playTone(587, 0.1, 'triangle', 0.08, 0);
     playTone(784, 0.12, 'triangle', 0.08, 0.07);
   },
+  petVoice(enabled: boolean, species: PetSpecies) {
+    if (!enabled) return;
+    if (species === 'rabbit') {
+      // Soft cute high chirp-chirp
+      playTone(780, 0.07, 'sine', 0.07, 0);
+      playTone(980, 0.09, 'sine', 0.07, 0.07);
+      playTone(1080, 0.08, 'sine', 0.06, 0.15);
+      return;
+    }
+    if (species === 'dog') {
+      // Cheerful bouncy woof-woof
+      playTone(340, 0.08, 'triangle', 0.09, 0);
+      playTone(470, 0.09, 'triangle', 0.08, 0.06);
+      playTone(390, 0.08, 'triangle', 0.09, 0.17);
+      playTone(530, 0.11, 'triangle', 0.08, 0.23);
+      return;
+    }
+    // Piggy playful oink-oink
+    playTone(230, 0.09, 'triangle', 0.09, 0);
+    playTone(310, 0.09, 'triangle', 0.08, 0.05);
+    playTone(250, 0.09, 'triangle', 0.08, 0.16);
+    playTone(340, 0.1, 'triangle', 0.08, 0.21);
+  },
   chew(enabled: boolean) {
     if (!enabled) return;
     playTone(360, 0.08, 'triangle', 0.08, 0);
     playTone(440, 0.08, 'triangle', 0.08, 0.11);
     playTone(520, 0.1, 'triangle', 0.07, 0.22);
+  },
+  miss(enabled: boolean) {
+    if (!enabled) return;
+    playTone(240, 0.11, 'sawtooth', 0.05, 0);
+    playTone(170, 0.14, 'sawtooth', 0.05, 0.09);
   },
   bubble(enabled: boolean) {
     if (!enabled) return;
