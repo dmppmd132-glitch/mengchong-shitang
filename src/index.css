@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-rounded: 'M PLUS Rounded 1c', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  }
+
+  html,
+  body {
+    font-family: var(--font-rounded);
+    background-color: #FFF6E9;
+    color: #4A3531;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+}
+
+@keyframes piggyFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.01, 0.99);
+  }
+}
+
+@keyframes piggySquish {
+  0% {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(1.09, 0.91);
+  }
+  65% {
+    transform: scale(0.95, 1.05);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes piggyChew {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  25% {
+    transform: translateY(-4px) scale(1.06, 0.94);
+  }
+  50% {
+    transform: translateY(0) scale(0.97, 1.04);
+  }
+  75% {
+    transform: translateY(-3px) scale(1.05, 0.95);
+  }
+}
+
+@keyframes floatUpFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.95);
+  }
+}
+
+@keyframes eggWobble {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-9deg) scale(1.02);
+  }
+  40% {
+    transform: rotate(8deg) scale(1.03);
+  }
+  60% {
+    transform: rotate(-5deg);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes bubbleRise {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.6);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.15);
+  }
+}
+
+.animate-piggy-float {
+  animation: piggyFloat 3.2s ease-in-out infinite;
+}
+
+.animate-piggy-squish {
+  animation: piggySquish 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.animate-piggy-chew {
+  animation: piggyChew 0.55s ease-in-out infinite;
+}
+
+.animate-float-up {
+  animation: floatUpFade 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-egg-wobble {
+  animation: eggWobble 0.48s ease-in-out;
+}
+
+.animate-bubble-rise {
+  animation: bubbleRise 1.4s ease-out infinite;
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-piggy-float,
+  .animate-piggy-chew,
+  .animate-bubble-rise {
+    animation: none;
+  }
+}

@@ -1,0 +1,418 @@
+import React, { useMemo, useState } from 'react';
+import { Minus, Plus, Scale } from 'lucide-react';
+import { getRoundnessTier } from '../data/growth';
+import { Pet, WeightLog } from '../types';
+import { formatLocalDate, roundWeight } from '../utils/storage';
+
+interface JournalViewProps {
+  pet: Pet;
+  weightLogs: WeightLog[];
+  onRecordWeight: (newWeight: number, note?: string) => void;
+}
+
+interface ChartPoint {
+  dateStr: string;
+  label: string;
+  weight: number;
+}
+
+export const JournalView: React.FC<JournalViewProps> = ({
+  pet,
+  weightLogs,
+  onRecordWeight,
+}) => {
+  const [rangeDays, setRangeDays] = useState<7 | 30>(7);
+  const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
+  const [customNote, setCustomNote] = useState<string>('');
+  const [selectedPoint, setSelectedPoint] = useState<ChartPoint | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<string>('');
+
+  const roundnessTier = getRoundnessTier(pet.roundness);
+
+  const chartPoints = useMemo<ChartPoint[]>(() => {
+    const today = new Date();
+    const mapByDate = new Map<string, number>();
+
+    const sorted = [...weightLogs].sort((a, b) => a.timestamp - b.timestamp);
+    for (const rec of sorted) {
+      mapByDate.set(rec.date, rec.weight);
+    }
+
+    const pts: ChartPoint[] = [];
+    let lastKnownWeight: number | null = null;
+
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - (rangeDays - 1));
+    const startStr = formatLocalDate(startDate);
+    for (const rec of sorted) {
+      if (rec.date < startStr) {
+        lastKnownWeight = rec.weight;
+      }
+    }
+
+    for (let i = rangeDays - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dateStr = formatLocalDate(d);
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+
+      if (mapByDate.has(dateStr)) {
+        lastKnownWeight = mapByDate.get(dateStr)!;
+        pts.push({
+          dateStr,
+          label: `${month}/${day}`,
+          weight: lastKnownWeight,
+        });
+      } else if (i === 0) {
+        pts.push({
+          dateStr,
+          label: `${month}/${day}`,
+          weight: lastKnownWeight ?? pet.weight,
+        });
+      } else if (lastKnownWeight !== null) {
+        pts.push({
+          dateStr,
+          label: `${month}/${day}`,
+          weight: lastKnownWeight,
+        });
+      }
+    }
+
+    if (pts.length === 0) {
+      pts.push({
+        dateStr: formatLocalDate(today),
+        label: `${today.getMonth() + 1}/${today.getDate()}`,
+        weight: pet.weight,
+      });
+    }
+
+    return pts;
+  }, [weightLogs, rangeDays, pet.weight]);
+
+  const svgW = 340;
+  const svgH = 160;
+  const padL = 38;
+  const padR = 14;
+  const padT = 18;
+  const padB = 26;
+  const innerW = svgW - padL - padR;
+  const innerH = svgH - padT - padB;
+
+  const weights = chartPoints.map((p) => p.weight);
+  const rawMin = Math.min(...weights);
+  const rawMax = Math.max(...weights);
+  const minW = roundWeight(Math.max(1, rawMin - 0.6));
+  const maxW = roundWeight(rawMax + 0.6);
+  const spanW = Math.max(1, maxW - minW);
+
+  const coords = chartPoints.map((pt, idx) => {
+    const x =
+      chartPoints.length === 1
+        ? padL + innerW / 2
+        : padL + (idx / (chartPoints.length - 1)) * innerW;
+    const y = padT + (1 - (pt.weight - minW) / spanW) * innerH;
+    return { ...pt, x, y };
+  });
+
+  const polylinePoints = coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+  const areaPath =
+    coords.length > 0
+      ? `M ${coords[0].x.toFixed(1)} ${(padT + innerH).toFixed(1)} ` +
+        coords.map((c) => `L ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ') +
+        ` L ${coords[coords.length - 1].x.toFixed(1)} ${(padT + innerH).toFixed(1)} Z`
+      : '';
+
+  const handleStep = (delta: number) => {
+    const cur = parseFloat(inputWeight);
+    const base = Number.isFinite(cur) ? cur : pet.weight;
+    const next = Math.min(99.9, Math.max(1.0, roundWeight(base + delta)));
+    setInputWeight(next.toFixed(1));
+  };
+
+  const handleWeightSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = parseFloat(inputWeight);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 99.9) {
+      setFeedbackMsg('請輸入 1.0 ～ 99.9 kg 之間的數值');
+      return;
+    }
+    const clean = roundWeight(parsed);
+    setInputWeight(clean.toFixed(1));
+    onRecordWeight(clean, customNote.trim() || undefined);
+    setCustomNote('');
+    setFeedbackMsg(`已記錄體重 ${clean.toFixed(1)} kg！`);
+    setTimeout(() => setFeedbackMsg(''), 2400);
+  };
+
+  const activePoint = selectedPoint ?? chartPoints[chartPoints.length - 1];
+
+  return (
+    <div className="px-4 pt-3 pb-24 space-y-4">
+      <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#FFF6DA] border-2 border-[#F5DFD7] p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold text-[#826862]">目前體重與體態</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-[#4A3531] tabular-nums">
+                {pet.weight.toFixed(1)}
+              </span>
+              <span className="text-sm font-bold text-[#6E544E]">kg</span>
+              <span className="text-sm font-extrabold text-[#D64470]">
+                · {roundnessTier.label}
+              </span>
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-white/80 border border-[#F5D6DF] flex items-center justify-center text-[#D64470]">
+            <Scale className="w-6 h-6" />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-[#6E544E] leading-relaxed">
+          {roundnessTier.description}
+        </p>
+      </section>
+
+      <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-extrabold text-[#4A3531]">體重成長曲線</h2>
+            <p className="text-xs font-bold text-[#826862] tabular-nums">
+              {activePoint.dateStr}：{activePoint.weight.toFixed(1)} kg
+            </p>
+          </div>
+          <div className="flex items-center gap-1 bg-[#F6ECE6] p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setRangeDays(7);
+                setSelectedPoint(null);
+              }}
+              className={`min-h-[34px] px-2.5 rounded-lg text-xs font-extrabold transition ${
+                rangeDays === 7 ? 'bg-white text-[#D64470] shadow-xs' : 'text-[#7D635D]'
+              }`}
+            >
+              最近 7 天
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRangeDays(30);
+                setSelectedPoint(null);
+              }}
+              className={`min-h-[34px] px-2.5 rounded-lg text-xs font-extrabold transition ${
+                rangeDays === 30 ? 'bg-white text-[#D64470] shadow-xs' : 'text-[#7D635D]'
+              }`}
+            >
+              最近 30 天
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full overflow-hidden">
+          <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-auto">
+            <defs>
+              <linearGradient id="weightArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FF7A9E" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="#FF7A9E" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+
+            {[0, 0.5, 1].map((ratio) => {
+              const y = padT + ratio * innerH;
+              const val = roundWeight(maxW - ratio * spanW);
+              return (
+                <g key={ratio}>
+                  <line
+                    x1={padL}
+                    y1={y}
+                    x2={svgW - padR}
+                    y2={y}
+                    stroke="#EFE1DA"
+                    strokeDasharray="4 4"
+                    strokeWidth="1.2"
+                  />
+                  <text
+                    x={padL - 6}
+                    y={y + 4}
+                    textAnchor="end"
+                    fontSize="10"
+                    fontWeight="700"
+                    fill="#957B74"
+                  >
+                    {val.toFixed(1)}
+                  </text>
+                </g>
+              );
+            })}
+
+            {coords.length > 1 && <path d={areaPath} fill="url(#weightArea)" />}
+            {coords.length > 1 && (
+              <polyline
+                fill="none"
+                stroke="#FF7A9E"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={polylinePoints}
+              />
+            )}
+
+            {coords.map((c, idx) => {
+              const showLabel =
+                coords.length <= 7 ||
+                idx === 0 ||
+                idx === coords.length - 1 ||
+                idx === Math.floor(coords.length / 2);
+              const isSelected = activePoint.dateStr === c.dateStr;
+
+              return (
+                <g key={c.dateStr}>
+                  <circle
+                    cx={c.x}
+                    cy={c.y}
+                    r={isSelected ? 6 : 4}
+                    fill={isSelected ? '#FF7A9E' : '#FFFFFF'}
+                    stroke="#FF7A9E"
+                    strokeWidth="2.5"
+                    className="cursor-pointer"
+                    onClick={() => setSelectedPoint(c)}
+                  />
+                  {showLabel && (
+                    <text
+                      x={c.x}
+                      y={svgH - 6}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fontWeight="700"
+                      fill="#957B74"
+                    >
+                      {c.label}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </section>
+
+      <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
+        <h2 className="text-base font-extrabold text-[#4A3531]">手動記錄或調整體重</h2>
+        <form onSubmit={handleWeightSubmit} className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleStep(-0.1)}
+              aria-label="減少 0.1 公斤"
+              className="min-h-[46px] min-w-[46px] rounded-2xl bg-[#F7ECE6] text-[#4A3531] flex items-center justify-center hover:bg-[#EEDCD3] active:scale-95 transition"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+
+            <div className="flex-1 relative">
+              <input
+                type="number"
+                step="0.1"
+                min="1"
+                max="99.9"
+                value={inputWeight}
+                onChange={(e) => setInputWeight(e.target.value)}
+                aria-label="體重公斤數"
+                className="w-full min-h-[46px] rounded-2xl bg-[#FFF8EB] border border-[#EFD7BD] px-4 pr-10 text-center text-lg font-extrabold text-[#4A3531] tabular-nums focus:outline-none focus:border-[#FF7A9E]"
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#826862]">
+                kg
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleStep(0.1)}
+              aria-label="增加 0.1 公斤"
+              className="min-h-[46px] min-w-[46px] rounded-2xl bg-[#F7ECE6] text-[#4A3531] flex items-center justify-center hover:bg-[#EEDCD3] active:scale-95 transition"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              maxLength={24}
+              value={customNote}
+              onChange={(e) => setCustomNote(e.target.value)}
+              placeholder="備註（例如：散步後量體重）"
+              className="flex-1 min-h-[44px] rounded-2xl bg-[#FFFDF8] border border-[#EED9D0] px-3.5 text-xs font-medium text-[#4A3531] placeholder:text-[#B5A19B] focus:outline-none focus:border-[#FF7A9E]"
+            />
+            <button
+              type="submit"
+              className="min-h-[44px] px-4 rounded-2xl bg-[#5CC9A7] text-white text-xs font-extrabold shadow-[0_3px_0_#3BA886] hover:bg-[#4DBE9B] active:translate-y-0.5 transition whitespace-nowrap shrink-0"
+            >
+              記錄體重
+            </button>
+          </div>
+
+          {feedbackMsg && (
+            <p className="text-xs font-bold text-[#256D57]">{feedbackMsg}</p>
+          )}
+        </form>
+      </section>
+
+      <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-extrabold text-[#4A3531]">餵食與體重紀錄</h2>
+          <span className="text-xs font-bold text-[#826862] tabular-nums">
+            共 {weightLogs.length} 筆
+          </span>
+        </div>
+
+        {weightLogs.length === 0 ? (
+          <p className="py-6 text-center text-xs text-[#8D746E]">
+            目前還沒有紀錄喔，餵小豬吃飯或手動量體重就會自動記在手帳裡！
+          </p>
+        ) : (
+          <div className="divide-y divide-[#F4E6DF]">
+            {weightLogs.slice(0, 30).map((rec) => {
+              const deltaText =
+                rec.weightDelta > 0
+                  ? `+${rec.weightDelta.toFixed(1)} kg`
+                  : rec.weightDelta < 0
+                  ? `${rec.weightDelta.toFixed(1)} kg`
+                  : '無變化';
+              const deltaColor =
+                rec.weightDelta > 0
+                  ? 'text-[#D64470]'
+                  : rec.weightDelta < 0
+                  ? 'text-[#258064]'
+                  : 'text-[#826862]';
+
+              return (
+                <div key={rec.id} className="py-2.5 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-extrabold text-[#4A3531]">
+                        {rec.foodName}
+                      </span>
+                      <span className="text-[11px] font-bold text-[#957B74] tabular-nums">
+                        {rec.date} {rec.timeStr}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#7D635D] mt-0.5">{rec.note}</p>
+                  </div>
+                  <div className="text-right shrink-0 tabular-nums">
+                    <div className={`text-xs font-extrabold ${deltaColor}`}>
+                      {deltaText}
+                    </div>
+                    <div className="text-[11px] font-bold text-[#826862]">
+                      {rec.weight.toFixed(1)} kg
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};

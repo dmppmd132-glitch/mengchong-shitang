@@ -1,0 +1,148 @@
+import { Food, FoodCategory } from '../types';
+
+export const FOOD_CATEGORIES: FoodCategory[] = ['meal', 'snack', 'fastFood'];
+
+export const FOOD_CATEGORY_LABELS: Record<FoodCategory, string> = {
+  meal: '正餐',
+  snack: '零食',
+  fastFood: '速食',
+};
+
+export const FOODS: Food[] = [
+  // 正餐 (meal)
+  {
+    id: 'veggie_porridge',
+    name: '蔬菜粥',
+    category: 'meal',
+    emoji: '🥣',
+    description: '溫熱綿密的青菜小米粥，暖胃又清爽。',
+    price: 15,
+    hunger: 26,
+    mood: 8,
+    weightGain: 0.1,
+    roundness: 2,
+    growthGain: 14,
+  },
+  {
+    id: 'carrot_salad',
+    name: '紅蘿蔔沙拉',
+    category: 'meal',
+    emoji: '🥗',
+    description: '清脆甜香的紅蘿蔔嫩葉沙拉，營養滿分。',
+    price: 18,
+    hunger: 22,
+    mood: 10,
+    weightGain: 0.1,
+    roundness: 1,
+    growthGain: 16,
+  },
+  {
+    id: 'meat_bento',
+    name: '肉肉便當',
+    category: 'meal',
+    emoji: '🍱',
+    description: '招牌雙主菜愛心便當，吃得飽飽超滿足。',
+    price: 28,
+    hunger: 36,
+    mood: 15,
+    weightGain: 0.3,
+    roundness: 6,
+    growthGain: 22,
+  },
+  // 零食 (snack)
+  {
+    id: 'butter_cookie',
+    name: '餅乾',
+    category: 'snack',
+    emoji: '🍪',
+    description: '奶油香氣十足的小熊造型酥脆餅乾。',
+    price: 12,
+    hunger: 12,
+    mood: 14,
+    weightGain: 0.1,
+    roundness: 4,
+    growthGain: 10,
+  },
+  {
+    id: 'caramel_pudding',
+    name: '布丁',
+    category: 'snack',
+    emoji: '🍮',
+    description: 'ㄉㄨㄞ ㄉㄨㄞ 焦糖雞蛋布丁，入口即化。',
+    price: 16,
+    hunger: 14,
+    mood: 18,
+    weightGain: 0.2,
+    roundness: 5,
+    growthGain: 12,
+  },
+  {
+    id: 'dried_fruit',
+    name: '水果乾',
+    category: 'snack',
+    emoji: '🍓',
+    description: '酸甜脆口草莓蘋果乾，天然無負擔。',
+    price: 14,
+    hunger: 10,
+    mood: 12,
+    weightGain: 0.1,
+    roundness: 2,
+    growthGain: 12,
+  },
+  // 速食 (fastFood)
+  {
+    id: 'cheese_burger',
+    name: '漢堡',
+    category: 'fastFood',
+    emoji: '🍔',
+    description: '雙層起司厚切漢堡，咬下去超幸福！',
+    price: 24,
+    hunger: 30,
+    mood: 24,
+    weightGain: 0.4,
+    roundness: 12,
+    growthGain: 15,
+  },
+  {
+    id: 'crispy_fries',
+    name: '薯條',
+    category: 'fastFood',
+    emoji: '🍟',
+    description: '金黃酥脆現炸薯條，越吃越涮嘴。',
+    price: 18,
+    hunger: 18,
+    mood: 22,
+    weightGain: 0.3,
+    roundness: 10,
+    growthGain: 11,
+  },
+  {
+    id: 'pepperoni_pizza',
+    name: '披薩',
+    category: 'fastFood',
+    emoji: '🍕',
+    description: '牽絲濃郁起司披薩，快樂加倍！',
+    price: 26,
+    hunger: 28,
+    mood: 26,
+    weightGain: 0.4,
+    roundness: 13,
+    growthGain: 16,
+  },
+];
+
+export const INITIAL_FOOD_INVENTORY: Record<string, number> = {
+  veggie_porridge: 3,
+  carrot_salad: 2,
+  meat_bento: 2,
+  butter_cookie: 3,
+  caramel_pudding: 2,
+  dried_fruit: 2,
+  cheese_burger: 2,
+  crispy_fries: 2,
+  pepperoni_pizza: 2,
+};
+
+export function getFoodById(id: string): Food | undefined {
+  return FOODS.find((f) => f.id === id);
+}
