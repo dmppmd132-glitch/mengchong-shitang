@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Bath, Footprints, Heart, Moon, Sparkles, UtensilsCrossed, X } from 'lucide-react';
+import { Bath, Footprints, Heart, Moon, Sparkles, Users, UtensilsCrossed, X } from 'lucide-react';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
 import { getGrowthRemaining, getRoundnessTier } from '../data/growth';
-import { FloatingFeedback, Food, FoodCategory, Pet, PiggyActionState } from '../types';
+import {
+  FloatingFeedback,
+  Food,
+  FoodCategory,
+  Pet,
+  PiggyActionState,
+  SharedPetRoom,
+} from '../types';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface HomeViewProps {
@@ -18,6 +25,9 @@ interface HomeViewProps {
   onBath: () => void;
   onWalk: () => void;
   onGoToCanteen: () => void;
+  sharedRoom?: SharedPetRoom | null;
+  currentUserId?: string | null;
+  onOpenSharedPet?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -47,6 +57,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onBath,
   onWalk,
   onGoToCanteen,
+  sharedRoom = null,
+  currentUserId = null,
+  onOpenSharedPet,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -87,13 +100,44 @@ export const HomeView: React.FC<HomeViewProps> = ({
               體重 {pet.weight.toFixed(1)} kg · {roundnessTier.label} · 親密值 {pet.intimacy}
             </p>
           </div>
-          <div className="text-right shrink-0">
+          <div className="flex flex-col items-end gap-1 shrink-0">
             <span className="inline-flex items-center gap-1 text-xs font-extrabold text-[#D64470] tabular-nums">
               <Heart className="w-3.5 h-3.5 fill-[#FF7A9E] text-[#FF7A9E]" />
               {pet.intimacy}
             </span>
+            {onOpenSharedPet && (
+              <button
+                type="button"
+                onClick={onOpenSharedPet}
+                className={`min-h-[30px] px-2.5 rounded-xl text-[11px] font-extrabold inline-flex items-center gap-1 transition active:scale-95 ${
+                  sharedRoom
+                    ? 'bg-[#E3F7F0] border border-[#AEE3D0] text-[#256D57]'
+                    : 'bg-[#FFF0F4] border border-[#F5C9D7] text-[#B83B64]'
+                }`}
+              >
+                <Users className="w-3 h-3 shrink-0" />
+                <span>
+                  {sharedRoom
+                    ? sharedRoom.partnerId
+                      ? '兩人共養中'
+                      : `邀請碼 ${sharedRoom.inviteCode}`
+                    : '兩人共養'}
+                </span>
+              </button>
+            )}
           </div>
         </div>
+        {sharedRoom && (
+          <p className="mt-1.5 text-[11px] font-bold text-[#256D57] truncate">
+            {sharedRoom.partnerId
+              ? `共養夥伴：${
+                  sharedRoom.ownerId === currentUserId
+                    ? sharedRoom.partnerEmail || '夥伴'
+                    : sharedRoom.ownerEmail || '夥伴'
+                }`
+              : `邀請碼：${sharedRoom.inviteCode}（等待夥伴輸入加入）`}
+          </p>
+        )}
 
         <div className="mt-2.5">
           <div className="flex items-center justify-between text-[11px] font-bold text-[#7D635D] mb-1">

@@ -137,3 +137,15 @@ export interface CloudSavePayload {
   updatedAt: string;
 }
 
+export interface SharedPetRoom {
+  id: string;
+  inviteCode: string;
+  ownerId: string;
+  ownerEmail: string;
+  partnerId: string | null;
+  partnerEmail: string | null;
+  lastActorId: string | null;
+  lastActorEmail: string | null;
+  updatedAt: string;
+}
+

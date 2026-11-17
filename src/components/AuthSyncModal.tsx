@@ -8,13 +8,14 @@ import {
   Loader2,
   LogOut,
   RefreshCw,
+  Users,
   X,
 } from 'lucide-react';
 import {
   signInWithEmail,
   signUpWithEmail,
 } from '../services/cloudSync';
-import { CloudSavePayload, CloudSyncStatus, CloudUser } from '../types';
+import { CloudSavePayload, CloudSyncStatus, CloudUser, SharedPetRoom } from '../types';
 
 interface AuthSyncModalProps {
   open: boolean;
@@ -29,6 +30,8 @@ interface AuthSyncModalProps {
   localPetLevel: number;
   localPetWeight: number;
   localHatched: boolean;
+  sharedRoom?: SharedPetRoom | null;
+  onOpenSharedPet?: () => void;
   onAuthSuccess: (user: CloudUser) => void;
   onSignOut: () => Promise<void>;
   onForceUpload: () => Promise<void>;
@@ -62,6 +65,8 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
   localPetLevel,
   localPetWeight,
   localHatched,
+  sharedRoom = null,
+  onOpenSharedPet,
   onAuthSuccess,
   onSignOut,
   onForceUpload,
@@ -310,6 +315,24 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
                 <span>載入雲端存檔</span>
               </button>
             </div>
+
+            {onOpenSharedPet && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenSharedPet();
+                }}
+                className="w-full min-h-[44px] rounded-2xl bg-[#FFF0F4] border border-[#F5C4D3] text-xs font-extrabold text-[#B83B64] hover:bg-[#FFE3EC] transition flex items-center justify-center gap-1.5"
+              >
+                <Users className="w-4 h-4" />
+                <span>
+                  {sharedRoom
+                    ? `兩人共養中（邀請碼 ${sharedRoom.inviteCode}）`
+                    : '兩人共養與邀請碼'}
+                </span>
+              </button>
+            )}
 
             <button
               type="button"

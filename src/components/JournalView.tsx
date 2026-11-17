@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Cloud, Minus, Plus, RotateCcw, Scale } from 'lucide-react';
+import { Cloud, Minus, Plus, RotateCcw, Scale, Users } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
-import { CloudSyncStatus, CloudUser, Pet, WeightLog } from '../types';
+import { CloudSyncStatus, CloudUser, Pet, SharedPetRoom, WeightLog } from '../types';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 
 interface JournalViewProps {
@@ -12,6 +12,8 @@ interface JournalViewProps {
   cloudUser?: CloudUser | null;
   syncStatus?: CloudSyncStatus;
   onOpenCloudAuth?: () => void;
+  sharedRoom?: SharedPetRoom | null;
+  onOpenSharedPet?: () => void;
 }
 
 interface ChartPoint {
@@ -28,6 +30,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
   cloudUser = null,
   syncStatus = 'local',
   onOpenCloudAuth,
+  sharedRoom = null,
+  onOpenSharedPet,
 }) => {
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
@@ -421,6 +425,27 @@ export const JournalView: React.FC<JournalViewProps> = ({
           </div>
         )}
       </section>
+
+      {onOpenSharedPet && (
+        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-[#4A3531]">兩人共養與邀請碼</h2>
+            <p className="text-xs text-[#7D635D] mt-0.5 truncate">
+              {sharedRoom
+                ? `共養中 · 邀請碼 ${sharedRoom.inviteCode}`
+                : '產生邀請碼或輸入夥伴邀請碼一起養小豬'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenSharedPet}
+            className="min-h-[44px] px-4 rounded-2xl bg-[#FFF0F4] border border-[#F5C4D3] text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1.5 hover:bg-[#FFE3EC] active:scale-95 transition whitespace-nowrap shrink-0"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>{sharedRoom ? '共養管理' : '建立 / 加入'}</span>
+          </button>
+        </section>
+      )}
 
       {onOpenCloudAuth && (
         <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">

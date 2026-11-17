@@ -11,6 +11,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { QuestsView } from './components/QuestsView';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
+import { SharedPetModal } from './components/SharedPetModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
@@ -20,6 +21,15 @@ import {
   signOutCloud,
   upsertCloudSave,
 } from './services/cloudSync';
+import {
+  createSharedPetRoom,
+  fetchMySharedPet,
+  joinSharedPetByCode,
+  leaveSharedPetRoom,
+  regenerateSharedInviteCode,
+  subscribeToSharedPet,
+  updateSharedPetSave,
+} from './services/sharedPet';
 import {
   Accessory,
   CloudSavePayload,
@@ -31,6 +41,7 @@ import {
   GameState,
   GrowthStageInfo,
   PiggyActionState,
+  SharedPetRoom,
   TabKey,
   WeightLog,
 } from './types';
@@ -63,7 +74,9 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [sharedModalOpen, setSharedModalOpen] = useState<boolean>(false);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
+  const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
 
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
@@ -71,6 +84,7 @@ export default function App() {
   const gameRef = useRef<GameState>(game);
   const skipNextCloudUploadRef = useRef<boolean>(false);
   const lastHandledUserIdRef = useRef<string | null>(null);
+  const lastSharedUpdatedAtRef = useRef<string | null>(null);
 
   gameRef.current = game;
 
@@ -78,17 +92,38 @@ export default function App() {
     saveGameState(game);
   }, [game]);
 
-  const applyCloudStateLocally = useCallback((cloudState: GameState) => {
+  const applyCloudStateLocally = useCallback((cloudState: GameState, customSpeech?: string) => {
     skipNextCloudUploadRef.current = true;
     prevStageLevelRef.current = getGrowthStage(cloudState.pet.growth).level;
     setGame(cloudState);
-    setSpeech(`歡迎回來，${cloudState.pet.name}！`);
+    setSpeech(customSpeech ?? `歡迎回來，${cloudState.pet.name}！`);
   }, []);
 
   const syncAfterSignIn = useCallback(
     async (user: CloudUser, openModalOnConflict: boolean) => {
       setSyncStatus('syncing');
       setSyncError(null);
+
+      // 1. 優先檢查是否已加入兩人共養小屋
+      const sharedRes = await fetchMySharedPet(user.id);
+      if (sharedRes.room) {
+        setSharedRoom(sharedRes.room);
+        lastSharedUpdatedAtRef.current = sharedRes.room.updatedAt;
+        if (sharedRes.state) {
+          applyCloudStateLocally(
+            sharedRes.state,
+            `回到與夥伴共養的「${sharedRes.state.pet.name}」身邊囉！`
+          );
+        }
+        setPendingCloudSave(null);
+        setSyncStatus('synced');
+        setLastSyncedAt(sharedRes.room.updatedAt);
+        return;
+      }
+
+      setSharedRoom(null);
+
+      // 2. 若未加入共養，改同步個人雲端存檔
       const { state: cloudState, updatedAt, error } = await fetchCloudSave(user.id);
 
       if (error) {
@@ -178,7 +213,9 @@ export default function App() {
         }
       } else {
         lastHandledUserIdRef.current = null;
+        lastSharedUpdatedAtRef.current = null;
         setCloudUser(null);
+        setSharedRoom(null);
         setPendingCloudSave(null);
         setSyncStatus('local');
         setSyncError(null);
@@ -190,6 +227,71 @@ export default function App() {
       authListener.subscription.unsubscribe();
     };
   }, [syncAfterSignIn]);
+
+  // 兩人共養即時訂閱（Supabase Realtime）＋回到頁面自動刷新
+  useEffect(() => {
+    if (!isSupabaseConfigured || !cloudUser || !sharedRoom) return;
+
+    const roomId = sharedRoom.id;
+    const unsubscribe = subscribeToSharedPet(roomId, (remoteRoom, remoteState, deleted) => {
+      if (deleted) {
+        lastSharedUpdatedAtRef.current = null;
+        setSharedRoom(null);
+        setSpeech('共養小屋已解散，已切回單人照護模式。');
+        return;
+      }
+
+      if (!remoteRoom) return;
+
+      setSharedRoom(remoteRoom);
+
+      const isFromPartner =
+        remoteRoom.lastActorId !== null && remoteRoom.lastActorId !== cloudUser.id;
+      const isNewerTimestamp = remoteRoom.updatedAt !== lastSharedUpdatedAtRef.current;
+
+      if (isFromPartner && remoteState && isNewerTimestamp) {
+        lastSharedUpdatedAtRef.current = remoteRoom.updatedAt;
+        setLastSyncedAt(remoteRoom.updatedAt);
+        setSyncStatus('synced');
+        applyCloudStateLocally(remoteState, `夥伴剛剛照顧了${remoteState.pet.name}！`);
+        const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了小豬！', emoji: '💞' }]);
+        window.setTimeout(() => {
+          setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
+        }, 1500);
+      }
+    });
+
+    const handleResumeSync = () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      void fetchMySharedPet(cloudUser.id).then((res) => {
+        if (res.error) return;
+        if (!res.room) {
+          setSharedRoom(null);
+          return;
+        }
+        setSharedRoom(res.room);
+        if (
+          res.room.lastActorId !== cloudUser.id &&
+          res.state &&
+          res.room.updatedAt !== lastSharedUpdatedAtRef.current
+        ) {
+          lastSharedUpdatedAtRef.current = res.room.updatedAt;
+          setLastSyncedAt(res.room.updatedAt);
+          applyCloudStateLocally(res.state);
+        }
+      });
+    };
+
+    window.addEventListener('focus', handleResumeSync);
+    window.addEventListener('online', handleResumeSync);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', handleResumeSync);
+      window.removeEventListener('online', handleResumeSync);
+    };
+  }, [cloudUser, sharedRoom?.id, applyCloudStateLocally]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !cloudUser || pendingCloudSave || !game.pet.hatched) {
@@ -205,22 +307,42 @@ export default function App() {
       return;
     }
 
+    const delayMs = sharedRoom ? 800 : 1500;
     const timer = window.setTimeout(() => {
       setSyncStatus('syncing');
       setSyncError(null);
-      void upsertCloudSave(cloudUser.id, game).then((res) => {
-        if (res.error) {
-          setSyncStatus('error');
-          setSyncError(res.error);
-        } else {
-          setSyncStatus('synced');
-          setLastSyncedAt(res.updatedAt);
-        }
-      });
-    }, 1500);
+
+      if (sharedRoom) {
+        void updateSharedPetSave(
+          sharedRoom.id,
+          game,
+          cloudUser.id,
+          cloudUser.email
+        ).then((res) => {
+          if (res.error) {
+            setSyncStatus('error');
+            setSyncError(res.error);
+          } else {
+            lastSharedUpdatedAtRef.current = res.updatedAt;
+            setSyncStatus('synced');
+            setLastSyncedAt(res.updatedAt);
+          }
+        });
+      } else {
+        void upsertCloudSave(cloudUser.id, game).then((res) => {
+          if (res.error) {
+            setSyncStatus('error');
+            setSyncError(res.error);
+          } else {
+            setSyncStatus('synced');
+            setLastSyncedAt(res.updatedAt);
+          }
+        });
+      }
+    }, delayMs);
 
     return () => window.clearTimeout(timer);
-  }, [game, cloudUser, pendingCloudSave]);
+  }, [game, cloudUser, pendingCloudSave, sharedRoom]);
 
   useEffect(() => {
     const currentStage = getGrowthStage(game.pet.growth);
@@ -618,6 +740,26 @@ export default function App() {
     if (!cloudUser) return;
     setSyncStatus('syncing');
     setSyncError(null);
+
+    if (sharedRoom) {
+      const res = await updateSharedPetSave(
+        sharedRoom.id,
+        gameRef.current,
+        cloudUser.id,
+        cloudUser.email
+      );
+      if (res.error) {
+        setSyncStatus('error');
+        setSyncError(res.error);
+      } else {
+        lastSharedUpdatedAtRef.current = res.updatedAt;
+        setSyncStatus('synced');
+        setLastSyncedAt(res.updatedAt);
+        pushFeedback('已同步至共養小屋！', '💞');
+      }
+      return;
+    }
+
     const res = await upsertCloudSave(cloudUser.id, gameRef.current);
     if (res.error) {
       setSyncStatus('error');
@@ -633,6 +775,29 @@ export default function App() {
     if (!cloudUser) return;
     setSyncStatus('syncing');
     setSyncError(null);
+
+    if (sharedRoom) {
+      const res = await fetchMySharedPet(cloudUser.id);
+      if (res.error) {
+        setSyncStatus('error');
+        setSyncError(res.error);
+        return;
+      }
+      if (!res.room || !res.state) {
+        setSharedRoom(null);
+        setSyncStatus('local');
+        setSyncError('共養小屋目前無法讀取，已切回單人模式。');
+        return;
+      }
+      setSharedRoom(res.room);
+      lastSharedUpdatedAtRef.current = res.room.updatedAt;
+      applyCloudStateLocally(res.state);
+      setSyncStatus('synced');
+      setLastSyncedAt(res.room.updatedAt);
+      pushFeedback('已重新載入共養小豬！', '💞');
+      return;
+    }
+
     const res = await fetchCloudSave(cloudUser.id);
     if (res.error) {
       setSyncStatus('error');
@@ -680,15 +845,108 @@ export default function App() {
   const handleCloudSignOut = async () => {
     await signOutCloud();
     lastHandledUserIdRef.current = null;
+    lastSharedUpdatedAtRef.current = null;
     setCloudUser(null);
+    setSharedRoom(null);
     setPendingCloudSave(null);
     setSyncStatus('local');
     setSyncError(null);
     setAuthModalOpen(false);
   };
 
+  const handleCreateSharedRoom = async (): Promise<string | null> => {
+    if (!cloudUser) return '請先登入雲端帳號。';
+    setSyncStatus('syncing');
+    const res = await createSharedPetRoom(gameRef.current, cloudUser.email);
+    if (res.error || !res.room) {
+      setSyncStatus('error');
+      return res.error ?? '建立共養小屋失敗。';
+    }
+    setSharedRoom(res.room);
+    lastSharedUpdatedAtRef.current = res.room.updatedAt;
+    if (res.state) {
+      applyCloudStateLocally(res.state);
+    }
+    setSyncStatus('synced');
+    setLastSyncedAt(res.room.updatedAt);
+    pushFeedback(`共養邀請碼：${res.room.inviteCode}`, '💞');
+    return null;
+  };
+
+  const handleJoinSharedRoom = async (inviteCode: string): Promise<string | null> => {
+    if (!cloudUser) return '請先登入雲端帳號。';
+    setSyncStatus('syncing');
+    const res = await joinSharedPetByCode(inviteCode, cloudUser.email);
+    if (res.error || !res.room) {
+      setSyncStatus('local');
+      return res.error ?? '加入共養小屋失敗。';
+    }
+    setSharedRoom(res.room);
+    lastSharedUpdatedAtRef.current = res.room.updatedAt;
+    setPendingCloudSave(null);
+    if (res.state) {
+      applyCloudStateLocally(
+        res.state,
+        `成功加入！一起來照顧${res.state.pet.name}吧！`
+      );
+    }
+    setSyncStatus('synced');
+    setLastSyncedAt(res.room.updatedAt);
+    pushFeedback('成功加入兩人共養！', '💞');
+    return null;
+  };
+
+  const handleRegenerateInviteCode = async (): Promise<string | null> => {
+    if (!sharedRoom) return '目前尚未建立共養小屋。';
+    const res = await regenerateSharedInviteCode(sharedRoom.id);
+    if (res.error || !res.room) {
+      return res.error ?? '更新邀請碼失敗。';
+    }
+    setSharedRoom(res.room);
+    lastSharedUpdatedAtRef.current = res.room.updatedAt;
+    pushFeedback(`新邀請碼：${res.room.inviteCode}`, '✨');
+    return null;
+  };
+
+  const handleRefreshSharedRoom = async (): Promise<string | null> => {
+    if (!cloudUser) return '請先登入雲端帳號。';
+    const res = await fetchMySharedPet(cloudUser.id);
+    if (res.error) return res.error;
+    if (!res.room) {
+      setSharedRoom(null);
+      return '找不到共養小屋，可能已被退出或解散。';
+    }
+    setSharedRoom(res.room);
+    lastSharedUpdatedAtRef.current = res.room.updatedAt;
+    if (res.state) {
+      applyCloudStateLocally(res.state);
+    }
+    setSyncStatus('synced');
+    setLastSyncedAt(res.room.updatedAt);
+    return null;
+  };
+
+  const handleLeaveSharedRoom = async (): Promise<string | null> => {
+    if (!sharedRoom) return null;
+    const res = await leaveSharedPetRoom(sharedRoom.id);
+    if (res.error) {
+      return res.error;
+    }
+    lastSharedUpdatedAtRef.current = null;
+    setSharedRoom(null);
+    setSpeech('已退出共養小屋，切回個人照顧模式。');
+    pushFeedback('已退出兩人共養', '☁️');
+    return null;
+  };
+
   const handleConfirmReset = () => {
     clearAnimationTimers();
+    if (sharedRoom) {
+      const leavingRoomId = sharedRoom.id;
+      lastSharedUpdatedAtRef.current = null;
+      setSharedRoom(null);
+      void leaveSharedPetRoom(leavingRoomId);
+    }
     const fresh = resetGameState();
     prevStageLevelRef.current = getGrowthStage(fresh.pet.growth).level;
     setGame(fresh);
@@ -724,6 +982,7 @@ export default function App() {
             onEggTapSound={() => soundFX.pop(game.soundEnabled)}
             onHatchSound={() => soundFX.hatch(game.soundEnabled)}
             onOpenCloudAuth={() => setAuthModalOpen(true)}
+            onOpenSharedPet={() => setSharedModalOpen(true)}
           />
         ) : (
           <>
@@ -801,6 +1060,9 @@ export default function App() {
                   onBath={handleBath}
                   onWalk={handleWalk}
                   onGoToCanteen={() => setActiveTab('canteen')}
+                  sharedRoom={sharedRoom}
+                  currentUserId={cloudUser?.id ?? null}
+                  onOpenSharedPet={() => setSharedModalOpen(true)}
                 />
               )}
 
@@ -836,6 +1098,8 @@ export default function App() {
                   cloudUser={cloudUser}
                   syncStatus={syncStatus}
                   onOpenCloudAuth={() => setAuthModalOpen(true)}
+                  sharedRoom={sharedRoom}
+                  onOpenSharedPet={() => setSharedModalOpen(true)}
                 />
               )}
 
@@ -882,6 +1146,8 @@ export default function App() {
           localPetLevel={game.pet.level}
           localPetWeight={game.pet.weight}
           localHatched={game.pet.hatched}
+          sharedRoom={sharedRoom}
+          onOpenSharedPet={() => setSharedModalOpen(true)}
           onAuthSuccess={(loggedInUser) => {
             setCloudUser(loggedInUser);
             if (lastHandledUserIdRef.current !== loggedInUser.id) {
@@ -894,6 +1160,23 @@ export default function App() {
           onForceDownload={handleForceDownload}
           onResolveConflictUseCloud={handleResolveConflictUseCloud}
           onResolveConflictUseLocal={handleResolveConflictUseLocal}
+        />
+
+        <SharedPetModal
+          open={sharedModalOpen}
+          onClose={() => setSharedModalOpen(false)}
+          isConfigured={isSupabaseConfigured}
+          cloudUser={cloudUser}
+          sharedRoom={sharedRoom}
+          syncStatus={syncStatus}
+          localPetName={game.pet.name}
+          localHatched={game.pet.hatched}
+          onOpenCloudAuth={() => setAuthModalOpen(true)}
+          onCreateSharedRoom={handleCreateSharedRoom}
+          onJoinSharedRoom={handleJoinSharedRoom}
+          onRegenerateInviteCode={handleRegenerateInviteCode}
+          onLeaveSharedRoom={handleLeaveSharedRoom}
+          onRefreshSharedRoom={handleRefreshSharedRoom}
         />
       </div>
     </div>

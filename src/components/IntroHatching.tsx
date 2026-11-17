@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cloud } from 'lucide-react';
+import { Cloud, Users } from 'lucide-react';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface IntroHatchingProps {
@@ -8,6 +8,7 @@ interface IntroHatchingProps {
   onEggTapSound: () => void;
   onHatchSound: () => void;
   onOpenCloudAuth?: () => void;
+  onOpenSharedPet?: () => void;
 }
 
 export const IntroHatching: React.FC<IntroHatchingProps> = ({
@@ -16,6 +17,7 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
   onEggTapSound,
   onHatchSound,
   onOpenCloudAuth,
+  onOpenSharedPet,
 }) => {
   const [taps, setTaps] = useState(0);
   const [wobbleKey, setWobbleKey] = useState(0);
@@ -197,16 +199,28 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
       </div>
 
       <div className="flex flex-col items-center gap-2 text-center">
-        {onOpenCloudAuth && (
-          <button
-            type="button"
-            onClick={onOpenCloudAuth}
-            className="min-h-[40px] px-4 rounded-2xl bg-white/80 border border-[#F0D3DC] text-xs font-extrabold text-[#B85776] inline-flex items-center gap-1.5 hover:bg-white active:scale-95 transition"
-          >
-            <Cloud className="w-3.5 h-3.5" />
-            <span>已有雲端帳號？登入載入小豬</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {onOpenCloudAuth && (
+            <button
+              type="button"
+              onClick={onOpenCloudAuth}
+              className="min-h-[40px] px-3.5 rounded-2xl bg-white/85 border border-[#F0D3DC] text-xs font-extrabold text-[#B85776] inline-flex items-center gap-1.5 hover:bg-white active:scale-95 transition"
+            >
+              <Cloud className="w-3.5 h-3.5" />
+              <span>登入載入小豬</span>
+            </button>
+          )}
+          {onOpenSharedPet && (
+            <button
+              type="button"
+              onClick={onOpenSharedPet}
+              className="min-h-[40px] px-3.5 rounded-2xl bg-[#E8F8F2] border border-[#B2E3D1] text-xs font-extrabold text-[#256D57] inline-flex items-center gap-1.5 hover:bg-[#D8F3E9] active:scale-95 transition"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>輸入邀請碼加入共養</span>
+            </button>
+          )}
+        </div>
         <p className="text-xs text-[#917973]">
           所有成長與體重紀錄皆安全保存在本機裝置中
         </p>
