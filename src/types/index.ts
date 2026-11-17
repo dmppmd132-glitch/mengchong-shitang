@@ -105,6 +105,32 @@ export interface GrowthStageInfo {
   unlockedSlots: AccessorySlot[];
 }
 
+export type PetStickerId =
+  | 'heart'
+  | 'hungry'
+  | 'happy'
+  | 'sleepy'
+  | 'cheers'
+  | 'hug'
+  | 'walk'
+  | 'thankyou';
+
+export interface PetStickerInfo {
+  id: PetStickerId;
+  label: string;
+  caption: string;
+  bgClass: string;
+}
+
+export interface PetMessage {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  stickerId: PetStickerId | null;
+  createdAt: number;
+}
+
 export interface GameState {
   version: number;
   pet: Pet;
@@ -115,6 +141,7 @@ export interface GameState {
   feedLogs: FeedLog[];
   dailyTasks: DailyTask[];
   dailyTasksDate: string;
+  messages: PetMessage[];
   soundEnabled: boolean;
   lastSavedAt: number;
 }

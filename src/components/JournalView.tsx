@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Cloud, Minus, Plus, RotateCcw, Scale, Users } from 'lucide-react';
+import { Cloud, MessageCircleHeart, Minus, Plus, RotateCcw, Scale, Users } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
 import { CloudSyncStatus, CloudUser, Pet, SharedPetRoom, WeightLog } from '../types';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
@@ -14,6 +14,8 @@ interface JournalViewProps {
   onOpenCloudAuth?: () => void;
   sharedRoom?: SharedPetRoom | null;
   onOpenSharedPet?: () => void;
+  messageCount?: number;
+  onOpenMessageBoard?: () => void;
 }
 
 interface ChartPoint {
@@ -32,6 +34,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onOpenCloudAuth,
   sharedRoom = null,
   onOpenSharedPet,
+  messageCount = 0,
+  onOpenMessageBoard,
 }) => {
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
@@ -425,6 +429,25 @@ export const JournalView: React.FC<JournalViewProps> = ({
           </div>
         )}
       </section>
+
+      {onOpenMessageBoard && (
+        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-[#4A3531]">小豬留言板與貼圖</h2>
+            <p className="text-xs text-[#7D635D] mt-0.5 truncate">
+              目前已累積 {messageCount} 則留言與可愛貼圖
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenMessageBoard}
+            className="min-h-[44px] px-4 rounded-2xl bg-[#FFF3D8] border border-[#F2D59B] text-xs font-extrabold text-[#8A5A12] inline-flex items-center gap-1.5 hover:bg-[#FFE9BF] active:scale-95 transition whitespace-nowrap shrink-0"
+          >
+            <MessageCircleHeart className="w-3.5 h-3.5" />
+            <span>開啟留言板</span>
+          </button>
+        </section>
+      )}
 
       {onOpenSharedPet && (
         <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">

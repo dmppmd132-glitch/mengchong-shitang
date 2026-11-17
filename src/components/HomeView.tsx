@@ -1,12 +1,24 @@
 import React, { useState } from 'react';
-import { Bath, Footprints, Heart, Moon, Sparkles, Users, UtensilsCrossed, X } from 'lucide-react';
+import {
+  Bath,
+  Footprints,
+  Heart,
+  MessageCircleHeart,
+  Moon,
+  Sparkles,
+  Users,
+  UtensilsCrossed,
+  X,
+} from 'lucide-react';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
 import { getGrowthRemaining, getRoundnessTier } from '../data/growth';
+import { getStickerById } from '../data/stickers';
 import {
   FloatingFeedback,
   Food,
   FoodCategory,
   Pet,
+  PetMessage,
   PiggyActionState,
   SharedPetRoom,
 } from '../types';
@@ -28,6 +40,9 @@ interface HomeViewProps {
   sharedRoom?: SharedPetRoom | null;
   currentUserId?: string | null;
   onOpenSharedPet?: () => void;
+  latestMessage?: PetMessage | null;
+  unreadMessagesCount?: number;
+  onOpenMessageBoard?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -60,6 +75,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   sharedRoom = null,
   currentUserId = null,
   onOpenSharedPet,
+  latestMessage = null,
+  unreadMessagesCount = 0,
+  onOpenMessageBoard,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -278,6 +296,42 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <span>散步</span>
         </button>
       </section>
+
+      {onOpenMessageBoard && (
+        <button
+          type="button"
+          onClick={onOpenMessageBoard}
+          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#F4DFD7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF5F8] active:scale-[0.99] transition text-left"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FFEAF0] text-[#D64470] flex items-center justify-center shrink-0">
+              <MessageCircleHeart className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-extrabold text-[#4A3531]">小豬留言板與貼圖</span>
+                {unreadMessagesCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-lg bg-[#FF5A87] text-white text-[10px] font-extrabold tabular-nums">
+                    {unreadMessagesCount} 則新訊息
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-[#7D635D] truncate">
+                {latestMessage
+                  ? `${latestMessage.authorName}：${
+                      latestMessage.stickerId
+                        ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
+                        : ''
+                    }${latestMessage.content}`
+                  : '傳送可愛小豬貼圖或悄悄話給夥伴'}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            打開 ›
+          </span>
+        </button>
+      )}
 
       {foodDrawerOpen && (
         <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#FAD5E0] p-4 shadow-lg space-y-3">

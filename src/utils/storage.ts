@@ -2,12 +2,14 @@ import { INITIAL_UNLOCKED_ACCESSORIES } from '../data/accessories';
 import { INITIAL_FOOD_INVENTORY } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
 import { createInitialDailyTasks } from '../data/quests';
+import { isValidStickerId } from '../data/stickers';
 import {
   AccessorySlot,
   DailyTask,
   FeedLog,
   GameState,
   Pet,
+  PetMessage,
   PetSpecies,
   WeightLog,
 } from '../types';
@@ -77,6 +79,7 @@ export function createInitialGameState(): GameState {
     feedLogs: [],
     dailyTasks: createInitialDailyTasks(),
     dailyTasksDate: today,
+    messages: [],
     soundEnabled: true,
     lastSavedAt: Date.now(),
   };
@@ -217,6 +220,28 @@ function parseFeedLogs(raw: unknown): FeedLog[] {
   return logs;
 }
 
+function parsePetMessages(raw: unknown): PetMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const messages: PetMessage[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const id = asString(item.id, '');
+    if (!id) continue;
+    const content = asString(item.content, '');
+    const stickerId = isValidStickerId(item.stickerId) ? item.stickerId : null;
+    if (!content && !stickerId) continue;
+    messages.push({
+      id,
+      authorId: asString(item.authorId, 'local'),
+      authorName: asString(item.authorName, '飼主'),
+      content,
+      stickerId,
+      createdAt: asNumber(item.createdAt, Date.now()),
+    });
+  }
+  return messages.slice(-80);
+}
+
 function parseDailyTasks(raw: unknown): DailyTask[] {
   const defaults = createInitialDailyTasks();
   if (!Array.isArray(raw)) return defaults;
@@ -301,6 +326,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     feedLogs: [],
     dailyTasks: syncedTasks.dailyTasks,
     dailyTasksDate: syncedTasks.dailyTasksDate,
+    messages: [],
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
     lastSavedAt: now,
   };
@@ -355,6 +381,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     feedLogs: parseFeedLogs(parsed.feedLogs),
     dailyTasks: syncedTasks.dailyTasks,
     dailyTasksDate: syncedTasks.dailyTasksDate,
+    messages: parsePetMessages(parsed.messages),
     soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
     lastSavedAt: now,
   };

@@ -1,7 +1,7 @@
 # 萌寵食堂
 
 可愛療癒的繁體中文行動裝置優先電子寵物養成 PWA 遊戲。  
-預設支援本機 `localStorage` 離線遊玩，亦可選配 **Supabase 帳號登入與雲端存檔**，以及 **兩人共養與 6 碼邀請碼即時同步**，與伴侶或朋友一起餵食、紀錄體重與幫小豬穿搭。
+預設支援本機 `localStorage` 離線遊玩，亦可選配 **Supabase 帳號登入與雲端存檔**、**兩人共養與 6 碼邀請碼即時同步**，以及 **小豬留言板與原創貼圖**，與伴侶或朋友一起照顧與傳送可愛悄悄話。
 
 ## 專案架構
 
@@ -14,19 +14,21 @@ public/
   pwa-512x512.png             # PWA 圖示 (512x512)
   pwa-maskable-512x512.png    # Android Maskable 圖示 (512x512)
 supabase/
-  schema.sql                  # pet_saves、shared_pets 資料表、RLS 安全規則與邀請碼 RPC 函式
+  schema.sql                  # pet_saves、shared_pets、pet_messages 資料表、RLS 安全規則與 RPC 函式
 src/
-  types/index.ts              # Pet、Food、Accessory、WeightLog、FeedLog、DailyTask、GameState、SharedPetRoom 等型別
+  types/index.ts              # Pet、Food、Accessory、WeightLog、FeedLog、DailyTask、PetMessage、SharedPetRoom 等型別
   lib/
     supabase.ts               # Supabase 用戶端初始化與環境變數檢查
   services/
     cloudSync.ts              # Supabase Email 登入/註冊與 pet_saves 雲端同步服務
     sharedPet.ts              # 兩人共養、6 碼邀請碼建立/加入/退出與 Realtime 即時同步服務
+    messageBoard.ts           # 共養留言板與貼圖讀寫及 Realtime 訂閱服務
   data/
     foods.ts                  # 正餐、零食、速食資料與初始庫存
     accessories.ts            # 頭部、臉部、脖子、身體配件資料
     growth.ts                 # 成長階段與圓滾滾體態等級邏輯
     quests.ts                 # 每日任務定義
+    stickers.ts               # 8 款可愛原創小豬貼圖定義
   utils/
     storage.ts                # localStorage 讀寫、時間衰減、每日任務重設、狀態正規化
     sound.ts                  # Web Audio API 輕量化可愛音效
@@ -37,12 +39,14 @@ src/
     IntroHatching.tsx         # 開場粉紅蛋點擊孵化與命名畫面（含登入與邀請碼加入入口）
     AuthSyncModal.tsx         # Supabase 登入/註冊、同步狀態管理與存檔衝突選擇彈窗
     SharedPetModal.tsx        # 兩人共養與 6 碼邀請碼建立、複製、加入與退出彈窗
+    MessageBoardModal.tsx     # 小豬留言板與原創貼圖互動視窗
+    PiggySticker.tsx          # 8 款原創粉紅小豬 SVG 貼圖元件
     PiggyCharacter.tsx        # 可愛 SVG 動畫小豬與即時配件穿戴層
     AccessoryPreview.tsx      # 衣櫃配件 SVG 預覽圖示
-    HomeView.tsx              # 主畫面：狀態條、摸摸、餵食動畫、照護按鈕與共養狀態提示
+    HomeView.tsx              # 主畫面：狀態條、摸摸、餵食動畫、照護按鈕、共養與留言板入口
     CanteenView.tsx           # 食堂頁面：食物分類、購買與餵食
     WardrobeView.tsx          # 衣櫃頁面：穿戴、脫下與解鎖配件
-    JournalView.tsx           # 成長手帳：7/30 天體重折線圖、手動輸入體重、兩人共養、雲端同步與重置管理
+    JournalView.tsx           # 成長手帳：7/30 天體重折線圖、手動輸入體重、留言板、共養與重置管理
     QuestsView.tsx            # 每日任務：進度條與領取金幣/食材獎勵
     BottomTabBar.tsx          # 固定底部五分頁導覽列
     LevelUpModal.tsx          # 成長升級彈窗

@@ -7,6 +7,7 @@ import { HomeView } from './components/HomeView';
 import { IntroHatching } from './components/IntroHatching';
 import { JournalView } from './components/JournalView';
 import { LevelUpModal } from './components/LevelUpModal';
+import { MessageBoardModal } from './components/MessageBoardModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { QuestsView } from './components/QuestsView';
@@ -15,12 +16,19 @@ import { SharedPetModal } from './components/SharedPetModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
+import { getStickerById } from './data/stickers';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   fetchCloudSave,
   signOutCloud,
   upsertCloudSave,
 } from './services/cloudSync';
+import {
+  deleteSharedMessage,
+  fetchSharedMessages,
+  sendSharedMessage,
+  subscribeToSharedMessages,
+} from './services/messageBoard';
 import {
   createSharedPetRoom,
   fetchMySharedPet,
@@ -40,6 +48,8 @@ import {
   Food,
   GameState,
   GrowthStageInfo,
+  PetMessage,
+  PetStickerId,
   PiggyActionState,
   SharedPetRoom,
   TabKey,
@@ -75,8 +85,13 @@ export default function App() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [sharedModalOpen, setSharedModalOpen] = useState<boolean>(false);
+  const [messageModalOpen, setMessageModalOpen] = useState<boolean>(false);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
   const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
+  const [sharedMessages, setSharedMessages] = useState<PetMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
 
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
@@ -85,8 +100,10 @@ export default function App() {
   const skipNextCloudUploadRef = useRef<boolean>(false);
   const lastHandledUserIdRef = useRef<string | null>(null);
   const lastSharedUpdatedAtRef = useRef<string | null>(null);
+  const messageModalOpenRef = useRef<boolean>(messageModalOpen);
 
   gameRef.current = game;
+  messageModalOpenRef.current = messageModalOpen;
 
   useEffect(() => {
     saveGameState(game);
@@ -292,6 +309,66 @@ export default function App() {
       window.removeEventListener('online', handleResumeSync);
     };
   }, [cloudUser, sharedRoom?.id, applyCloudStateLocally]);
+
+  // 共養留言板與貼圖載入＋Realtime 訂閱
+  useEffect(() => {
+    if (!isSupabaseConfigured || !cloudUser || !sharedRoom) {
+      setSharedMessages([]);
+      setMessagesError(null);
+      setMessagesLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    const roomId = sharedRoom.id;
+    setMessagesLoading(true);
+    setMessagesError(null);
+
+    void fetchSharedMessages(roomId).then((res) => {
+      if (!mounted) return;
+      setMessagesLoading(false);
+      if (res.error) {
+        setMessagesError(res.error);
+      } else {
+        setSharedMessages(res.messages);
+      }
+    });
+
+    const unsubscribeMessages = subscribeToSharedMessages(roomId, {
+      onInsert: (incoming) => {
+        if (!mounted) return;
+        setSharedMessages((prev) => {
+          if (prev.some((m) => m.id === incoming.id)) return prev;
+          return [...prev, incoming].slice(-80);
+        });
+
+        if (incoming.authorId !== cloudUser.id) {
+          soundFX.heart(gameRef.current.soundEnabled);
+          if (!messageModalOpenRef.current) {
+            setUnreadMessagesCount((c) => c + 1);
+          }
+          const stickerInfo = getStickerById(incoming.stickerId);
+          const toastText = stickerInfo
+            ? `夥伴傳來「${stickerInfo.label}」貼圖！`
+            : '夥伴傳來新留言！';
+          const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: toastText, emoji: '💌' }]);
+          window.setTimeout(() => {
+            setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
+          }, 1600);
+        }
+      },
+      onDelete: (deletedId) => {
+        if (!mounted) return;
+        setSharedMessages((prev) => prev.filter((m) => m.id !== deletedId));
+      },
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribeMessages();
+    };
+  }, [cloudUser, sharedRoom?.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !cloudUser || pendingCloudSave || !game.pet.hatched) {
@@ -939,12 +1016,96 @@ export default function App() {
     return null;
   };
 
+  const handleOpenMessageBoard = () => {
+    setUnreadMessagesCount(0);
+    setMessageModalOpen(true);
+  };
+
+  const handleSendMessage = async (
+    content: string,
+    stickerId: PetStickerId | null
+  ): Promise<string | null> => {
+    const cleanText = content.trim();
+    if (!cleanText && !stickerId) {
+      return '請輸入留言或選擇一張貼圖！';
+    }
+
+    const stickerInfo = getStickerById(stickerId);
+
+    if (sharedRoom && cloudUser) {
+      const res = await sendSharedMessage({
+        sharedPetId: sharedRoom.id,
+        authorId: cloudUser.id,
+        authorEmail: cloudUser.email,
+        content: cleanText,
+        stickerId,
+      });
+      if (res.error || !res.message) {
+        return res.error ?? '傳送失敗，請稍後再試。';
+      }
+      const created = res.message;
+      setSharedMessages((prev) => {
+        if (prev.some((m) => m.id === created.id)) return prev;
+        return [...prev, created].slice(-80);
+      });
+      soundFX.heart(game.soundEnabled);
+      if (stickerInfo) {
+        setSpeech(stickerInfo.caption);
+      } else {
+        setSpeech('收到你的悄悄話囉～🩷');
+      }
+      return null;
+    }
+
+    const authorLabel = cloudUser?.email
+      ? cloudUser.email.split('@')[0] || '飼主'
+      : '飼主';
+    const localMsg: PetMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      authorId: cloudUser?.id ?? 'local',
+      authorName: authorLabel,
+      content: cleanText,
+      stickerId,
+      createdAt: Date.now(),
+    };
+
+    setGame((prev) => ({
+      ...prev,
+      messages: [...prev.messages, localMsg].slice(-80),
+    }));
+    soundFX.heart(game.soundEnabled);
+    if (stickerInfo) {
+      setSpeech(stickerInfo.caption);
+    } else {
+      setSpeech('悄悄話已記在留言板裡囉！');
+    }
+    return null;
+  };
+
+  const handleDeleteMessage = async (messageId: string): Promise<void> => {
+    if (sharedRoom && cloudUser) {
+      const res = await deleteSharedMessage(messageId);
+      if (res.error) {
+        setMessagesError(res.error);
+        return;
+      }
+      setSharedMessages((prev) => prev.filter((m) => m.id !== messageId));
+      return;
+    }
+
+    setGame((prev) => ({
+      ...prev,
+      messages: prev.messages.filter((m) => m.id !== messageId),
+    }));
+  };
+
   const handleConfirmReset = () => {
     clearAnimationTimers();
     if (sharedRoom) {
       const leavingRoomId = sharedRoom.id;
       lastSharedUpdatedAtRef.current = null;
       setSharedRoom(null);
+      setSharedMessages([]);
       void leaveSharedPetRoom(leavingRoomId);
     }
     const fresh = resetGameState();
@@ -955,9 +1116,14 @@ export default function App() {
     setFlyingFoodEmoji(null);
     setSpeech('今天也想吃好吃的！');
     setFeedbacks([]);
+    setUnreadMessagesCount(0);
     setLevelUpStage(null);
     setResetModalOpen(false);
   };
+
+  const activeMessages = sharedRoom ? sharedMessages : game.messages;
+  const latestMessage =
+    activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
 
   const claimableQuestsCount = game.dailyTasks.filter(
     (t) => t.completed && !t.claimed
@@ -1063,6 +1229,9 @@ export default function App() {
                   sharedRoom={sharedRoom}
                   currentUserId={cloudUser?.id ?? null}
                   onOpenSharedPet={() => setSharedModalOpen(true)}
+                  latestMessage={latestMessage}
+                  unreadMessagesCount={unreadMessagesCount}
+                  onOpenMessageBoard={handleOpenMessageBoard}
                 />
               )}
 
@@ -1100,6 +1269,8 @@ export default function App() {
                   onOpenCloudAuth={() => setAuthModalOpen(true)}
                   sharedRoom={sharedRoom}
                   onOpenSharedPet={() => setSharedModalOpen(true)}
+                  messageCount={activeMessages.length}
+                  onOpenMessageBoard={handleOpenMessageBoard}
                 />
               )}
 
@@ -1177,6 +1348,19 @@ export default function App() {
           onRegenerateInviteCode={handleRegenerateInviteCode}
           onLeaveSharedRoom={handleLeaveSharedRoom}
           onRefreshSharedRoom={handleRefreshSharedRoom}
+        />
+
+        <MessageBoardModal
+          open={messageModalOpen}
+          onClose={() => setMessageModalOpen(false)}
+          petName={game.pet.name}
+          messages={activeMessages}
+          loading={messagesLoading}
+          error={messagesError}
+          currentUserId={cloudUser?.id ?? null}
+          sharedRoom={sharedRoom}
+          onSendMessage={handleSendMessage}
+          onDeleteMessage={handleDeleteMessage}
         />
       </div>
     </div>

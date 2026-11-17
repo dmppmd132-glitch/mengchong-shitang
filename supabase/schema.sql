@@ -352,3 +352,70 @@ begin
   return false;
 end;
 $$;
+
+-- 8. 兩人共養留言板與貼圖資料表
+create table if not exists public.pet_messages (
+  id uuid primary key default gen_random_uuid(),
+  shared_pet_id uuid not null references public.shared_pets(id) on delete cascade,
+  author_id uuid not null references auth.users(id) on delete cascade,
+  author_email text not null default '',
+  content text not null default '',
+  sticker_id text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_pet_messages_room_created
+  on public.pet_messages (shared_pet_id, created_at desc);
+
+alter table public.pet_messages enable row level security;
+
+drop policy if exists "Shared pet members can read messages" on public.pet_messages;
+create policy "Shared pet members can read messages"
+  on public.pet_messages
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.shared_pets sp
+      where sp.id = shared_pet_id
+        and (sp.owner_id = auth.uid() or sp.partner_id = auth.uid())
+    )
+  );
+
+drop policy if exists "Shared pet members can insert messages" on public.pet_messages;
+create policy "Shared pet members can insert messages"
+  on public.pet_messages
+  for insert
+  to authenticated
+  with check (
+    auth.uid() = author_id
+    and exists (
+      select 1
+      from public.shared_pets sp
+      where sp.id = shared_pet_id
+        and (sp.owner_id = auth.uid() or sp.partner_id = auth.uid())
+    )
+  );
+
+drop policy if exists "Authors can delete own pet messages" on public.pet_messages;
+create policy "Authors can delete own pet messages"
+  on public.pet_messages
+  for delete
+  to authenticated
+  using (auth.uid() = author_id);
+
+-- 開啟留言板 Realtime 即時同步
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'pet_messages'
+  ) then
+    alter publication supabase_realtime add table public.pet_messages;
+  end if;
+end $$;
+
