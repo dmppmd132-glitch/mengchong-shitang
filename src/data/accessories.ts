@@ -186,6 +186,15 @@ export const ACCESSORIES: Accessory[] = [
     price: 60,
     initialUnlocked: false,
   },
+  {
+    id: 'anniversary_bib',
+    name: '一週紀念圍兜',
+    slot: 'neck',
+    emoji: '🎂',
+    description: '新手 7 天成長之路第 7 天專屬紀念圍兜，繡著金色小星章！',
+    price: 0,
+    initialUnlocked: false,
+  },
 
   // body
   {

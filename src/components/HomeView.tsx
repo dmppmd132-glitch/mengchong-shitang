@@ -7,15 +7,19 @@ import {
   MessageCircleHeart,
   Moon,
   Sparkles,
+  Sprout,
   Users,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
+import { getTitleDefinition } from '../data/encyclopedia';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
 import { getGrowthRemaining, getRoundnessTier } from '../data/growth';
+import { STAGE_BACKGROUNDS } from '../data/noviceGrowth';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
 import {
+  FeedingVisualEffect,
   FloatingFeedback,
   Food,
   FoodCategory,
@@ -25,6 +29,8 @@ import {
   PetTouchZone,
   PiggyActionState,
   SharedPetRoom,
+  StageBackgroundId,
+  TitleId,
 } from '../types';
 import { PiggyCharacter } from './PiggyCharacter';
 
@@ -33,6 +39,8 @@ interface HomeViewProps {
   action: PiggyActionState;
   expression?: PetExpression;
   flyingFoodEmoji: string | null;
+  feedEffect?: FeedingVisualEffect;
+  feedParticles?: string[];
   speech: string;
   feedbacks: FloatingFeedback[];
   inventory: Record<string, number>;
@@ -43,6 +51,12 @@ interface HomeViewProps {
   onWalk: () => void;
   onGoToCanteen: () => void;
   onOpenMinigame?: () => void;
+  onOpenNoviceGrowth?: () => void;
+  noviceClaimableCount?: number;
+  activeTitle?: TitleId | null;
+  activeBackground?: StageBackgroundId;
+  unlockedBackgrounds?: StageBackgroundId[];
+  onSelectBackground?: (bg: StageBackgroundId) => void;
   sharedRoom?: SharedPetRoom | null;
   currentUserId?: string | null;
   onOpenSharedPet?: () => void;
@@ -70,6 +84,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   action,
   expression = 'normal',
   flyingFoodEmoji,
+  feedEffect = 'none',
+  feedParticles = [],
   speech,
   feedbacks,
   inventory,
@@ -80,6 +96,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onWalk,
   onGoToCanteen,
   onOpenMinigame,
+  onOpenNoviceGrowth,
+  noviceClaimableCount = 0,
+  activeTitle = null,
+  activeBackground = 'default',
+  unlockedBackgrounds = ['default'],
+  onSelectBackground,
   sharedRoom = null,
   currentUserId = null,
   onOpenSharedPet,
@@ -95,6 +117,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const growthInfo = getGrowthRemaining(pet.growth);
   const roundnessTier = getRoundnessTier(pet.roundness);
   const speciesInfo = getPetSpeciesInfo(pet.species);
+  const stageBgConfig = STAGE_BACKGROUNDS[activeBackground] ?? STAGE_BACKGROUNDS.default;
+  const activeTitleDef = activeTitle ? getTitleDefinition(activeTitle) : null;
 
   const filteredFoods = FOODS.filter((f) => f.category === selectedCategory);
 
@@ -115,13 +139,21 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F5DFD7] p-3.5 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-extrabold text-[#4A3531] truncate">
                 {pet.name}
               </h2>
               <span className="text-xs font-bold text-[#B84A6F]">
                 Lv.{growthInfo.currentStage.level} {growthInfo.currentStage.name}
               </span>
+              {activeTitleDef && (
+                <span
+                  className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg border text-[10px] font-extrabold ${activeTitleDef.badgeClass}`}
+                >
+                  <span aria-hidden="true">{activeTitleDef.emoji}</span>
+                  <span>{activeTitleDef.name}</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#826862] mt-0.5 tabular-nums">
               體重 {pet.weight.toFixed(1)} kg · {roundnessTier.label} · 親密值 {pet.intimacy}
@@ -229,8 +261,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
         }}
         onDragLeave={() => setIsDropOver(false)}
         onDrop={handleDropOnPiggy}
-        className="relative rounded-3xl bg-gradient-to-b from-[#FFEAF0] via-[#FFF9EA] to-[#E6F8F1] border-2 border-[#F5DFD7] px-4 pt-5 pb-4 flex flex-col items-center justify-center min-h-[270px] overflow-hidden"
+        className={`relative rounded-3xl ${stageBgConfig.stageClass} border-2 border-[#F5DFD7] px-4 pt-5 pb-4 flex flex-col items-center justify-center min-h-[270px] overflow-hidden`}
       >
+        {activeBackground === 'starlight_garden' && (
+          <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
+            <span className="absolute left-5 top-4 text-sm">✨</span>
+            <span className="absolute right-8 top-6 text-xs">🌟</span>
+            <span className="absolute left-10 bottom-10 text-xs">🌙</span>
+            <span className="absolute right-6 bottom-12 text-sm">✨</span>
+          </div>
+        )}
+
+        {unlockedBackgrounds.length > 1 && onSelectBackground && (
+          <button
+            type="button"
+            onClick={() =>
+              onSelectBackground(
+                activeBackground === 'starlight_garden' ? 'default' : 'starlight_garden'
+              )
+            }
+            className="absolute right-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/85 border border-[#E6D6E8] text-[10px] font-extrabold text-[#5E478C] hover:bg-white transition"
+          >
+            {activeBackground === 'starlight_garden' ? '🌌 星光花園' : '☀️ 暖陽食堂'}
+          </button>
+        )}
+
         <div className="min-h-[34px] mb-1 flex items-center justify-center">
           {speech && (
             <div className="relative rounded-2xl bg-white/95 border border-[#F1D5DF] px-4 py-1.5 text-xs font-extrabold text-[#4A3531] shadow-xs text-center max-w-[260px]">
@@ -259,6 +314,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           expression={expression}
           equipped={pet.accessories}
           flyingFoodEmoji={flyingFoodEmoji}
+          feedEffect={feedEffect}
+          feedParticles={feedParticles}
           onPet={onPet}
           size={206}
           isDropTarget={isDropOver}
@@ -329,6 +386,38 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
           <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">
             開始玩 ›
+          </span>
+        </button>
+      )}
+
+      {onOpenNoviceGrowth && (
+        <button
+          type="button"
+          onClick={onOpenNoviceGrowth}
+          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#C7EAE0] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#F3FCF8] active:scale-[0.99] transition text-left"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#E3F7F0] text-[#256D57] flex items-center justify-center shrink-0">
+              <Sprout className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-extrabold text-[#4A3531]">
+                  新手 7 天成長之路
+                </span>
+                {noviceClaimableCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-lg bg-[#3BA886] text-white text-[10px] font-extrabold">
+                    可領獎勵
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-[#7D635D] truncate">
+                完成每日目標拿金幣、配件、限定背景與一週紀念圍兜
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#256D57] whitespace-nowrap shrink-0">
+            查看 ›
           </span>
         </button>
       )}

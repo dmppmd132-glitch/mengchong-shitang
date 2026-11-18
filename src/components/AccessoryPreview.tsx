@@ -220,6 +220,31 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <path d="M 0 -5 L 2 -1 L 6 0 L 3 3 L 4 7 L 0 5 L -4 7 L -3 3 L -6 0 L -2 -1 Z" fill="#FFE066" stroke="#5A3E36" strokeWidth="1.6" />
         </g>
       )}
+      {accessoryId === 'anniversary_bib' && (
+        <g transform="translate(32, 32)">
+          <path
+            d="M -21 -14 Q 0 -3 21 -14 Q 25 15 0 21 Q -25 15 -21 -14 Z"
+            fill="#FFE1EC"
+            stroke="#5A3E36"
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M -16 8 Q 0 15 16 8"
+            fill="none"
+            stroke="#FFD54F"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 0 -4 L 2.6 1 L 8 1.8 L 4 5.5 L 5 11 L 0 8.2 L -5 11 L -4 5.5 L -8 1.8 L -2.6 1 Z"
+            fill="#FFD54F"
+            stroke="#5A3E36"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+        </g>
+      )}
     </svg>
   );
 };

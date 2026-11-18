@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Cloud, MessageCircleHeart, Minus, Plus, RotateCcw, Scale, Users } from 'lucide-react';
+import { BookOpen, Cloud, MessageCircleHeart, Minus, NotebookPen, Plus, RotateCcw, Scale, Users } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
-import { CloudSyncStatus, CloudUser, Pet, SharedPetRoom, WeightLog } from '../types';
+import { CloudSyncStatus, CloudUser, EncyclopediaState, Pet, SharedPetRoom, TitleId, WeightLog } from '../types';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
+import { EncyclopediaView } from './EncyclopediaView';
 
 interface JournalViewProps {
   pet: Pet;
@@ -16,6 +17,9 @@ interface JournalViewProps {
   onOpenSharedPet?: () => void;
   messageCount?: number;
   onOpenMessageBoard?: () => void;
+  encyclopedia: EncyclopediaState;
+  unlockedAccessories: string[];
+  onSelectTitle?: (titleId: TitleId | null) => void;
 }
 
 interface ChartPoint {
@@ -36,7 +40,11 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onOpenSharedPet,
   messageCount = 0,
   onOpenMessageBoard,
+  encyclopedia,
+  unlockedAccessories,
+  onSelectTitle,
 }) => {
+  const [section, setSection] = useState<'journal' | 'encyclopedia'>('journal');
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
   const [customNote, setCustomNote] = useState<string>('');
@@ -165,6 +173,42 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
+      <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setSection('journal')}
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+            section === 'journal'
+              ? 'bg-white text-[#D64470] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <NotebookPen className="w-4 h-4" />
+          <span>成長手帳</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('encyclopedia')}
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+            section === 'encyclopedia'
+              ? 'bg-white text-[#256D57] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>收集圖鑑</span>
+        </button>
+      </div>
+
+      {section === 'encyclopedia' ? (
+        <EncyclopediaView
+          encyclopedia={encyclopedia}
+          unlockedAccessories={unlockedAccessories}
+          initialSection="foods"
+          onSelectTitle={onSelectTitle}
+        />
+      ) : (
+        <>
       <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#FFF6DA] border-2 border-[#F5DFD7] p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -513,6 +557,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
           <span>重置遊戲</span>
         </button>
       </section>
+      </>
+      )}
     </div>
   );
 };

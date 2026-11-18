@@ -3,6 +3,7 @@ import { getGrowthStage } from '../data/growth';
 import { getPetSpeciesInfo } from '../data/species';
 import {
   AccessorySlot,
+  FeedingVisualEffect,
   PetExpression,
   PetSpecies,
   PetTouchZone,
@@ -17,6 +18,8 @@ interface PiggyCharacterProps {
   expression?: PetExpression;
   equipped: Record<AccessorySlot, string | null>;
   flyingFoodEmoji?: string | null;
+  feedEffect?: FeedingVisualEffect;
+  feedParticles?: string[];
   onPet?: (zone: PetTouchZone) => void;
   size?: number;
   interactive?: boolean;
@@ -31,6 +34,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   expression = 'normal',
   equipped,
   flyingFoodEmoji = null,
+  feedEffect = 'none',
+  feedParticles = [],
   onPet,
   size = 216,
   interactive = true,
@@ -94,7 +99,11 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   };
 
   const animClass =
-    action === 'eating'
+    feedEffect === 'favoriteJump'
+      ? 'animate-piggy-jump'
+      : action === 'stuffed' || feedEffect === 'stuffed'
+      ? 'animate-piggy-stuffed'
+      : action === 'eating'
       ? 'animate-piggy-chew'
       : action === 'sleeping'
       ? ''
@@ -102,7 +111,10 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
 
   const eyesClosed = isBlinking || action === 'sleeping';
   const happyArcEyes =
-    action === 'eating' || action === 'opening' || action === 'walking' || (action === 'petted' && expression === 'normal');
+    (action === 'eating' && feedEffect !== 'favoriteJump' && expression === 'normal') ||
+    action === 'opening' ||
+    action === 'walking' ||
+    (action === 'petted' && expression === 'normal');
 
   const palette =
     species === 'rabbit'
@@ -205,6 +217,27 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
         >
           <span className="text-lg animate-bounce">Z</span>
           <span className="text-sm -mt-1 mr-2 opacity-80">z</span>
+        </div>
+      )}
+
+      {(action === 'eating' || feedEffect === 'hearts' || feedEffect === 'favoriteJump') && (
+        <div className="absolute inset-0 pointer-events-none z-20" aria-hidden="true">
+          {(feedParticles.length > 0 ? feedParticles : ['🩷', '💖', '✨']).map((emoji, idx) => {
+            const positions = [
+              'left-6 top-10',
+              'right-6 top-8',
+              'left-1/2 -translate-x-1/2 top-4',
+            ];
+            return (
+              <span
+                key={`${emoji}_${idx}_${action}`}
+                className={`absolute text-xl animate-feed-burst ${positions[idx % positions.length]}`}
+                style={{ animationDelay: `${idx * 0.12}s` }}
+              >
+                {emoji}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -836,6 +869,31 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 strokeLinejoin="round"
               />
               <circle cx="0" cy="0" r="6" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.8" />
+            </g>
+          )}
+          {equipped.neck === 'anniversary_bib' && (
+            <g>
+              <path
+                d="M 90 157 Q 120 171 150 157 Q 156 187 120 195 Q 84 187 90 157 Z"
+                fill="#FFE1EC"
+                stroke="#5A3E36"
+                strokeWidth="3.5"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 97 180 Q 120 189 143 180"
+                fill="none"
+                stroke="#FFD54F"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 120 168 L 122.5 173 L 128 173.8 L 124 177.5 L 125 183 L 120 180.2 L 115 183 L 116 177.5 L 112 173.8 L 117.5 173 Z"
+                fill="#FFD54F"
+                stroke="#5A3E36"
+                strokeWidth="2.2"
+                strokeLinejoin="round"
+              />
             </g>
           )}
 

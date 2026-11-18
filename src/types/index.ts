@@ -185,6 +185,46 @@ export interface PetSpeciesInfo {
 
 export type CatchGameMode = 'apple' | 'fries';
 
+export type TitleId = 'gourmet_owner' | 'fashion_stylist';
+
+export type StageBackgroundId = 'default' | 'starlight_garden';
+
+export type NoviceDayNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface NoviceGrowthStats {
+  startedDate: string;
+  claimedDays: number[];
+  lastClaimDate: string | null;
+  feedCount: number;
+  petCount: number;
+  plantedCarrotCount: number;
+  minigameCount: number;
+  cookedCount: number;
+  weightRecordCount: number;
+  boughtAccessoryCount: number;
+  walkCount: number;
+  fedFavoriteCount: number;
+  completedDailyTasksCount: number;
+  createdSharedRoom: boolean;
+}
+
+export interface EncyclopediaState {
+  collectedFoodIds: string[];
+  claimedAccessoryMilestones: number[];
+  unlockedTitles: TitleId[];
+  activeTitle: TitleId | null;
+}
+
+export type FeedingVisualEffect = 'none' | 'hearts' | 'favoriteJump' | 'stuffed';
+
+export interface FeedingReactionRule {
+  speeches: string[];
+  feedbackText: string;
+  feedbackEmoji: string;
+  expression: PetExpression;
+  particleEmojis: string[];
+}
+
 export interface GameState {
   version: number;
   pet: Pet;
@@ -200,6 +240,10 @@ export interface GameState {
   messages: PetMessage[];
   soundEnabled: boolean;
   lastSavedAt: number;
+  noviceGrowth: NoviceGrowthStats;
+  encyclopedia: EncyclopediaState;
+  unlockedBackgrounds: StageBackgroundId[];
+  activeBackground: StageBackgroundId;
 }
 
 export interface FloatingFeedback {

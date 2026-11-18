@@ -125,6 +125,48 @@
   }
 }
 
+@keyframes piggyJump {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(4px) scale(1.08, 0.92);
+  }
+  48% {
+    transform: translateY(-20px) scale(0.95, 1.07);
+  }
+  72% {
+    transform: translateY(-4px) scale(1.04, 0.96);
+  }
+}
+
+@keyframes piggyStuffed {
+  0%, 100% {
+    transform: rotate(0deg) scale(1.05, 0.96);
+  }
+  25% {
+    transform: rotate(-3deg) scale(1.07, 0.94);
+  }
+  75% {
+    transform: rotate(3deg) scale(1.07, 0.94);
+  }
+}
+
+@keyframes feedBurst {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.5);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-38px) scale(0.9);
+  }
+}
+
 .animate-piggy-float {
   animation: piggyFloat 3.2s ease-in-out infinite;
 }
@@ -135,6 +177,18 @@
 
 .animate-piggy-chew {
   animation: piggyChew 0.55s ease-in-out infinite;
+}
+
+.animate-piggy-jump {
+  animation: piggyJump 0.65s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.animate-piggy-stuffed {
+  animation: piggyStuffed 0.9s ease-in-out infinite;
+}
+
+.animate-feed-burst {
+  animation: feedBurst 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-float-up {
@@ -156,6 +210,8 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-piggy-float,
   .animate-piggy-chew,
+  .animate-piggy-jump,
+  .animate-piggy-stuffed,
   .animate-bubble-rise {
     animation: none;
   }

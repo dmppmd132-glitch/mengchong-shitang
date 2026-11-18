@@ -16,8 +16,10 @@ import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SharedPetModal } from './components/SharedPetModal';
 import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
+import { getTitleDefinition } from './data/encyclopedia';
 import { getGrowthStage } from './data/growth';
 import { INGREDIENTS } from './data/kitchen';
+import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
 import {
   TOUCH_ZONE_META,
   getPetSpeciesInfo,
@@ -53,6 +55,7 @@ import {
   CloudSyncStatus,
   CloudUser,
   FeedLog,
+  FeedingVisualEffect,
   FloatingFeedback,
   Food,
   GameState,
@@ -66,9 +69,14 @@ import {
   PetTouchZone,
   PiggyActionState,
   SharedPetRoom,
+  StageBackgroundId,
   TabKey,
+  TitleId,
   WeightLog,
 } from './types';
+import { syncEncyclopediaRewards } from './utils/encyclopedia';
+import { resolveFeedingOutcome } from './utils/feeding';
+import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
 import { soundFX } from './utils/sound';
 import {
   applyTimeDecay,
@@ -87,9 +95,12 @@ import {
 export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
+  const [questsInitialSection, setQuestsInitialSection] = useState<'daily' | 'growth'>('daily');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
   const [expressionState, setExpressionState] = useState<PetExpression>('normal');
   const [flyingFoodEmoji, setFlyingFoodEmoji] = useState<string | null>(null);
+  const [feedEffect, setFeedEffect] = useState<FeedingVisualEffect>('none');
+  const [feedParticles, setFeedParticles] = useState<string[]>([]);
   const [speech, setSpeech] = useState<string>('今天也想吃好吃的！');
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
   const [levelUpStage, setLevelUpStage] = useState<GrowthStageInfo | null>(null);
@@ -119,6 +130,12 @@ export default function App() {
   const messageModalOpenRef = useRef<boolean>(messageModalOpen);
   const lastSpeechRef = useRef<string>('');
   const lastExpressionRef = useRef<PetExpression>('normal');
+  const prevMilestonesCountRef = useRef<number>(
+    game.encyclopedia.claimedAccessoryMilestones.length
+  );
+  const prevTitlesCountRef = useRef<number>(
+    game.encyclopedia.unlockedTitles.length
+  );
 
   gameRef.current = game;
   messageModalOpenRef.current = messageModalOpen;
@@ -126,6 +143,29 @@ export default function App() {
   useEffect(() => {
     saveGameState(game);
   }, [game]);
+
+  useEffect(() => {
+    const milestoneLen = game.encyclopedia.claimedAccessoryMilestones.length;
+    if (milestoneLen > prevMilestonesCountRef.current) {
+      const latest = game.encyclopedia.claimedAccessoryMilestones[milestoneLen - 1];
+      pushFeedback(`收集 ${latest} 款配件里程碑 +50 金幣！`, '🎉');
+    }
+    prevMilestonesCountRef.current = milestoneLen;
+
+    const titlesLen = game.encyclopedia.unlockedTitles.length;
+    if (titlesLen > prevTitlesCountRef.current) {
+      const latestTitleId = game.encyclopedia.unlockedTitles[titlesLen - 1];
+      const def = getTitleDefinition(latestTitleId);
+      soundFX.levelUp(game.soundEnabled);
+      pushFeedback(`獲得稱號「${def.name}」！`, def.emoji);
+      setSpeech(`太厲害了！我們獲得專屬稱號「${def.name}」囉！`);
+    }
+    prevTitlesCountRef.current = titlesLen;
+  }, [
+    game.encyclopedia.claimedAccessoryMilestones,
+    game.encyclopedia.unlockedTitles,
+    game.soundEnabled,
+  ]);
 
   const applyCloudStateLocally = useCallback((cloudState: GameState, customSpeech?: string) => {
     skipNextCloudUploadRef.current = true;
@@ -482,6 +522,8 @@ export default function App() {
   ) => {
     clearAnimationTimers();
     setFlyingFoodEmoji(null);
+    setFeedEffect('none');
+    setFeedParticles([]);
     setActionState(nextAction);
     setExpressionState(nextExpression);
     actionTimerRef.current = window.setTimeout(() => {
@@ -500,10 +542,11 @@ export default function App() {
 
   const handleHatchComplete = (petName: string, species: PetSpecies) => {
     const now = new Date();
+    const todayStr = formatLocalDate(now);
     const speciesInfo = getPetSpeciesInfo(species);
     const initialWeightLog: WeightLog = {
       id: `wlog_${Date.now()}`,
-      date: formatLocalDate(now),
+      date: todayStr,
       weight: game.pet.weight,
       foodName: '破殼報到',
       note: `${petName}（${speciesInfo.label}）來到萌寵食堂的第一天！`,
@@ -521,6 +564,10 @@ export default function App() {
         hatched: true,
       },
       weightLogs: [initialWeightLog, ...prev.weightLogs],
+      noviceGrowth: {
+        ...prev.noviceGrowth,
+        startedDate: prev.noviceGrowth.startedDate || todayStr,
+      },
     }));
     setSpeech(`嗨～我是${petName}，${speciesInfo.greeting}`);
   };
@@ -576,6 +623,10 @@ export default function App() {
         },
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'pet_3', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          petCount: prev.noviceGrowth.petCount + 1,
+        },
       };
     });
   };
@@ -598,43 +649,44 @@ export default function App() {
     const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
     const nextFastFoodStreak =
       food.category === 'fastFood' ? game.pet.consecutiveFastFood + 1 : 0;
+    const outcome = resolveFeedingOutcome(
+      food,
+      game.pet.species,
+      nextFastFoodStreak,
+      lastSpeechRef.current
+    );
+    lastSpeechRef.current = outcome.speech;
 
     // Phase 1: Food flies toward pet + pet opens mouth
     clearAnimationTimers();
     setFlyingFoodEmoji(food.emoji);
+    setFeedEffect('none');
+    setFeedParticles([]);
     setActionState('opening');
     setExpressionState('sparkle');
     soundFX.pop(game.soundEnabled);
 
-    // Phase 2: Pet chews + favorite or regular reaction
+    // Phase 2: Pet chews + hearts/particles + data-driven reaction
     feedPhaseTimerRef.current = window.setTimeout(() => {
       setFlyingFoodEmoji(null);
       soundFX.chew(game.soundEnabled);
-      if (isFavorite) {
+      if (outcome.isFavorite && !outcome.isStuffed) {
         soundFX.petVoice(game.soundEnabled, game.pet.species);
       }
 
-      if (nextFastFoodStreak >= 3) {
-        setActionState('stuffed');
-        setExpressionState('shy');
-        setSpeech('有點撐了… 要不要帶我去散步呢？');
-        pushFeedback('有點撐了…', '💦');
-      } else if (isFavorite) {
-        setActionState('eating');
-        setExpressionState('sparkle');
-        setSpeech(speciesInfo.favoriteFoodReaction);
-        pushFeedback('最愛料理加成！', '💖');
-      } else {
-        setActionState('eating');
-        setExpressionState('happyTongue');
-        setSpeech(`${food.name}好好吃喔！幸福～`);
-        pushFeedback('好吃！', '💖');
-      }
+      setActionState(outcome.action);
+      setFeedEffect(outcome.visualEffect);
+      setFeedParticles(outcome.particleEmojis);
+      setExpressionState(outcome.expression);
+      setSpeech(outcome.speech);
+      pushFeedback(outcome.feedbackText, outcome.feedbackEmoji);
 
       actionTimerRef.current = window.setTimeout(() => {
         setActionState('idle');
+        setFeedEffect('none');
+        setFeedParticles([]);
         setExpressionState('normal');
-      }, 1350);
+      }, 1450);
     }, 480);
 
     const now = new Date();
@@ -673,7 +725,11 @@ export default function App() {
         weightChange: actualDelta,
       };
 
-      return {
+      const nextCollectedFoods = prev.encyclopedia.collectedFoodIds.includes(food.id)
+        ? prev.encyclopedia.collectedFoodIds
+        : [...prev.encyclopedia.collectedFoodIds, food.id];
+
+      const draftState: GameState = {
         ...prev,
         foods: {
           ...prev.foods,
@@ -694,7 +750,18 @@ export default function App() {
         feedLogs: [newFeedLog, ...prev.feedLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'feed_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          feedCount: prev.noviceGrowth.feedCount + 1,
+          fedFavoriteCount: prev.noviceGrowth.fedFavoriteCount + (isFavorite ? 1 : 0),
+        },
+        encyclopedia: {
+          ...prev.encyclopedia,
+          collectedFoodIds: nextCollectedFoods,
+        },
       };
+
+      return syncEncyclopediaRewards(draftState).nextState;
     });
   };
 
@@ -765,6 +832,10 @@ export default function App() {
           level: getGrowthStage(nextGrowth).level,
           intimacy: prev.pet.intimacy + 1,
         },
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          walkCount: prev.noviceGrowth.walkCount + 1,
+        },
       };
     });
   };
@@ -799,6 +870,11 @@ export default function App() {
       farmPlots: prev.farmPlots.map((p) =>
         p.id === plotId ? { ...p, cropId: ingredientId, plantedAt, durationMs } : p
       ),
+      noviceGrowth: {
+        ...prev.noviceGrowth,
+        plantedCarrotCount:
+          prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
+      },
     }));
     setSpeech(`種下${info.name}種子囉，再等 ${info.growSeconds} 秒就可以收成了！`);
   };
@@ -838,7 +914,11 @@ export default function App() {
         nextIngredients[id] = Math.max(0, (nextIngredients[id] ?? 0) - need);
       }
       const nextGrowth = prev.pet.growth + recipe.bonusGrowth;
-      return {
+      const nextCollectedFoods = prev.encyclopedia.collectedFoodIds.includes(recipe.outputFoodId)
+        ? prev.encyclopedia.collectedFoodIds
+        : [...prev.encyclopedia.collectedFoodIds, recipe.outputFoodId];
+
+      const draftState: GameState = {
         ...prev,
         ingredients: nextIngredients,
         foods: {
@@ -850,7 +930,16 @@ export default function App() {
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          cookedCount: prev.noviceGrowth.cookedCount + 1,
+        },
+        encyclopedia: {
+          ...prev.encyclopedia,
+          collectedFoodIds: nextCollectedFoods,
+        },
       };
+      return syncEncyclopediaRewards(draftState).nextState;
     });
     pushFeedback(`做出 ${recipe.name}！`, recipe.emoji);
     setSpeech(`香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`);
@@ -868,6 +957,10 @@ export default function App() {
           mood: clampStat(prev.pet.mood + 5, 0, 100),
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
+        },
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          minigameCount: prev.noviceGrowth.minigameCount + 1,
         },
       };
     });
@@ -899,7 +992,7 @@ export default function App() {
     setGame((prev) => {
       const stage = getGrowthStage(prev.pet.growth);
       const canAutoEquip = stage.unlockedSlots.includes(item.slot);
-      return {
+      const draftState: GameState = {
         ...prev,
         coins: prev.coins - item.price,
         accessories: [...prev.accessories, item.id],
@@ -909,7 +1002,12 @@ export default function App() {
             ? { ...prev.pet.accessories, [item.slot]: item.id }
             : prev.pet.accessories,
         },
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          boughtAccessoryCount: prev.noviceGrowth.boughtAccessoryCount + 1,
+        },
       };
+      return syncEncyclopediaRewards(draftState).nextState;
     });
   };
 
@@ -944,6 +1042,10 @@ export default function App() {
         weightLogs: [newWeightLog, ...prev.weightLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'weigh_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          weightRecordCount: prev.noviceGrowth.weightRecordCount + 1,
+        },
       };
     });
   };
@@ -978,8 +1080,104 @@ export default function App() {
         },
         dailyTasks: updatedTasks,
         dailyTasksDate: synced.dailyTasksDate,
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          completedDailyTasksCount: prev.noviceGrowth.completedDailyTasksCount + 1,
+        },
       };
     });
+  };
+
+  const handleClaimNoviceDay = (day: number) => {
+    const todayStr = getLocalDateString();
+    const evaluation = evaluateAllNoviceDays(game, Boolean(sharedRoom), todayStr);
+    const targetDay = evaluation.days.find((d) => d.config.day === day);
+    if (!targetDay || !targetDay.canClaim) return;
+
+    const dayConfig = NOVICE_GROWTH_DAYS.find((d) => d.day === day);
+    if (!dayConfig) return;
+
+    soundFX.levelUp(game.soundEnabled);
+    pushFeedback(`領取第 ${day} 天獎勵 +${dayConfig.rewardCoins} 金幣！`, '🎁');
+    setSpeech(`完成新手第 ${day} 天目標！獲得滿滿獎勵好開心～`);
+
+    setGame((prev) => {
+      let nextCoins = prev.coins + dayConfig.rewardCoins;
+      const nextFoods = { ...prev.foods };
+      const nextIngredients = { ...prev.ingredients };
+      const nextAccessories = [...prev.accessories];
+      const nextBackgrounds = [...prev.unlockedBackgrounds];
+      let nextActiveBackground = prev.activeBackground;
+
+      for (const rw of dayConfig.rewardItems) {
+        if (rw.kind === 'accessory') {
+          if (!nextAccessories.includes(rw.id)) {
+            nextAccessories.push(rw.id);
+          } else {
+            nextCoins += 15;
+          }
+        } else if (rw.kind === 'food') {
+          nextFoods[rw.id] = (nextFoods[rw.id] ?? 0) + rw.qty;
+        } else if (rw.kind === 'ingredient') {
+          const ingKey = rw.id as IngredientId;
+          nextIngredients[ingKey] = (nextIngredients[ingKey] ?? 0) + rw.qty;
+        } else if (rw.kind === 'background') {
+          const bgKey = rw.id as StageBackgroundId;
+          if (!nextBackgrounds.includes(bgKey)) {
+            nextBackgrounds.push(bgKey);
+          }
+          nextActiveBackground = bgKey;
+        }
+      }
+
+      const draftState: GameState = {
+        ...prev,
+        coins: nextCoins,
+        foods: nextFoods,
+        ingredients: nextIngredients,
+        accessories: nextAccessories,
+        unlockedBackgrounds: nextBackgrounds,
+        activeBackground: nextActiveBackground,
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          claimedDays: Array.from(new Set([...prev.noviceGrowth.claimedDays, day])).sort(
+            (a, b) => a - b
+          ),
+          lastClaimDate: todayStr,
+        },
+      };
+
+      return syncEncyclopediaRewards(draftState).nextState;
+    });
+  };
+
+  const handleSelectBackground = (bg: StageBackgroundId) => {
+    if (!game.unlockedBackgrounds.includes(bg)) return;
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => ({
+      ...prev,
+      activeBackground: bg,
+    }));
+    const cfg = STAGE_BACKGROUNDS[bg];
+    pushFeedback(`切換為${cfg.name}`, '✨');
+  };
+
+  const handleSelectTitle = (titleId: TitleId | null) => {
+    if (titleId !== null && !game.encyclopedia.unlockedTitles.includes(titleId)) return;
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => ({
+      ...prev,
+      encyclopedia: {
+        ...prev.encyclopedia,
+        activeTitle: titleId,
+      },
+    }));
+    if (titleId) {
+      const def = getTitleDefinition(titleId);
+      pushFeedback(`佩戴「${def.name}」`, def.emoji);
+    } else {
+      pushFeedback('已取消佩戴稱號', '✨');
+    }
   };
 
   const handleForceUpload = async () => {
@@ -1113,6 +1311,10 @@ export default function App() {
     if (res.state) {
       applyCloudStateLocally(res.state);
     }
+    setGame((prev) => ({
+      ...prev,
+      noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
+    }));
     setSyncStatus('synced');
     setLastSyncedAt(res.room.updatedAt);
     pushFeedback(`共養邀請碼：${res.room.inviteCode}`, '💞');
@@ -1136,6 +1338,10 @@ export default function App() {
         `成功加入！一起來照顧${res.state.pet.name}吧！`
       );
     }
+    setGame((prev) => ({
+      ...prev,
+      noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
+    }));
     setSyncStatus('synced');
     setLastSyncedAt(res.room.updatedAt);
     pushFeedback('成功加入兩人共養！', '💞');
@@ -1279,10 +1485,15 @@ export default function App() {
     }
     const fresh = resetGameState();
     prevStageLevelRef.current = getGrowthStage(fresh.pet.growth).level;
+    prevMilestonesCountRef.current = fresh.encyclopedia.claimedAccessoryMilestones.length;
+    prevTitlesCountRef.current = fresh.encyclopedia.unlockedTitles.length;
     setGame(fresh);
     setActiveTab('home');
+    setQuestsInitialSection('daily');
     setActionState('idle');
     setFlyingFoodEmoji(null);
+    setFeedEffect('none');
+    setFeedParticles([]);
     setSpeech('今天也想吃好吃的！');
     setFeedbacks([]);
     setUnreadMessagesCount(0);
@@ -1294,9 +1505,10 @@ export default function App() {
   const latestMessage =
     activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
 
-  const claimableQuestsCount = game.dailyTasks.filter(
-    (t) => t.completed && !t.claimed
-  ).length;
+  const noviceEval = evaluateAllNoviceDays(game, Boolean(sharedRoom));
+  const claimableQuestsCount =
+    game.dailyTasks.filter((t) => t.completed && !t.claimed).length +
+    noviceEval.claimableCount;
 
   const cloudDotColor =
     syncStatus === 'synced'
@@ -1388,6 +1600,8 @@ export default function App() {
                   action={actionState}
                   expression={expressionState}
                   flyingFoodEmoji={flyingFoodEmoji}
+                  feedEffect={feedEffect}
+                  feedParticles={feedParticles}
                   speech={speech}
                   feedbacks={feedbacks}
                   inventory={game.foods}
@@ -1398,6 +1612,15 @@ export default function App() {
                   onWalk={handleWalk}
                   onGoToCanteen={() => setActiveTab('canteen')}
                   onOpenMinigame={() => setMinigameOpen(true)}
+                  onOpenNoviceGrowth={() => {
+                    setQuestsInitialSection('growth');
+                    setActiveTab('quests');
+                  }}
+                  noviceClaimableCount={noviceEval.claimableCount}
+                  activeTitle={game.encyclopedia.activeTitle}
+                  activeBackground={game.activeBackground}
+                  unlockedBackgrounds={game.unlockedBackgrounds}
+                  onSelectBackground={handleSelectBackground}
                   sharedRoom={sharedRoom}
                   currentUserId={cloudUser?.id ?? null}
                   onOpenSharedPet={() => setSharedModalOpen(true)}
@@ -1431,9 +1654,11 @@ export default function App() {
                   pet={game.pet}
                   coins={game.coins}
                   unlockedAccessories={game.accessories}
+                  encyclopedia={game.encyclopedia}
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
                   onChangeSpecies={handleChangeSpecies}
+                  onSelectTitle={handleSelectTitle}
                 />
               )}
 
@@ -1450,6 +1675,9 @@ export default function App() {
                   onOpenSharedPet={() => setSharedModalOpen(true)}
                   messageCount={activeMessages.length}
                   onOpenMessageBoard={handleOpenMessageBoard}
+                  encyclopedia={game.encyclopedia}
+                  unlockedAccessories={game.accessories}
+                  onSelectTitle={handleSelectTitle}
                 />
               )}
 
@@ -1458,13 +1686,23 @@ export default function App() {
                   dailyTasks={game.dailyTasks}
                   dateStr={game.dailyTasksDate}
                   onClaimTask={handleClaimTask}
+                  game={game}
+                  hasSharedRoom={Boolean(sharedRoom)}
+                  onClaimNoviceDay={handleClaimNoviceDay}
+                  onSelectBackground={handleSelectBackground}
+                  initialSection={questsInitialSection}
                 />
               )}
             </main>
 
             <BottomTabBar
               activeTab={activeTab}
-              onChange={setActiveTab}
+              onChange={(tab) => {
+                if (tab === 'quests') {
+                  setQuestsInitialSection('daily');
+                }
+                setActiveTab(tab);
+              }}
               claimableQuestsCount={claimableQuestsCount}
             />
 

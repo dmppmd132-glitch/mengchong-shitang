@@ -12,14 +12,24 @@ import {
   AccessorySlot,
   CropPlot,
   DailyTask,
+  EncyclopediaState,
   FeedLog,
   GameState,
   IngredientId,
+  NoviceGrowthStats,
   Pet,
   PetMessage,
   PetSpecies,
+  StageBackgroundId,
+  TitleId,
   WeightLog,
 } from '../types';
+import { createInitialEncyclopediaState } from './encyclopedia';
+import {
+  clearNoviceGrowthMirror,
+  createInitialNoviceGrowthStats,
+  saveNoviceGrowthMirror,
+} from './noviceGrowth';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -91,6 +101,10 @@ export function createInitialGameState(): GameState {
     messages: [],
     soundEnabled: true,
     lastSavedAt: Date.now(),
+    noviceGrowth: createInitialNoviceGrowthStats(today),
+    encyclopedia: createInitialEncyclopediaState(),
+    unlockedBackgrounds: ['default'],
+    activeBackground: 'default',
   };
 }
 
@@ -329,6 +343,117 @@ function parseDailyTasks(raw: unknown): DailyTask[] {
   });
 }
 
+function parseNoviceGrowth(
+  raw: unknown,
+  fallbackDate: string,
+  seedFeedCount: number,
+  seedWeightCount: number,
+  seedUnlockedAccessoriesCount: number,
+  seedClaimedDailyCount: number
+): NoviceGrowthStats {
+  const defaults = createInitialNoviceGrowthStats(fallbackDate);
+  if (!isRecord(raw)) {
+    return {
+      ...defaults,
+      feedCount: seedFeedCount,
+      weightRecordCount: seedWeightCount,
+      boughtAccessoryCount: Math.max(0, seedUnlockedAccessoriesCount - 4),
+      completedDailyTasksCount: seedClaimedDailyCount,
+    };
+  }
+  const claimedDays = Array.isArray(raw.claimedDays)
+    ? Array.from(
+        new Set(
+          raw.claimedDays.filter(
+            (d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 1 && d <= 7
+          )
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
+  return {
+    startedDate: asString(raw.startedDate, fallbackDate),
+    claimedDays,
+    lastClaimDate: typeof raw.lastClaimDate === 'string' ? raw.lastClaimDate : null,
+    feedCount: Math.max(seedFeedCount, Math.floor(asNumber(raw.feedCount, 0))),
+    petCount: Math.max(0, Math.floor(asNumber(raw.petCount, 0))),
+    plantedCarrotCount: Math.max(0, Math.floor(asNumber(raw.plantedCarrotCount, 0))),
+    minigameCount: Math.max(0, Math.floor(asNumber(raw.minigameCount, 0))),
+    cookedCount: Math.max(0, Math.floor(asNumber(raw.cookedCount, 0))),
+    weightRecordCount: Math.max(seedWeightCount, Math.floor(asNumber(raw.weightRecordCount, 0))),
+    boughtAccessoryCount: Math.max(
+      Math.max(0, seedUnlockedAccessoriesCount - 4),
+      Math.floor(asNumber(raw.boughtAccessoryCount, 0))
+    ),
+    walkCount: Math.max(0, Math.floor(asNumber(raw.walkCount, 0))),
+    fedFavoriteCount: Math.max(0, Math.floor(asNumber(raw.fedFavoriteCount, 0))),
+    completedDailyTasksCount: Math.max(
+      seedClaimedDailyCount,
+      Math.floor(asNumber(raw.completedDailyTasksCount, 0))
+    ),
+    createdSharedRoom: typeof raw.createdSharedRoom === 'boolean' ? raw.createdSharedRoom : false,
+  };
+}
+
+function asTitleId(value: unknown): TitleId | null {
+  if (value === 'gourmet_owner' || value === 'fashion_stylist') return value;
+  return null;
+}
+
+function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaState {
+  const defaults = createInitialEncyclopediaState(seedFoodIds);
+  if (!isRecord(raw)) return defaults;
+
+  const rawFoods = Array.isArray(raw.collectedFoodIds)
+    ? raw.collectedFoodIds.filter((x): x is string => typeof x === 'string')
+    : [];
+  const mergedFoods = Array.from(new Set([...defaults.collectedFoodIds, ...rawFoods]));
+
+  const claimedAccessoryMilestones = Array.isArray(raw.claimedAccessoryMilestones)
+    ? Array.from(
+        new Set(
+          raw.claimedAccessoryMilestones.filter(
+            (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 5
+          )
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
+  const unlockedTitles = Array.isArray(raw.unlockedTitles)
+    ? Array.from(
+        new Set(raw.unlockedTitles.map(asTitleId).filter((t): t is TitleId => t !== null))
+      )
+    : [];
+
+  const candidateActive = asTitleId(raw.activeTitle);
+  const activeTitle =
+    candidateActive && unlockedTitles.includes(candidateActive)
+      ? candidateActive
+      : unlockedTitles[0] ?? null;
+
+  return {
+    collectedFoodIds: mergedFoods,
+    claimedAccessoryMilestones,
+    unlockedTitles,
+    activeTitle,
+  };
+}
+
+function asStageBackgroundId(value: unknown): StageBackgroundId {
+  if (value === 'starlight_garden') return 'starlight_garden';
+  return 'default';
+}
+
+function parseStageBackgrounds(raw: unknown): StageBackgroundId[] {
+  const result = new Set<StageBackgroundId>(['default']);
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      result.add(asStageBackgroundId(item));
+    }
+  }
+  return Array.from(result);
+}
+
 function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   const base = createInitialGameState();
   const now = Date.now();
@@ -396,6 +521,10 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     messages: [],
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
     lastSavedAt: now,
+    noviceGrowth: createInitialNoviceGrowthStats(formatLocalDate()),
+    encyclopedia: createInitialEncyclopediaState(),
+    unlockedBackgrounds: ['default'],
+    activeBackground: 'default',
   };
 }
 
@@ -438,6 +567,18 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     asString(parsed.dailyTasksDate, formatLocalDate())
   );
 
+  const parsedWeightLogs = parseWeightLogs(parsed.weightLogs);
+  const parsedFeedLogs = parseFeedLogs(parsed.feedLogs);
+  const mergedAccessories = Array.from(
+    new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])
+  );
+  const seedClaimedDailyCount = syncedTasks.dailyTasks.filter((t) => t.claimed).length;
+  const seedWeightCount = parsedWeightLogs.filter((w) => w.foodName === '手動紀錄').length;
+  const seedFoodIds = parsedFeedLogs.map((l) => l.foodId);
+  const unlockedBackgrounds = parseStageBackgrounds(parsed.unlockedBackgrounds);
+  const requestedBg = asStageBackgroundId(parsed.activeBackground);
+  const activeBackground = unlockedBackgrounds.includes(requestedBg) ? requestedBg : 'default';
+
   return {
     version: 2,
     pet,
@@ -445,14 +586,25 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     foods: parseStringNumberRecord(parsed.foods, base.foods),
     ingredients: parseIngredients(parsed.ingredients, base.ingredients),
     farmPlots: parseFarmPlots(parsed.farmPlots),
-    accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
-    weightLogs: parseWeightLogs(parsed.weightLogs),
-    feedLogs: parseFeedLogs(parsed.feedLogs),
+    accessories: mergedAccessories,
+    weightLogs: parsedWeightLogs,
+    feedLogs: parsedFeedLogs,
     dailyTasks: syncedTasks.dailyTasks,
     dailyTasksDate: syncedTasks.dailyTasksDate,
     messages: parsePetMessages(parsed.messages),
     soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
     lastSavedAt: now,
+    noviceGrowth: parseNoviceGrowth(
+      parsed.noviceGrowth,
+      formatLocalDate(),
+      parsedFeedLogs.length,
+      seedWeightCount,
+      mergedAccessories.length,
+      seedClaimedDailyCount
+    ),
+    encyclopedia: parseEncyclopedia(parsed.encyclopedia, seedFoodIds),
+    unlockedBackgrounds,
+    activeBackground,
   };
 }
 
@@ -488,6 +640,7 @@ export function saveGameState(state: GameState): void {
       lastSavedAt: Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    saveNoviceGrowthMirror(state.noviceGrowth);
   } catch {
     // Ignore storage quota errors gracefully
   }
@@ -497,6 +650,7 @@ export function resetGameState(): GameState {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
+    clearNoviceGrowthMirror();
   } catch {
     // Ignore storage errors gracefully
   }

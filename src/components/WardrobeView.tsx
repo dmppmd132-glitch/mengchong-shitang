@@ -1,29 +1,35 @@
 import React, { useState } from 'react';
-import { Check, Coins, Lock } from 'lucide-react';
+import { BookOpen, Check, Coins, Lock, Shirt } from 'lucide-react';
 import { ACCESSORIES, ACCESSORY_SLOT_LABELS, ACCESSORY_SLOTS } from '../data/accessories';
 import { getGrowthStage } from '../data/growth';
 import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
-import { Accessory, AccessorySlot, Pet, PetSpecies } from '../types';
+import { Accessory, AccessorySlot, EncyclopediaState, Pet, PetSpecies, TitleId } from '../types';
 import { AccessoryPreview } from './AccessoryPreview';
+import { EncyclopediaView } from './EncyclopediaView';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface WardrobeViewProps {
   pet: Pet;
   coins: number;
   unlockedAccessories: string[];
+  encyclopedia: EncyclopediaState;
   onToggleEquip: (item: Accessory) => void;
   onBuyAccessory: (item: Accessory) => void;
   onChangeSpecies?: (species: PetSpecies) => void;
+  onSelectTitle?: (titleId: TitleId | null) => void;
 }
 
 export const WardrobeView: React.FC<WardrobeViewProps> = ({
   pet,
   coins,
   unlockedAccessories,
+  encyclopedia,
   onToggleEquip,
   onBuyAccessory,
   onChangeSpecies,
+  onSelectTitle,
 }) => {
+  const [viewMode, setViewMode] = useState<'wardrobe' | 'encyclopedia'>('wardrobe');
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
 
   const stage = getGrowthStage(pet.growth);
@@ -32,6 +38,42 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
+      <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setViewMode('wardrobe')}
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+            viewMode === 'wardrobe'
+              ? 'bg-white text-[#D64470] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <Shirt className="w-4 h-4" />
+          <span>穿搭更衣</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('encyclopedia')}
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+            viewMode === 'encyclopedia'
+              ? 'bg-white text-[#256D57] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>收集圖鑑</span>
+        </button>
+      </div>
+
+      {viewMode === 'encyclopedia' ? (
+        <EncyclopediaView
+          encyclopedia={encyclopedia}
+          unlockedAccessories={unlockedAccessories}
+          initialSection="accessories"
+          onSelectTitle={onSelectTitle}
+        />
+      ) : (
+        <>
       <section className="rounded-3xl bg-gradient-to-b from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#D2EFE4] p-4 flex flex-col items-center text-center">
         <h2 className="text-base font-extrabold text-[#4A3531]">
           {pet.name}的更衣室
@@ -163,6 +205,10 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                       <span>穿戴</span>
                     )}
                   </button>
+                ) : item.price === 0 && !item.initialUnlocked ? (
+                  <div className="w-full min-h-[42px] rounded-2xl bg-[#FFF3D8] border border-[#F0CF7A] text-[#8A5A10] text-[11px] font-extrabold inline-flex items-center justify-center px-2 text-center">
+                    第 7 天成長之路解鎖
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -183,6 +229,8 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 };
