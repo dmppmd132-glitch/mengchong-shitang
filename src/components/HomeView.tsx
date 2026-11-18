@@ -20,7 +20,9 @@ import {
   Food,
   FoodCategory,
   Pet,
+  PetExpression,
   PetMessage,
+  PetTouchZone,
   PiggyActionState,
   SharedPetRoom,
 } from '../types';
@@ -29,11 +31,12 @@ import { PiggyCharacter } from './PiggyCharacter';
 interface HomeViewProps {
   pet: Pet;
   action: PiggyActionState;
+  expression?: PetExpression;
   flyingFoodEmoji: string | null;
   speech: string;
   feedbacks: FloatingFeedback[];
   inventory: Record<string, number>;
-  onPet: () => void;
+  onPet: (zone: PetTouchZone) => void;
   onFeed: (food: Food) => void;
   onSleep: () => void;
   onBath: () => void;
@@ -65,6 +68,7 @@ const STAT_CONFIG: {
 export const HomeView: React.FC<HomeViewProps> = ({
   pet,
   action,
+  expression = 'normal',
   flyingFoodEmoji,
   speech,
   feedbacks,
@@ -252,6 +256,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           growth={pet.growth}
           roundness={pet.roundness}
           action={action}
+          expression={expression}
           equipped={pet.accessories}
           flyingFoodEmoji={flyingFoodEmoji}
           onPet={onPet}
@@ -259,9 +264,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
           isDropTarget={isDropOver}
         />
 
-        <p className="mt-1 text-[11px] font-bold text-[#8A716B] flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-[#FF7A9E]" />
-          <span>輕點{speciesInfo.shortName}可以摸摸牠，或把食物拖過來餵食</span>
+        <p className="mt-1 text-[11px] font-bold text-[#8A716B] flex items-center gap-1 text-center">
+          <Sparkles className="w-3 h-3 text-[#FF7A9E] shrink-0" />
+          <span>輕點{speciesInfo.shortName}的頭、臉頰、肚肚或小手有不同反應</span>
         </p>
       </section>
 

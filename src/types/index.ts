@@ -16,6 +16,16 @@ export type PiggyActionState =
   | 'walking'
   | 'stuffed';
 
+export type PetTouchZone = 'head' | 'cheek' | 'belly' | 'paw';
+
+export type PetExpression =
+  | 'normal'
+  | 'wink'
+  | 'sparkle'
+  | 'shy'
+  | 'happyTongue'
+  | 'ticklish';
+
 export interface Pet {
   id: string;
   name: string;
@@ -170,6 +180,7 @@ export interface PetSpeciesInfo {
   greeting: string;
   pettedSpeech: string;
   favoriteFoodReaction: string;
+  zoneSpeeches: Record<PetTouchZone, string[]>;
 }
 
 export type CatchGameMode = 'apple' | 'fries';

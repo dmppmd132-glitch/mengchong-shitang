@@ -18,7 +18,12 @@ import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getGrowthStage } from './data/growth';
 import { INGREDIENTS } from './data/kitchen';
-import { getPetSpeciesInfo } from './data/species';
+import {
+  TOUCH_ZONE_META,
+  getPetSpeciesInfo,
+  getRandomZoneSpeech,
+  pickRandomNonRepeating,
+} from './data/species';
 import { getStickerById } from './data/stickers';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
@@ -54,9 +59,11 @@ import {
   GrowthStageInfo,
   IngredientId,
   KitchenRecipe,
+  PetExpression,
   PetMessage,
   PetSpecies,
   PetStickerId,
+  PetTouchZone,
   PiggyActionState,
   SharedPetRoom,
   TabKey,
@@ -81,6 +88,7 @@ export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
+  const [expressionState, setExpressionState] = useState<PetExpression>('normal');
   const [flyingFoodEmoji, setFlyingFoodEmoji] = useState<string | null>(null);
   const [speech, setSpeech] = useState<string>('今天也想吃好吃的！');
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
@@ -109,6 +117,8 @@ export default function App() {
   const lastHandledUserIdRef = useRef<string | null>(null);
   const lastSharedUpdatedAtRef = useRef<string | null>(null);
   const messageModalOpenRef = useRef<boolean>(messageModalOpen);
+  const lastSpeechRef = useRef<string>('');
+  const lastExpressionRef = useRef<PetExpression>('normal');
 
   gameRef.current = game;
   messageModalOpenRef.current = messageModalOpen;
@@ -465,12 +475,18 @@ export default function App() {
     }
   };
 
-  const setTemporaryAction = (nextAction: PiggyActionState, durationMs = 1500) => {
+  const setTemporaryAction = (
+    nextAction: PiggyActionState,
+    durationMs = 1500,
+    nextExpression: PetExpression = 'normal'
+  ) => {
     clearAnimationTimers();
     setFlyingFoodEmoji(null);
     setActionState(nextAction);
+    setExpressionState(nextExpression);
     actionTimerRef.current = window.setTimeout(() => {
       setActionState('idle');
+      setExpressionState('normal');
     }, durationMs);
   };
 
@@ -524,12 +540,27 @@ export default function App() {
     pushFeedback(`切換為${speciesInfo.shortName}`, '✨');
   };
 
-  const handlePet = () => {
-    const speciesInfo = getPetSpeciesInfo(game.pet.species);
+  const handlePet = (zone: PetTouchZone = 'head') => {
+    const zoneMeta = TOUCH_ZONE_META[zone];
+    const nextSpeech = getRandomZoneSpeech(
+      game.pet.species,
+      zone,
+      game.pet.mood,
+      lastSpeechRef.current
+    );
+    const nextFeedback = pickRandomNonRepeating(zoneMeta.feedbacks);
+    const nextExpression = pickRandomNonRepeating(
+      zoneMeta.expressions,
+      lastExpressionRef.current
+    );
+
+    lastSpeechRef.current = nextSpeech;
+    lastExpressionRef.current = nextExpression;
+
     soundFX.petVoice(game.soundEnabled, game.pet.species);
-    setTemporaryAction('petted', 950);
-    pushFeedback('好喜歡摸摸！', '🩷');
-    setSpeech(speciesInfo.pettedSpeech);
+    setTemporaryAction('petted', 1100, nextExpression);
+    pushFeedback(nextFeedback.text, nextFeedback.emoji);
+    setSpeech(nextSpeech);
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
@@ -572,6 +603,7 @@ export default function App() {
     clearAnimationTimers();
     setFlyingFoodEmoji(food.emoji);
     setActionState('opening');
+    setExpressionState('sparkle');
     soundFX.pop(game.soundEnabled);
 
     // Phase 2: Pet chews + favorite or regular reaction
@@ -584,20 +616,24 @@ export default function App() {
 
       if (nextFastFoodStreak >= 3) {
         setActionState('stuffed');
+        setExpressionState('shy');
         setSpeech('有點撐了… 要不要帶我去散步呢？');
         pushFeedback('有點撐了…', '💦');
       } else if (isFavorite) {
         setActionState('eating');
+        setExpressionState('sparkle');
         setSpeech(speciesInfo.favoriteFoodReaction);
         pushFeedback('最愛料理加成！', '💖');
       } else {
         setActionState('eating');
+        setExpressionState('happyTongue');
         setSpeech(`${food.name}好好吃喔！幸福～`);
         pushFeedback('好吃！', '💖');
       }
 
       actionTimerRef.current = window.setTimeout(() => {
         setActionState('idle');
+        setExpressionState('normal');
       }, 1350);
     }, 480);
 
@@ -684,7 +720,7 @@ export default function App() {
 
   const handleBath = () => {
     soundFX.bubble(game.soundEnabled);
-    setTemporaryAction('bathing', 2200);
+    setTemporaryAction('bathing', 2200, 'shy');
     setSpeech('洗澎澎囉～全身香噴噴！');
     pushFeedback('香噴噴！', '🫧');
 
@@ -708,7 +744,7 @@ export default function App() {
 
   const handleWalk = () => {
     soundFX.heart(game.soundEnabled);
-    setTemporaryAction('walking', 1800);
+    setTemporaryAction('walking', 1800, 'wink');
     setSpeech('出來散步吹吹風，身體好輕鬆！');
     pushFeedback('活力滿滿！', '🌿');
 
@@ -1350,6 +1386,7 @@ export default function App() {
                 <HomeView
                   pet={game.pet}
                   action={actionState}
+                  expression={expressionState}
                   flyingFoodEmoji={flyingFoodEmoji}
                   speech={speech}
                   feedbacks={feedbacks}
