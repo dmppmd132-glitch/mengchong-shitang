@@ -30,11 +30,15 @@ import {
   GameState,
   IngredientId,
   KitchenRecipe,
+  PhotoComment,
   PlacedRoomItem,
+  RoomPhotoRecord,
   ThemeSetId,
 } from '../types';
+import { syncAllAccessoryProgress } from './accessories';
 import { mergeDialogueRemoteState } from './dialogue';
 import { getEffectiveGrowDurationMs, getEffectiveHarvestYield, syncHouseProgress } from './house';
+import { mergeMemoryAlbumRemoteState } from './memories';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -547,28 +551,30 @@ export function settleRoomDecorSession(state: GameState): CoopActionResult {
     }
   }
 
-  return {
-    nextState: {
-      ...state,
-      encyclopedia: {
-        ...state.encyclopedia,
-        unlockedTitles: nextUnlockedTitles,
-        activeTitle: nextActiveTitle,
-      },
-      coop: {
-        ...state.coop,
-        activeRoomSession: {
-          ...session,
-          status: isCompleted ? 'completed' : 'expired',
-          settled: true,
-          rewardId,
-        },
-        pendingRewards: [reward, ...state.coop.pendingRewards].slice(0, 12),
-        unlockedBadges: nextBadges,
-        streakDays: nextStreak,
-        lastCoopCompletedDate: nextLastCompleted,
-      },
+  const nextDraft: GameState = {
+    ...state,
+    encyclopedia: {
+      ...state.encyclopedia,
+      unlockedTitles: nextUnlockedTitles,
+      activeTitle: nextActiveTitle,
     },
+    coop: {
+      ...state.coop,
+      activeRoomSession: {
+        ...session,
+        status: isCompleted ? 'completed' : 'expired',
+        settled: true,
+        rewardId,
+      },
+      pendingRewards: [reward, ...state.coop.pendingRewards].slice(0, 12),
+      unlockedBadges: nextBadges,
+      streakDays: nextStreak,
+      lastCoopCompletedDate: nextLastCompleted,
+    },
+  };
+
+  return {
+    nextState: syncAllAccessoryProgress(nextDraft).nextState,
     ok: true,
     notice: isCompleted
       ? `完成 ${completedCount}/${targetCount} 件家具！兩人都能領取相同獎勵！`
@@ -856,17 +862,19 @@ export function cookCoopOrderRecipe(
     };
   }
 
-  return {
-    nextState: {
-      ...state,
-      foods: nextFoodsInventory,
-      encyclopedia: {
-        ...state.encyclopedia,
-        unlockedTitles: nextUnlockedTitles,
-        activeTitle: nextActiveTitle,
-      },
-      coop: nextCoop,
+  const nextDraft: GameState = {
+    ...state,
+    foods: nextFoodsInventory,
+    encyclopedia: {
+      ...state.encyclopedia,
+      unlockedTitles: nextUnlockedTitles,
+      activeTitle: nextActiveTitle,
     },
+    coop: nextCoop,
+  };
+
+  return {
+    nextState: syncAllAccessoryProgress(nextDraft).nextState,
     ok: true,
     notice: isOrderNowCompleted
       ? order.overdue
@@ -914,24 +922,26 @@ export function claimCoopReward(
     ? ` · 稱號「${getTitleDefinition('coop_partner').name}」已解鎖`
     : '';
 
-  return {
-    nextState: {
-      ...state,
-      coins: state.coins + target.coins,
-      furnitureShards: state.furnitureShards + target.furnitureShards,
-      ingredients: nextIngredients,
-      pet: {
-        ...state.pet,
-        intimacy: state.pet.intimacy + target.intimacy,
-      },
-      coop: {
-        ...state.coop,
-        pendingRewards: nextRewards,
-        dailyFarmOrder: isFarmOrderReward
-          ? { ...state.coop.dailyFarmOrder, rewardClaimed: true }
-          : state.coop.dailyFarmOrder,
-      },
+  const nextDraft: GameState = {
+    ...state,
+    coins: state.coins + target.coins,
+    furnitureShards: state.furnitureShards + target.furnitureShards,
+    ingredients: nextIngredients,
+    pet: {
+      ...state.pet,
+      intimacy: state.pet.intimacy + target.intimacy,
     },
+    coop: {
+      ...state.coop,
+      pendingRewards: nextRewards,
+      dailyFarmOrder: isFarmOrderReward
+        ? { ...state.coop.dailyFarmOrder, rewardClaimed: true }
+        : state.coop.dailyFarmOrder,
+    },
+  };
+
+  return {
+    nextState: syncAllAccessoryProgress(nextDraft).nextState,
     ok: true,
     notice: `領取合作獎勵：+${target.coins} 金幣、+${target.furnitureShards} 家具碎片、+${target.intimacy} 親密度${unlockedTitleMsg}`,
   };
@@ -1015,6 +1025,31 @@ export function mergeCoopRemoteState(
     }
   }
 
+  const photoMap = new Map<string, RoomPhotoRecord>();
+  for (const rPhoto of remoteState.house.photos) {
+    photoMap.set(rPhoto.id, rPhoto);
+  }
+  for (const lPhoto of localState.house.photos) {
+    const existing = photoMap.get(lPhoto.id);
+    if (!existing) {
+      photoMap.set(lPhoto.id, lPhoto);
+    } else {
+      const commentMap = new Map<string, PhotoComment>();
+      for (const c of existing.comments ?? []) commentMap.set(c.id, c);
+      for (const c of lPhoto.comments ?? []) commentMap.set(c.id, c);
+      photoMap.set(lPhoto.id, {
+        ...existing,
+        likes: Array.from(new Set([...(existing.likes ?? []), ...(lPhoto.likes ?? [])])),
+        comments: Array.from(commentMap.values())
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .slice(-30),
+      });
+    }
+  }
+  const mergedPhotos = Array.from(photoMap.values())
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 36);
+
   return {
     ...remoteState,
     house: {
@@ -1023,6 +1058,7 @@ export function mergeCoopRemoteState(
         ...remoteState.house.roomLayout,
         placedItems: mergedPlaced,
       },
+      photos: mergedPhotos,
     },
     coop: {
       ...remoteState.coop,
@@ -1035,5 +1071,9 @@ export function mergeCoopRemoteState(
       },
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
+    memoryAlbum: mergeMemoryAlbumRemoteState(
+      localState.memoryAlbum,
+      remoteState.memoryAlbum
+    ),
   };
 }

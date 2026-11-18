@@ -308,6 +308,41 @@
   animation: petTailWag 0.5s ease-in-out infinite;
 }
 
+@keyframes poseDance {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1, 1);
+  }
+  25% {
+    transform: translateY(-7px) rotate(-6deg) scale(1.03, 0.98);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg) scale(0.98, 1.02);
+  }
+  75% {
+    transform: translateY(-7px) rotate(6deg) scale(1.03, 0.98);
+  }
+}
+
+@keyframes poseSalute {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  30% {
+    transform: translateY(-5px) rotate(-3deg) scale(1.03);
+  }
+  65% {
+    transform: translateY(-3px) rotate(2deg) scale(1.01);
+  }
+}
+
+.animate-pose-dance {
+  animation: poseDance 0.9s ease-in-out infinite;
+}
+
+.animate-pose-salute {
+  animation: poseSalute 1.2s ease-in-out infinite;
+}
+
 @keyframes cardReveal {
   0% {
     transform: scale(0.86) rotateY(70deg);

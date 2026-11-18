@@ -1,4 +1,13 @@
-import type { PetSpecies, PiggyActionState, AccessorySlot } from './index';
+import type {
+  AccessorySlot,
+  PetSpecies,
+  PhotoFilter,
+  PhotoFrame,
+  PhotoPose,
+  PhotoScene,
+  PhotoStickerId,
+  PiggyActionState,
+} from './index';
 
 export type RoomZone = 'sleep' | 'play' | 'dining' | 'decor';
 
@@ -140,6 +149,14 @@ export type SharedMilestoneId =
   | 'shared_goal_completed'
   | 'first_room_photo';
 
+export interface PhotoComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: number;
+}
+
 export interface RoomPhotoRecord {
   id: string;
   title: string;
@@ -154,6 +171,15 @@ export interface RoomPhotoRecord {
   flooringId: FlooringId;
   placedItems: PlacedRoomItem[];
   noteHighlight?: string;
+  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album';
+  scene?: PhotoScene;
+  wardrobePoseId?: PhotoPose;
+  filterId?: PhotoFilter;
+  frameId?: PhotoFrame;
+  stickers?: PhotoStickerId[];
+  weightAtCapture?: number;
+  likes?: string[];
+  comments?: PhotoComment[];
 }
 
 export interface TreasuryContribution {

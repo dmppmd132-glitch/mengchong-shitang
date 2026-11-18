@@ -33,6 +33,9 @@ import {
   IngredientId,
   PetExpression,
   PetSpecies,
+  PhotoFilter,
+  PhotoFrame,
+  PhotoStickerId,
   PiggyActionState,
   PlacedRoomItem,
   RoomItem,
@@ -1118,13 +1121,20 @@ export function saveRoomSnapshotPhoto(
     title: string;
     caption: string;
     poseId: RoomPhotoPoseId;
+    stickers?: PhotoStickerId[];
+    filterId?: PhotoFilter;
+    frameId?: PhotoFrame;
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
   const latestNote = state.house.furnitureNotes[0]?.content;
+  const fallbackTitle = `${state.house.houseName}紀念照`.slice(0, 20);
+  const cleanTitle = params.title.trim().slice(0, 20) || fallbackTitle;
   const photo: RoomPhotoRecord = {
     id: `photo_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    title: params.title.trim() || `${state.house.houseName}紀念照`,
-    caption: params.caption.trim() || `${state.pet.name}在溫暖的小窩裡留下可愛身影！`,
+    title: cleanTitle,
+    caption:
+      params.caption.trim().slice(0, 60) ||
+      `${state.pet.name}在溫暖的小窩裡留下可愛身影！`,
     createdAt: Date.now(),
     houseName: state.house.houseName,
     species: state.pet.species,
@@ -1135,13 +1145,21 @@ export function saveRoomSnapshotPhoto(
     flooringId: state.house.roomLayout.flooringId,
     placedItems: state.house.roomLayout.placedItems.map((p) => ({ ...p })),
     noteHighlight: latestNote,
+    photoKind: 'room',
+    scene: 'room',
+    stickers: params.stickers ? params.stickers.slice(0, 6) : [],
+    filterId: params.filterId,
+    frameId: params.frameId,
+    weightAtCapture: state.pet.weight,
+    likes: [],
+    comments: [],
   };
 
   const draft: GameState = {
     ...state,
     house: {
       ...state.house,
-      photos: [photo, ...state.house.photos].slice(0, 24),
+      photos: [photo, ...state.house.photos].slice(0, 36),
     },
   };
 

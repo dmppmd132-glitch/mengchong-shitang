@@ -1,7 +1,7 @@
 import React from 'react';
-import { BellOff, CloudSun, MessageSquareText, Moon, Sparkles, X } from 'lucide-react';
+import { BellOff, Bookmark, CloudSun, MessageSquareText, Moon, Sparkles, X } from 'lucide-react';
 import { DIALOGUE_CATEGORY_META } from '../../data/dialogue';
-import { DialogueSettings, DialogueState, Pet } from '../../types';
+import { DialogueLine, DialogueSettings, DialogueState, Pet } from '../../types';
 
 interface DialogueHistoryModalProps {
   open: boolean;
@@ -9,6 +9,8 @@ interface DialogueHistoryModalProps {
   pet: Pet;
   dialogue: DialogueState;
   onUpdateSettings: (patch: Partial<DialogueSettings>) => void;
+  savedDialogueIds?: string[];
+  onSaveDialogueToMemory?: (line: DialogueLine) => void;
 }
 
 function formatDialogueTimestamp(ts: number): string {
@@ -28,6 +30,8 @@ export const DialogueHistoryModal: React.FC<DialogueHistoryModalProps> = ({
   pet,
   dialogue,
   onUpdateSettings,
+  savedDialogueIds = [],
+  onSaveDialogueToMemory,
 }) => {
   if (!open) return null;
 
@@ -193,6 +197,7 @@ export const DialogueHistoryModal: React.FC<DialogueHistoryModalProps> = ({
               <div className="space-y-2">
                 {history.map((line) => {
                   const meta = DIALOGUE_CATEGORY_META[line.category];
+                  const isSaved = savedDialogueIds.includes(line.id);
                   return (
                     <article
                       key={line.id}
@@ -212,11 +217,32 @@ export const DialogueHistoryModal: React.FC<DialogueHistoryModalProps> = ({
                       <p className="text-xs font-bold text-[#4A3531] leading-relaxed">
                         {line.text}
                       </p>
-                      {line.respondedLabel && (
-                        <div className="text-[11px] font-extrabold text-[#256D57] bg-[#E8F8F2] rounded-xl px-2.5 py-1 inline-block">
-                          你的回應：{line.respondedLabel}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        {line.respondedLabel ? (
+                          <div className="text-[11px] font-extrabold text-[#256D57] bg-[#E8F8F2] rounded-xl px-2.5 py-1 inline-block">
+                            你的回應：{line.respondedLabel}
+                          </div>
+                        ) : (
+                          <span />
+                        )}
+                        {onSaveDialogueToMemory && (
+                          <button
+                            type="button"
+                            disabled={isSaved}
+                            onClick={() => onSaveDialogueToMemory(line)}
+                            className={`min-h-[34px] px-2.5 rounded-xl border text-[11px] font-extrabold inline-flex items-center gap-1 transition ${
+                              isSaved
+                                ? 'bg-[#E5F8F0] border-[#A7E0CB] text-[#1F6B54]'
+                                : 'bg-[#FFF3D8] border-[#F2CE6D] text-[#8A5610] hover:bg-[#FFE9BF]'
+                            }`}
+                          >
+                            <Bookmark
+                              className={`w-3 h-3 ${isSaved ? 'fill-[#1F6B54]' : ''}`}
+                            />
+                            <span>{isSaved ? '已收藏回憶' : '收藏到回憶冊'}</span>
+                          </button>
+                        )}
+                      </div>
                     </article>
                   );
                 })}

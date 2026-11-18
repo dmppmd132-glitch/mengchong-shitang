@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Award, CheckCircle2, Coins, HelpCircle, Home, Sparkles, Utensils } from 'lucide-react';
-import { ACCESSORIES, ACCESSORY_SLOT_LABELS } from '../data/accessories';
+import {
+  ACCESSORIES,
+  ACCESSORY_SLOT_LABELS,
+  ACCESSORY_THEME_BY_ID,
+} from '../data/accessories';
 import {
   ACCESSORY_MILESTONE_COINS,
   ACCESSORY_MILESTONE_GROWTH,
@@ -19,6 +23,11 @@ import {
   WALLPAPERS,
 } from '../data/house';
 import { EncyclopediaState, SharedHouse, TitleId } from '../types';
+import {
+  getAccessoryObtainLabel,
+  getAccessoryRarityMeta,
+  getAccessoryThemeProgress,
+} from '../utils/accessories';
 import { getAccessoryMilestoneThresholds } from '../utils/encyclopedia';
 import {
   getFurnitureMilestoneThresholds,
@@ -63,6 +72,10 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
 
   const accessoryMilestones = getAccessoryMilestoneThresholds();
   const furnitureMilestones = getFurnitureMilestoneThresholds();
+  const themeProgressList = getAccessoryThemeProgress(
+    unlockedAccessories,
+    encyclopedia.claimedAccessoryThemeSets
+  );
 
   const titleIds: TitleId[] = [
     'gourmet_owner',
@@ -71,6 +84,12 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'forest_camper',
     'cloud_napper',
     'coop_partner',
+    'berry_sweetheart',
+    'forest_explorer',
+    'cloud_dreamer',
+    'little_master_chef',
+    'starlight_voyager',
+    'party_superstar',
   ];
 
   return (
@@ -295,9 +314,119 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
             </div>
           </div>
 
+          {/* 6 Theme Sets Progress */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-sm font-extrabold text-[#4A3531]">
+                🎀 主題穿搭套裝收集（共 6 套）
+              </h3>
+              <span className="text-xs font-extrabold text-[#D64470] tabular-nums">
+                已完成 {themeProgressList.filter((t) => t.isComplete).length} / {themeProgressList.length}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              {themeProgressList.map((prog) => {
+                const { theme } = prog;
+                const pct = Math.round((prog.collectedCount / prog.totalCount) * 100);
+                const themeTitle = TITLE_DEFINITIONS[theme.rewardTitleId];
+                return (
+                  <article
+                    key={theme.id}
+                    className={`rounded-3xl border-2 p-3.5 space-y-2 ${theme.cardBgClass}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-lg shrink-0" aria-hidden="true">
+                          {theme.emoji}
+                        </span>
+                        <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
+                          {theme.name}
+                        </h4>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-xl border text-[11px] font-extrabold tabular-nums shrink-0 ${
+                          prog.isComplete
+                            ? 'bg-[#E2F6EE] border-[#A7E0CB] text-[#1F6B54]'
+                            : theme.badgeClass
+                        }`}
+                      >
+                        {prog.isComplete
+                          ? '✨ 套裝完成！'
+                          : `已收集 ${prog.collectedCount} / ${prog.totalCount}`}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-[#6E544E] leading-snug">
+                      {theme.description}
+                    </p>
+
+                    <div className="w-full h-2 rounded-full bg-white/80 overflow-hidden border border-black/5">
+                      <div
+                        className="h-full rounded-full bg-[#FF7A9E] transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                      {theme.accessoryIds.map((accId) => {
+                        const acc = ACCESSORIES.find((a) => a.id === accId);
+                        const owned = ownedAccessorySet.has(accId);
+                        return (
+                          <div
+                            key={accId}
+                            className={`rounded-2xl border p-1.5 flex flex-col items-center text-center ${
+                              owned
+                                ? 'bg-white/95 border-[#F2D5C9]'
+                                : 'bg-[#EFE7E1]/80 border-[#E2D6CE]'
+                            }`}
+                          >
+                            <div className="w-9 h-9 flex items-center justify-center relative">
+                              {owned ? (
+                                <AccessoryPreview accessoryId={accId} />
+                              ) : (
+                                <>
+                                  <div className="grayscale brightness-0 opacity-20 scale-75">
+                                    <AccessoryPreview accessoryId={accId} />
+                                  </div>
+                                  <HelpCircle className="w-4 h-4 text-[#8A766F] absolute" />
+                                </>
+                              )}
+                            </div>
+                            <span className="mt-0.5 text-[9px] font-extrabold text-[#5A3E36] leading-tight line-clamp-1">
+                              {owned && acc ? acc.name : '???'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="rounded-2xl bg-white/80 border border-[#F0DFD7] px-2.5 py-1.5 text-[10px] font-extrabold text-[#7D5744] flex flex-wrap items-center justify-between gap-1">
+                      <span>🎁 完成獎勵：{themeTitle?.name ?? '專屬稱號'}</span>
+                      <span className="text-[#9D5B12] tabular-nums">
+                        +{theme.rewardCoins} 金幣 / +{theme.rewardGrowth} 成長 / 限定背景
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-1 pt-1">
+            <h3 className="text-sm font-extrabold text-[#4A3531]">
+              全部配件圖鑑（共 {ACCESSORIES.length} 款）
+            </h3>
+            <span className="text-xs font-extrabold text-[#256D57] tabular-nums">
+              已收集 {collectedAccessoryCount} / {ACCESSORIES.length}
+            </span>
+          </div>
+
           <div className="grid grid-cols-2 gap-2.5">
             {ACCESSORIES.map((item) => {
               const collected = ownedAccessorySet.has(item.id);
+              const rarityMeta = getAccessoryRarityMeta(item);
+              const themeDef = item.theme ? ACCESSORY_THEME_BY_ID[item.theme] : null;
               return (
                 <article
                   key={item.id}
@@ -307,6 +436,17 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                       : 'bg-[#F5EFEA] border-[#E7DCD5]'
                   }`}
                 >
+                  <div className="w-full flex items-center justify-between gap-1 mb-1.5">
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold ${rarityMeta.badgeClass}`}
+                    >
+                      {rarityMeta.label}
+                    </span>
+                    <span className="text-[9px] font-bold text-[#8B716A]">
+                      {ACCESSORY_SLOT_LABELS[item.slot]}
+                    </span>
+                  </div>
+
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center relative ${
                       collected
@@ -329,15 +469,15 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                   <h4 className="mt-2 text-xs font-extrabold text-[#4A3531]">
                     {collected ? item.name : '???'}
                   </h4>
-                  <span className="text-[10px] font-bold text-[#8B716A] mt-0.5">
-                    {ACCESSORY_SLOT_LABELS[item.slot]}配件
-                  </span>
+                  {themeDef && (
+                    <span
+                      className={`mt-0.5 px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold ${themeDef.badgeClass}`}
+                    >
+                      {themeDef.emoji} {themeDef.name}
+                    </span>
+                  )}
                   <p className="mt-1 text-[10px] text-[#7D635D] leading-snug">
-                    {collected
-                      ? item.description
-                      : item.id === 'anniversary_bib'
-                      ? '新手第 7 天成長之路限定解鎖'
-                      : '於更衣室解鎖購買'}
+                    {collected ? item.description : getAccessoryObtainLabel(item)}
                   </p>
                 </article>
               );

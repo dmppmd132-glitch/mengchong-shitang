@@ -337,6 +337,79 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               />
             </g>
           )}
+          {equipped.body === 'party_mini_cape' && (
+            <g>
+              <path
+                d="M 55 132 Q 36 176 50 198 Q 120 210 190 198 Q 204 176 185 132 Q 120 144 55 132 Z"
+                fill="#FF85B3"
+                stroke="#5A3E36"
+                strokeWidth="4"
+                strokeLinejoin="round"
+              />
+              <circle cx="76" cy="176" r="4" fill="#85D7FF" />
+              <circle cx="164" cy="176" r="4" fill="#FFE066" />
+              <circle cx="120" cy="190" r="4" fill="#95E8C9" />
+            </g>
+          )}
+          {equipped.back === 'space_mini_cape' && (
+            <g>
+              <path
+                d="M 50 130 Q 28 176 44 202 Q 120 214 196 202 Q 212 176 190 130 Q 120 144 50 130 Z"
+                fill="#463F8F"
+                stroke="#5A3E36"
+                strokeWidth="4"
+                strokeLinejoin="round"
+              />
+              <path d="M 60 176 L 70 166 L 67 178 Z" fill="#85D7FF" />
+              <circle cx="172" cy="178" r="4.5" fill="#FFE066" />
+              <circle cx="92" cy="192" r="2.8" fill="#FFFDF7" />
+              <circle cx="146" cy="192" r="2.5" fill="#9AE6FF" />
+            </g>
+          )}
+          {equipped.back === 'camping_backpack' && (
+            <g>
+              <rect
+                x="44"
+                y="112"
+                width="34"
+                height="62"
+                rx="14"
+                fill="#679E6B"
+                stroke="#5A3E36"
+                strokeWidth="4"
+              />
+              <rect
+                x="48"
+                y="104"
+                width="26"
+                height="16"
+                rx="8"
+                fill="#D89B5B"
+                stroke="#5A3E36"
+                strokeWidth="3.5"
+              />
+              <rect
+                x="162"
+                y="112"
+                width="34"
+                height="62"
+                rx="14"
+                fill="#679E6B"
+                stroke="#5A3E36"
+                strokeWidth="4"
+              />
+              <rect
+                x="166"
+                y="104"
+                width="26"
+                height="16"
+                rx="8"
+                fill="#D89B5B"
+                stroke="#5A3E36"
+                strokeWidth="3.5"
+              />
+            </g>
+          )}
 
           {/* Ears behind body */}
           {species === 'rabbit' ? (
@@ -556,6 +629,80 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               />
             </g>
           )}
+          {equipped.body === 'strawberry_dot_dress' && (
+            <g>
+              <path
+                d="M 78 144 L 162 144 L 174 188 Q 120 200 66 188 Z"
+                fill="#FF8EB0"
+                stroke="#5A3E36"
+                strokeWidth="3.8"
+                strokeLinejoin="round"
+              />
+              <circle cx="96" cy="162" r="4" fill="#FFFDF7" />
+              <circle cx="142" cy="164" r="4" fill="#FFFDF7" />
+              <circle cx="118" cy="176" r="4" fill="#FFFDF7" />
+              <circle cx="88" cy="178" r="3.5" fill="#FFFDF7" />
+              <circle cx="152" cy="180" r="3.5" fill="#FFFDF7" />
+              <path d="M 70 186 Q 95 194 120 188 Q 145 194 170 186" fill="none" stroke="#FFFDF7" strokeWidth="3.5" strokeLinecap="round" />
+            </g>
+          )}
+          {equipped.body === 'cloud_pajamas' && (
+            <g>
+              <path
+                d="M 76 144 Q 120 150 164 144 L 168 188 Q 120 198 72 188 Z"
+                fill="#B5D4FF"
+                stroke="#5A3E36"
+                strokeWidth="3.8"
+                strokeLinejoin="round"
+              />
+              <circle cx="96" cy="168" r="6" fill="#FFFFFF" />
+              <circle cx="104" cy="167" r="5" fill="#FFFFFF" />
+              <circle cx="142" cy="174" r="5.5" fill="#FFFFFF" />
+              <circle cx="120" cy="158" r="3" fill="#FFE066" />
+            </g>
+          )}
+          {equipped.body === 'red_plaid_apron' && (
+            <g>
+              <path
+                d="M 79 144 Q 120 150 161 144 L 167 188 Q 120 198 73 188 Z"
+                fill="#FFFFFF"
+                stroke="#5A3E36"
+                strokeWidth="3.8"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 80 160 L 160 160 M 76 174 L 164 174 M 102 147 L 102 192 M 138 147 L 138 192"
+                stroke="#FF6B6B"
+                strokeWidth="4.2"
+                opacity="0.82"
+              />
+              <rect x="104" y="162" width="32" height="19" rx="7" fill="#FFF8EC" stroke="#5A3E36" strokeWidth="2.8" />
+            </g>
+          )}
+          {equipped.body === 'party_mini_cape' && (
+            <g>
+              <path
+                d="M 78 150 Q 120 164 162 150"
+                fill="none"
+                stroke="#FFE066"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+              />
+              <circle cx="120" cy="161" r="6" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.6" />
+            </g>
+          )}
+          {equipped.back === 'camping_backpack' && (
+            <g>
+              <path d="M 76 138 Q 84 156 76 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
+              <path d="M 164 138 Q 156 156 164 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
+            </g>
+          )}
+          {equipped.back === 'space_mini_cape' && (
+            <g>
+              <path d="M 78 148 Q 120 161 162 148" fill="none" stroke="#85D7FF" strokeWidth="4" strokeLinecap="round" />
+              <circle cx="120" cy="158" r="5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.4" />
+            </g>
+          )}
 
           <ellipse cx="88" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
           <ellipse cx="152" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
@@ -580,6 +727,64 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             stroke="#5A3E36"
             strokeWidth="4"
           />
+
+          {/* Held accessory near right paw */}
+          {equipped.held === 'pink_balloon' && (
+            <g transform="translate(194, 144)">
+              <path d="M -2 2 Q 8 -22 8 -46" fill="none" stroke="#5A3E36" strokeWidth="2.6" strokeLinecap="round" />
+              <ellipse cx="10" cy="-64" rx="18" ry="20" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="3.4" />
+              <ellipse cx="4" cy="-72" rx="4.5" ry="6.5" transform="rotate(-18 4 -72)" fill="#FFD3E3" />
+              <polygon points="9,-44 5,-38 13,-38" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.4" />
+            </g>
+          )}
+          {equipped.held === 'milk_bottle' && (
+            <g transform="translate(192, 134) rotate(-20)">
+              <path d="M -4 -22 C -4 -28 4 -28 4 -22 L 5 -16 L -5 -16 Z" fill="#FFE082" stroke="#5A3E36" strokeWidth="2.5" />
+              <rect x="-8" y="-16" width="16" height="6" rx="2.5" fill="#8ED8FF" stroke="#5A3E36" strokeWidth="2.5" />
+              <rect x="-10" y="-10" width="20" height="26" rx="7" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="3" />
+              <rect x="-8" y="1" width="16" height="13" rx="5" fill="#FFF4D8" />
+            </g>
+          )}
+          {equipped.held === 'mini_camera' && (
+            <g transform="translate(192, 142) rotate(-8)">
+              <rect x="-18" y="-12" width="36" height="25" rx="7" fill="#D79458" stroke="#5A3E36" strokeWidth="3.2" />
+              <rect x="-15" y="-3" width="30" height="14" rx="4" fill="#FFFDF7" />
+              <circle cx="0" cy="2" r="8" fill="#5B4D4B" stroke="#5A3E36" strokeWidth="2.6" />
+              <circle cx="0" cy="2" r="4" fill="#82D4FA" />
+              <circle cx="11" cy="-7" r="2.4" fill="#FFE066" />
+            </g>
+          )}
+          {equipped.held === 'strawberry_icecream' && (
+            <g transform="translate(194, 136) rotate(10)">
+              <polygon points="-10,-1 10,-1 0,22" fill="#F0BA72" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+              <circle cx="0" cy="-7" r="10.5" fill="#FF8EB0" stroke="#5A3E36" strokeWidth="3" />
+              <circle cx="0" cy="-16" r="8" fill="#FFF7EA" stroke="#5A3E36" strokeWidth="2.8" />
+              <circle cx="0" cy="-24" r="3.4" fill="#FF477E" stroke="#5A3E36" strokeWidth="2" />
+            </g>
+          )}
+          {equipped.held === 'little_star_wand' && (
+            <g transform="translate(196, 134) rotate(18)">
+              <line x1="0" y1="-2" x2="0" y2="26" stroke="#D99B26" strokeWidth="4.8" strokeLinecap="round" />
+              <path
+                d="M 0 -22 L 4.5 -11 L 16 -9.5 L 7.5 -2 L 9.5 9.5 L 0 4 L -9.5 9.5 L -7.5 -2 L -16 -9.5 L -4.5 -11 Z"
+                fill="#FFE066"
+                stroke="#5A3E36"
+                strokeWidth="3"
+                strokeLinejoin="round"
+              />
+              <circle cx="0" cy="-5" r="2.8" fill="#FF7AA8" />
+            </g>
+          )}
+          {equipped.held === 'little_lantern' && (
+            <g transform="translate(196, 144)">
+              <line x1="0" y1="-10" x2="0" y2="2" stroke="#5A3E36" strokeWidth="3" strokeLinecap="round" />
+              <rect x="-8" y="2" width="16" height="4" rx="2" fill="#D99B26" stroke="#5A3E36" strokeWidth="2.2" />
+              <ellipse cx="0" cy="17" rx="13" ry="13" fill="#FF8A5B" stroke="#5A3E36" strokeWidth="3" />
+              <ellipse cx="0" cy="17" rx="6" ry="13" fill="none" stroke="#FFE082" strokeWidth="2" />
+              <rect x="-7" y="29" width="14" height="4" rx="2" fill="#D99B26" stroke="#5A3E36" strokeWidth="2.2" />
+              <line x1="0" y1="33" x2="0" y2="39" stroke="#FF5E5B" strokeWidth="2.8" strokeLinecap="round" />
+            </g>
+          )}
 
           <ellipse
             cx="72"
@@ -900,6 +1105,56 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               />
             </g>
           )}
+          {equipped.neck === 'strawberry_shake_bib' && (
+            <g>
+              <path
+                d="M 91 158 Q 120 170 149 158 Q 155 185 120 193 Q 85 185 91 158 Z"
+                fill="#FFD2E2"
+                stroke="#5A3E36"
+                strokeWidth="3.4"
+                strokeLinejoin="round"
+              />
+              <path d="M 94 160 Q 120 171 146 160" fill="none" stroke="#FFFDF7" strokeWidth="4" strokeLinecap="round" />
+              <path d="M 120 170 C 127 170 128 180 120 185 C 112 180 113 170 120 170 Z" fill="#FF5484" stroke="#5A3E36" strokeWidth="2.4" />
+            </g>
+          )}
+          {equipped.neck === 'knit_scarf' && (
+            <g>
+              <rect x="88" y="154" width="64" height="16" rx="8" fill="#D98A4E" stroke="#5A3E36" strokeWidth="3.2" />
+              <path d="M 132 164 L 146 164 L 148 188 L 134 188 Z" fill="#C9783D" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M 100 162 L 110 162 M 116 162 L 126 162" stroke="#FFF4D8" strokeWidth="2.6" strokeLinecap="round" />
+            </g>
+          )}
+          {equipped.neck === 'star_scarf' && (
+            <g>
+              <rect x="88" y="154" width="64" height="15" rx="7.5" fill="#9BC3FF" stroke="#5A3E36" strokeWidth="3.2" />
+              <path d="M 96 164 L 110 164 L 108 188 L 94 188 Z" fill="#82B0FA" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+              <circle cx="132" cy="161.5" r="3" fill="#FFE066" />
+              <circle cx="102" cy="176" r="3" fill="#FFE066" />
+            </g>
+          )}
+          {equipped.neck === 'plaid_neckerchief' && (
+            <g>
+              <path d="M 86 158 Q 120 170 154 158 L 120 192 Z" fill="#FF6B6B" stroke="#5A3E36" strokeWidth="3.2" strokeLinejoin="round" />
+              <path d="M 106 164 L 126 182 M 134 164 L 114 182" stroke="#FFFDF7" strokeWidth="2.8" strokeLinecap="round" />
+              <circle cx="120" cy="165" r="5" fill="#FFF8E1" stroke="#5A3E36" strokeWidth="2.6" />
+            </g>
+          )}
+          {equipped.neck === 'galaxy_necklace' && (
+            <g>
+              <path d="M 90 158 Q 120 180 150 158" fill="none" stroke="#C5B4F5" strokeWidth="3.8" strokeLinecap="round" />
+              <circle cx="120" cy="174" r="7" fill="#7068D9" stroke="#5A3E36" strokeWidth="2.8" />
+              <ellipse cx="120" cy="174" rx="14" ry="3.8" transform="rotate(-18 120 174)" fill="none" stroke="#FFE066" strokeWidth="2.5" />
+            </g>
+          )}
+          {equipped.neck === 'ribbon_bowtie' && (
+            <g transform="translate(120, 168)">
+              <path d="M 0 0 L -24 -13 L -22 10 Z" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M 0 0 L 24 -13 L 22 10 Z" fill="#6EC6FF" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M -4 4 L -11 22 M 4 4 L 11 22" stroke="#FFD54F" strokeWidth="3.6" strokeLinecap="round" />
+              <circle cx="0" cy="0" r="6" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.8" />
+            </g>
+          )}
 
           {equipped.face === 'round_glasses' && (
             <g fill="none" stroke="#6B4423" strokeWidth="3.6">
@@ -969,6 +1224,62 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               <path d="M 106 110 Q 120 106 134 110" fill="none" stroke="#5A3E36" strokeWidth="4.2" strokeLinecap="round" />
               <path d="M 74 104 L 82 112" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" opacity="0.88" />
               <path d="M 142 104 L 150 112" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" opacity="0.88" />
+            </g>
+          )}
+          {equipped.face === 'strawberry_blush_sticker' && (
+            <g>
+              <path d="M 70 123 C 77 123 78 134 70 139 C 62 134 63 123 70 123 Z" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="2.4" />
+              <path d="M 170 123 C 177 123 178 134 170 139 C 162 134 163 123 170 123 Z" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="2.4" />
+              <path d="M 66 123 Q 70 119 74 123" fill="none" stroke="#6CD4B5" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M 166 123 Q 170 119 174 123" fill="none" stroke="#6CD4B5" strokeWidth="2.2" strokeLinecap="round" />
+              <circle cx="70" cy="130" r="1.4" fill="#FFF8E1" />
+              <circle cx="170" cy="130" r="1.4" fill="#FFF8E1" />
+            </g>
+          )}
+          {equipped.face === 'leaf_sunglasses' && (
+            <g stroke="#5A3E36" strokeWidth="3">
+              <path d="M 65 107 C 75 97 95 99 101 112 C 95 126 73 124 65 107 Z" fill="#52B788" />
+              <path d="M 175 107 C 165 97 145 99 139 112 C 145 126 167 124 175 107 Z" fill="#52B788" />
+              <path d="M 101 110 Q 120 106 139 110" fill="none" strokeWidth="3.6" />
+              <path d="M 74 109 L 87 110" stroke="#D8F3DC" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M 153 110 L 166 109" stroke="#D8F3DC" strokeWidth="2.2" strokeLinecap="round" />
+            </g>
+          )}
+          {equipped.face === 'moon_sleep_mask' && (
+            <g>
+              <path d="M 57 93 L 68 93 M 172 93 L 183 93" stroke="#5A3E36" strokeWidth="3.4" strokeLinecap="round" />
+              <rect x="68" y="81" width="104" height="24" rx="12" fill="#B5A4F2" stroke="#5A3E36" strokeWidth="3.2" />
+              <path d="M 114 86 C 108 89 108 98 116 100 C 110 100 105 97 105 93 C 105 88 110 85 114 86 Z" fill="#FFE066" />
+              <circle cx="144" cy="91" r="2.6" fill="#FFE066" />
+              <circle cx="154" cy="96" r="1.8" fill="#FFFDF7" />
+            </g>
+          )}
+          {equipped.face === 'chef_glasses' && (
+            <g fill="none" stroke="#7A869A" strokeWidth="3.4">
+              <rect x="69" y="100" width="36" height="24" rx="8" fill="#FFFFFF" fillOpacity="0.28" />
+              <rect x="135" y="100" width="36" height="24" rx="8" fill="#FFFFFF" fillOpacity="0.28" />
+              <path d="M 105 111 L 135 111" stroke="#5A3E36" strokeWidth="3.4" />
+              <path d="M 77 106 L 85 114" stroke="#90C2FF" strokeWidth="2.4" strokeLinecap="round" />
+              <path d="M 143 106 L 151 114" stroke="#90C2FF" strokeWidth="2.4" strokeLinecap="round" />
+            </g>
+          )}
+          {equipped.face === 'starry_goggles' && (
+            <g>
+              <path d="M 55 110 L 66 110 M 174 110 L 185 110" stroke="#5A3E36" strokeWidth="4.6" strokeLinecap="round" />
+              <rect x="66" y="97" width="40" height="29" rx="11" fill="#463F8F" fillOpacity="0.86" stroke="#D9A441" strokeWidth="4.2" />
+              <rect x="134" y="97" width="40" height="29" rx="11" fill="#463F8F" fillOpacity="0.86" stroke="#D9A441" strokeWidth="4.2" />
+              <path d="M 106 110 Q 120 106 134 110" fill="none" stroke="#5A3E36" strokeWidth="3.8" />
+              <circle cx="78" cy="107" r="2.8" fill="#FFE066" />
+              <circle cx="92" cy="116" r="2" fill="#9AE6FF" />
+              <circle cx="146" cy="107" r="2.8" fill="#FFE066" />
+              <circle cx="160" cy="116" r="2" fill="#9AE6FF" />
+            </g>
+          )}
+          {equipped.face === 'party_star_glasses' && (
+            <g stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round">
+              <path d="M 87 95 L 92 105 L 103 107 L 95 114 L 97 125 L 87 120 L 77 125 L 79 114 L 71 107 L 82 105 Z" fill="#FFD54F" />
+              <path d="M 153 95 L 158 105 L 169 107 L 161 114 L 163 125 L 153 120 L 143 125 L 145 114 L 137 107 L 148 105 Z" fill="#FF7AA8" />
+              <path d="M 102 108 L 138 108" fill="none" strokeWidth="3.6" />
             </g>
           )}
 
@@ -1070,6 +1381,62 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 <circle cx="0" cy="4.5" r="3.8" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="1.8" />
                 <circle cx="0" cy="0" r="3" fill="#FFE066" />
               </g>
+            </g>
+          )}
+          {equipped.head === 'strawberry_shake_headband' && (
+            <g transform="translate(120, 72)">
+              <path d="M -34 10 C -32 -10 32 -10 34 10" fill="none" stroke="#FF8EB0" strokeWidth="6.5" strokeLinecap="round" />
+              <path d="M -34 10 C -32 -10 32 -10 34 10" fill="none" stroke="#5A3E36" strokeWidth="2.8" strokeLinecap="round" />
+              <circle cx="-11" cy="-8" r="6" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.6" />
+              <circle cx="0" cy="-12" r="7.5" fill="#FFF5F8" stroke="#5A3E36" strokeWidth="2.6" />
+              <circle cx="11" cy="-8" r="6" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.6" />
+              <path d="M 0 -30 C 10 -30 12 -18 0 -9 C -12 -18 -10 -30 0 -30 Z" fill="#FF5484" stroke="#5A3E36" strokeWidth="2.8" />
+              <path d="M -6 -30 Q 0 -35 6 -30" fill="none" stroke="#6CD4B5" strokeWidth="2.8" strokeLinecap="round" />
+              <circle cx="-3" cy="-20" r="1.4" fill="#FFF8E1" />
+              <circle cx="3" cy="-18" r="1.4" fill="#FFF8E1" />
+            </g>
+          )}
+          {equipped.head === 'mini_mushroom_hat' && (
+            <g transform="translate(120, 62)">
+              <path d="M -28 8 C -28 -22 28 -22 28 8 Q 0 15 -28 8 Z" fill="#F05D5E" stroke="#5A3E36" strokeWidth="3.5" strokeLinejoin="round" />
+              <ellipse cx="-13" cy="-5" rx="5.2" ry="4.4" fill="#FFFDF7" />
+              <ellipse cx="4" cy="-10" rx="5.8" ry="4.6" fill="#FFFDF7" />
+              <ellipse cx="17" cy="-2" rx="4.2" ry="3.6" fill="#FFFDF7" />
+              <path d="M -13 10 Q 0 16 13 10 L 11 17 Q 0 20 -11 17 Z" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+            </g>
+          )}
+          {equipped.head === 'cloud_nightcap' && (
+            <g transform="translate(120, 64)">
+              <path d="M -25 10 Q 0 -28 30 -10 Q 18 3 23 12 Z" fill="#89B9FA" stroke="#5A3E36" strokeWidth="3.4" strokeLinejoin="round" />
+              <rect x="-27" y="7" width="52" height="11" rx="5.5" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="3.2" />
+              <circle cx="31" cy="-8" r="7" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="3" />
+            </g>
+          )}
+          {equipped.head === 'mini_chef_hat' && (
+            <g transform="translate(120, 64)">
+              <path d="M -18 8 C -26 -5 -14 -19 -2 -14 C 2 -23 16 -21 16 -11 C 27 -12 27 3 18 8 Z" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="3.2" strokeLinejoin="round" />
+              <rect x="-17" y="6" width="34" height="9" rx="3.5" fill="#FFF5DA" stroke="#5A3E36" strokeWidth="3" />
+              <path d="M 0 7.5 L 1.6 10.5 L 4.8 11 L 2.4 13 L 3 16 L 0 14.5 L -3 16 L -2.4 13 L -4.8 11 L -1.6 10.5 Z" fill="#FFD54F" />
+            </g>
+          )}
+          {equipped.head === 'star_detector_hat' && (
+            <g transform="translate(120, 66)">
+              <line x1="0" y1="-12" x2="0" y2="-28" stroke="#5A3E36" strokeWidth="3.4" strokeLinecap="round" />
+              <circle cx="0" cy="-31" r="5.5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.8" />
+              <path d="M -26 9 C -26 -14 26 -14 26 9 Z" fill="#6374C9" stroke="#5A3E36" strokeWidth="3.4" strokeLinejoin="round" />
+              <path d="M -21 9 L 21 9" stroke="#85D7FF" strokeWidth="4" strokeLinecap="round" />
+              <circle cx="-9" cy="-1" r="2.8" fill="#FFE066" />
+              <circle cx="10" cy="-2" r="3" fill="#85D7FF" />
+            </g>
+          )}
+          {equipped.head === 'birthday_mini_crown' && (
+            <g transform="translate(120, 64)">
+              <line x1="0" y1="-12" x2="0" y2="-24" stroke="#FF8EB0" strokeWidth="4" strokeLinecap="round" />
+              <path d="M 0 -33 C 4 -28 4 -24 0 -24 C -4 -24 -4 -28 0 -33 Z" fill="#FFB300" stroke="#5A3E36" strokeWidth="2" />
+              <path d="M -21 11 L -24 -10 L -10 1 L 0 -13 L 10 1 L 24 -10 L 21 11 Z" fill="#FFE082" stroke="#5A3E36" strokeWidth="3.2" strokeLinejoin="round" />
+              <path d="M -18 4 Q -9 9 0 4 Q 9 9 18 4" fill="none" stroke="#FF6B9A" strokeWidth="3.2" strokeLinecap="round" />
+              <circle cx="-9" cy="6" r="2.4" fill="#6EC6FF" />
+              <circle cx="9" cy="6" r="2.4" fill="#6CD4B5" />
             </g>
           )}
         </g>

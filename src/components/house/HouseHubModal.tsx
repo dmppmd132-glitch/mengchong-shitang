@@ -40,11 +40,13 @@ import {
   getZoneForCell,
 } from '../../data/house';
 import { INGREDIENTS } from '../../data/kitchen';
+import { PHOTO_STICKERS } from '../../data/photoStudio';
 import {
   FlooringId,
   GameState,
   IngredientId,
   PetExpression,
+  PhotoStickerId,
   PiggyActionState,
   PlacedRoomItem,
   RoomPhotoPoseId,
@@ -157,10 +159,13 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
 
   // Photo mode states
   const [selectedPoseId, setSelectedPoseId] = useState<RoomPhotoPoseId>('normal');
-  const [photoTitle, setPhotoTitle] = useState<string>(`${game.house.houseName}的幸福時刻`);
+  const [photoTitle, setPhotoTitle] = useState<string>(
+    `${game.house.houseName}的幸福時刻`.slice(0, 20)
+  );
   const [photoCaption, setPhotoCaption] = useState<string>(
     `跟 ${game.pet.name} 一起在親手佈置的小房間拍照留念！`
   );
+  const [photoStickers, setPhotoStickers] = useState<PhotoStickerId[]>([]);
   const [sharingPhoto, setSharingPhoto] = useState<boolean>(false);
 
   const house = game.house;
@@ -460,9 +465,10 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
 
   const handleSavePhoto = (alsoShare: boolean) => {
     const saved = saveRoomSnapshotPhoto(game, {
-      title: photoTitle,
+      title: photoTitle.slice(0, 20),
       caption: photoCaption,
       poseId: selectedPoseId,
+      stickers: photoStickers,
     });
     onUpdateGame(() => saved.nextState);
 
@@ -476,11 +482,11 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
         if (err) {
           showError(err);
         } else {
-          showNotice('已拍照並分享到留言板與成長手帳相簿！');
+          showNotice('已拍照並分享到留言板與照片牆！');
         }
       });
     } else {
-      showNotice('已拍下小屋合照並儲存到成長手帳相簿！');
+      showNotice('已拍下小屋合照並儲存到照片牆！');
     }
   };
 
@@ -504,7 +510,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
 
   const previewPhotoRecord: RoomPhotoRecord = {
     id: 'preview',
-    title: photoTitle || `${house.houseName}的幸福時刻`,
+    title: photoTitle.slice(0, 20) || `${house.houseName}的幸福時刻`.slice(0, 20),
     caption: photoCaption,
     createdAt: Date.now(),
     houseName: house.houseName,
@@ -516,6 +522,10 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
     flooringId: house.roomLayout.flooringId,
     placedItems: house.roomLayout.placedItems,
     noteHighlight: house.furnitureNotes[0]?.content,
+    photoKind: 'room',
+    scene: 'room',
+    stickers: photoStickers,
+    weightAtCapture: game.pet.weight,
   };
 
   return (
@@ -1749,16 +1759,56 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                   })}
                 </div>
 
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs font-extrabold text-[#4A3531]">
+                    <span>🩷 加入相片貼圖</span>
+                    <span className="text-[10px] font-bold text-[#826862] tabular-nums">
+                      已選 {photoStickers.length} / 6
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {PHOTO_STICKERS.map((st) => {
+                      const active = photoStickers.includes(st.id);
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() =>
+                            setPhotoStickers((prev) =>
+                              prev.includes(st.id)
+                                ? prev.filter((item) => item !== st.id)
+                                : [...prev, st.id].slice(0, 6)
+                            )
+                          }
+                          className={`min-h-[44px] rounded-xl px-2 border text-xs font-extrabold inline-flex items-center justify-center gap-1 transition active:scale-95 ${
+                            active
+                              ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#B83B64]'
+                              : 'bg-[#FFF9F2] border-[#EAD9D0] text-[#5A3E36]'
+                          }`}
+                        >
+                          <span aria-hidden="true">{st.emoji}</span>
+                          <span>{st.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-2 pt-1">
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-[#4A3531]">
-                    <Tag className="w-3.5 h-3.5 text-[#D64470]" />
-                    <span>寫下紀念標題與心情</span>
+                  <div className="flex items-center justify-between gap-1.5 text-xs font-extrabold text-[#4A3531]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-[#D64470]" />
+                      <span>寫下紀念標題（最長 20 字）</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-[#826862] tabular-nums">
+                      {photoTitle.length}/20
+                    </span>
                   </div>
                   <input
                     type="text"
-                    maxLength={24}
+                    maxLength={20}
                     value={photoTitle}
-                    onChange={(e) => setPhotoTitle(e.target.value)}
+                    onChange={(e) => setPhotoTitle(e.target.value.slice(0, 20))}
                     placeholder="相片標題（如：新沙發開箱日！）"
                     className="w-full min-h-[44px] rounded-2xl bg-white border border-[#EED9D0] px-3 text-sm font-bold text-[#4A3531] focus:outline-none focus:border-[#FF7A9E]"
                   />
@@ -1767,7 +1817,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                     maxLength={60}
                     value={photoCaption}
                     onChange={(e) => setPhotoCaption(e.target.value)}
-                    placeholder="分享給成長手帳與留言板的話…"
+                    placeholder="分享給照片牆與留言板的話…"
                     className="w-full min-h-[44px] rounded-2xl bg-white border border-[#EED9D0] px-3 text-sm font-medium text-[#4A3531] focus:outline-none focus:border-[#FF7A9E]"
                   />
                 </div>

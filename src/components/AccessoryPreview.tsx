@@ -245,6 +245,270 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           />
         </g>
       )}
+      {accessoryId === 'strawberry_shake_headband' && (
+        <g transform="translate(32, 36)">
+          <path d="M -20 12 C -20 -6 20 -6 20 12" fill="none" stroke="#FF8EB0" strokeWidth="4.8" strokeLinecap="round" />
+          <path d="M -20 12 C -20 -6 20 -6 20 12" fill="none" stroke="#5A3E36" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="-8" cy="-4" r="5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="0" cy="-7" r="6" fill="#FFF5F8" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="8" cy="-4" r="5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.4" />
+          <path d="M 0 -22 C 8 -22 10 -12 0 -5 C -10 -12 -8 -22 0 -22 Z" fill="#FF5484" stroke="#5A3E36" strokeWidth="2.4" />
+          <path d="M -5 -22 Q 0 -26 5 -22" fill="none" stroke="#6CD4B5" strokeWidth="2.6" strokeLinecap="round" />
+          <circle cx="-2" cy="-14" r="1.2" fill="#FFF8E1" />
+          <circle cx="2" cy="-12" r="1.2" fill="#FFF8E1" />
+        </g>
+      )}
+      {accessoryId === 'mini_mushroom_hat' && (
+        <g transform="translate(32, 34)">
+          <path d="M -22 6 C -22 -16 22 -16 22 6 Q 0 12 -22 6 Z" fill="#F05D5E" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
+          <ellipse cx="-10" cy="-4" rx="4.2" ry="3.6" fill="#FFFDF7" />
+          <ellipse cx="3" cy="-8" rx="4.6" ry="3.8" fill="#FFFDF7" />
+          <ellipse cx="13" cy="-2" rx="3.5" ry="3" fill="#FFFDF7" />
+          <path d="M -11 8 Q 0 13 11 8 L 9 15 Q 0 18 -9 15 Z" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+        </g>
+      )}
+      {accessoryId === 'cloud_nightcap' && (
+        <g transform="translate(32, 34)">
+          <path d="M -18 8 Q 0 -22 22 -8 Q 14 2 18 10 Z" fill="#89B9FA" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <rect x="-20" y="6" width="38" height="9" rx="4.5" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.6" />
+          <circle cx="22" cy="-6" r="5.5" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.4" />
+        </g>
+      )}
+      {accessoryId === 'mini_chef_hat' && (
+        <g transform="translate(32, 36)">
+          <path d="M -16 6 C -22 -4 -12 -16 -2 -12 C 2 -19 13 -17 13 -9 C 22 -10 22 2 15 6 Z" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <rect x="-15" y="4" width="30" height="8" rx="3" fill="#FFF5DA" stroke="#5A3E36" strokeWidth="2.6" />
+          <path d="M 0 5.5 L 1.4 8 L 4 8.4 L 2 10.2 L 2.5 12.8 L 0 11.4 L -2.5 12.8 L -2 10.2 L -4 8.4 L -1.4 8 Z" fill="#FFD54F" />
+        </g>
+      )}
+      {accessoryId === 'star_detector_hat' && (
+        <g transform="translate(32, 38)">
+          <line x1="0" y1="-10" x2="0" y2="-22" stroke="#5A3E36" strokeWidth="2.8" strokeLinecap="round" />
+          <circle cx="0" cy="-24" r="4.5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.4" />
+          <path d="M -20 8 C -20 -10 20 -10 20 8 Z" fill="#6374C9" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -16 8 L 16 8" stroke="#85D7FF" strokeWidth="3.2" strokeLinecap="round" />
+          <circle cx="-7" cy="0" r="2.2" fill="#FFE066" />
+          <circle cx="8" cy="-1" r="2.6" fill="#85D7FF" />
+        </g>
+      )}
+      {accessoryId === 'birthday_mini_crown' && (
+        <g transform="translate(32, 36)">
+          <line x1="0" y1="-10" x2="0" y2="-20" stroke="#FF8EB0" strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M 0 -27 C 3 -23 3 -20 0 -20 C -3 -20 -3 -23 0 -27 Z" fill="#FFB300" stroke="#5A3E36" strokeWidth="1.6" />
+          <path d="M -18 10 L -21 -8 L -8 1 L 0 -10 L 8 1 L 21 -8 L 18 10 Z" fill="#FFE082" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -16 4 Q -8 8 0 4 Q 8 8 16 4" fill="none" stroke="#FF6B9A" strokeWidth="2.8" strokeLinecap="round" />
+          <circle cx="-8" cy="6" r="2" fill="#6EC6FF" />
+          <circle cx="8" cy="6" r="2" fill="#6CD4B5" />
+        </g>
+      )}
+      {accessoryId === 'strawberry_blush_sticker' && (
+        <g transform="translate(32, 34)">
+          <path d="M -14 -7 C -8 -7 -7 4 -14 9 C -21 4 -20 -7 -14 -7 Z" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="2.4" />
+          <path d="M 14 -7 C 20 -7 21 4 14 9 C 7 4 8 -7 14 -7 Z" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="2.4" />
+          <path d="M -18 -7 Q -14 -11 -10 -7" fill="none" stroke="#6CD4B5" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M 10 -7 Q 14 -11 18 -7" fill="none" stroke="#6CD4B5" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="-14" cy="0" r="1.2" fill="#FFF8E1" />
+          <circle cx="14" cy="0" r="1.2" fill="#FFF8E1" />
+        </g>
+      )}
+      {accessoryId === 'leaf_sunglasses' && (
+        <g transform="translate(32, 32)" stroke="#5A3E36" strokeWidth="2.6">
+          <path d="M -23 -4 C -16 -12 -5 -10 -4 0 C -8 9 -19 8 -23 -4 Z" fill="#52B788" />
+          <path d="M 23 -4 C 16 -12 5 -10 4 0 C 8 9 19 8 23 -4 Z" fill="#52B788" />
+          <path d="M -4 -2 L 4 -2" fill="none" strokeWidth="3" />
+          <path d="M -17 -2 L -9 -1" stroke="#D8F3DC" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M 9 -1 L 17 -2" stroke="#D8F3DC" strokeWidth="1.8" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'moon_sleep_mask' && (
+        <g transform="translate(32, 32)">
+          <rect x="-23" y="-10" width="46" height="20" rx="10" fill="#B5A4F2" stroke="#5A3E36" strokeWidth="2.8" />
+          <path d="M -3 -5 C -7 -3 -7 4 -2 6 C -5 6 -9 4 -9 0 C -9 -4 -6 -6 -3 -5 Z" fill="#FFE066" />
+          <circle cx="9" cy="-2" r="2" fill="#FFE066" />
+          <circle cx="14" cy="3" r="1.5" fill="#FFFDF7" />
+        </g>
+      )}
+      {accessoryId === 'chef_glasses' && (
+        <g transform="translate(32, 32)" fill="none" stroke="#7A869A" strokeWidth="3">
+          <rect x="-23" y="-8" width="19" height="15" rx="5" fill="#FFFFFF" fillOpacity="0.55" />
+          <rect x="4" y="-8" width="19" height="15" rx="5" fill="#FFFFFF" fillOpacity="0.55" />
+          <path d="M -4 -1 L 4 -1" stroke="#5A3E36" />
+          <path d="M -18 -3 L -12 2" stroke="#90C2FF" strokeWidth="2" strokeLinecap="round" />
+          <path d="M 9 -3 L 15 2" stroke="#90C2FF" strokeWidth="2" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'starry_goggles' && (
+        <g transform="translate(32, 32)">
+          <rect x="-23" y="-10" width="20" height="18" rx="8" fill="#463F8F" stroke="#D9A441" strokeWidth="3.2" />
+          <rect x="3" y="-10" width="20" height="18" rx="8" fill="#463F8F" stroke="#D9A441" strokeWidth="3.2" />
+          <path d="M -3 -1 L 3 -1" stroke="#5A3E36" strokeWidth="3" />
+          <circle cx="-15" cy="-3" r="2.2" fill="#FFE066" />
+          <circle cx="-9" cy="2" r="1.5" fill="#9AE6FF" />
+          <circle cx="11" cy="-3" r="2.2" fill="#FFE066" />
+          <circle cx="17" cy="2" r="1.5" fill="#9AE6FF" />
+        </g>
+      )}
+      {accessoryId === 'party_star_glasses' && (
+        <g transform="translate(32, 32)" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round">
+          <path d="M -14 -11 L -11 -4 L -4 -3 L -9 2 L -8 9 L -14 5 L -20 9 L -19 2 L -24 -3 L -17 -4 Z" fill="#FFD54F" />
+          <path d="M 14 -11 L 17 -4 L 24 -3 L 19 2 L 20 9 L 14 5 L 8 9 L 9 2 L 4 -3 L 11 -4 Z" fill="#FF7AA8" />
+          <path d="M -5 -2 L 5 -2" fill="none" strokeWidth="3" />
+        </g>
+      )}
+      {accessoryId === 'strawberry_shake_bib' && (
+        <g transform="translate(32, 32)">
+          <path d="M -20 -13 Q 0 -3 20 -13 Q 24 14 0 20 Q -24 14 -20 -13 Z" fill="#FFD2E2" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -18 -11 Q 0 -2 18 -11" fill="none" stroke="#FFFDF7" strokeWidth="3.2" strokeLinecap="round" />
+          <path d="M 0 -1 C 6 -1 7 7 0 11 C -7 7 -6 -1 0 -1 Z" fill="#FF5484" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
+      {accessoryId === 'knit_scarf' && (
+        <g transform="translate(32, 32)">
+          <rect x="-21" y="-11" width="42" height="14" rx="7" fill="#D98A4E" stroke="#5A3E36" strokeWidth="2.8" />
+          <path d="M 4 -2 L 16 -2 L 18 18 L 6 18 Z" fill="#C9783D" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M -12 -4 L -4 -4 M 0 -4 L 8 -4" stroke="#FFF4D8" strokeWidth="2.2" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'star_scarf' && (
+        <g transform="translate(32, 32)">
+          <rect x="-21" y="-11" width="42" height="13" rx="6.5" fill="#9BC3FF" stroke="#5A3E36" strokeWidth="2.8" />
+          <path d="M -14 -2 L -4 -2 L -6 17 L -16 17 Z" fill="#82B0FA" stroke="#5A3E36" strokeWidth="2.5" strokeLinejoin="round" />
+          <circle cx="8" cy="-4.5" r="2.6" fill="#FFE066" />
+          <circle cx="-10" cy="8" r="2.6" fill="#FFE066" />
+        </g>
+      )}
+      {accessoryId === 'plaid_neckerchief' && (
+        <g transform="translate(32, 33)">
+          <path d="M -21 -12 Q 0 -3 21 -12 L 0 16 Z" fill="#FF6B6B" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -10 -7 L 6 8 M 10 -7 L -6 8" stroke="#FFFDF7" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="0" cy="-6" r="4.2" fill="#FFF8E1" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'galaxy_necklace' && (
+        <g transform="translate(32, 32)">
+          <path d="M -20 -8 Q 0 12 20 -8" fill="none" stroke="#C5B4F5" strokeWidth="3.2" strokeLinecap="round" />
+          <circle cx="0" cy="6" r="6" fill="#7068D9" stroke="#5A3E36" strokeWidth="2.4" />
+          <ellipse cx="0" cy="6" rx="12" ry="3.2" transform="rotate(-18 0 6)" fill="none" stroke="#FFE066" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'ribbon_bowtie' && (
+        <g transform="translate(32, 32)">
+          <path d="M 0 0 L -20 -11 L -18 8 Z" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M 0 0 L 20 -11 L 18 8 Z" fill="#6EC6FF" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M -3 3 L -9 18 M 3 3 L 9 18" stroke="#FFD54F" strokeWidth="3.2" strokeLinecap="round" />
+          <circle cx="0" cy="0" r="5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.4" />
+        </g>
+      )}
+      {accessoryId === 'strawberry_dot_dress' && (
+        <g transform="translate(32, 32)">
+          <path d="M -15 -14 L 15 -14 L 22 18 Q 0 24 -22 18 Z" fill="#FF8EB0" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <circle cx="-8" cy="-2" r="2.6" fill="#FFFDF7" />
+          <circle cx="7" cy="2" r="2.6" fill="#FFFDF7" />
+          <circle cx="-6" cy="11" r="2.6" fill="#FFFDF7" />
+          <circle cx="9" cy="12" r="2.6" fill="#FFFDF7" />
+          <path d="M -19 16 Q -10 21 0 17 Q 10 21 19 16" fill="none" stroke="#FFFDF7" strokeWidth="2.6" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'cloud_pajamas' && (
+        <g transform="translate(32, 32)">
+          <path d="M -17 -14 L 17 -14 L 21 17 Q 0 21 -21 17 Z" fill="#B5D4FF" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <circle cx="-7" cy="2" r="4.5" fill="#FFFFFF" />
+          <circle cx="-2" cy="1" r="4" fill="#FFFFFF" />
+          <circle cx="9" cy="8" r="3.5" fill="#FFFFFF" />
+          <circle cx="0" cy="-5" r="2.2" fill="#FFE066" />
+        </g>
+      )}
+      {accessoryId === 'red_plaid_apron' && (
+        <g transform="translate(32, 32)">
+          <path d="M -17 -14 L 17 -14 L 21 18 Q 0 22 -21 18 Z" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -14 -4 L 14 -4 M -16 6 L 16 6 M -7 -12 L -7 17 M 7 -12 L 7 17" stroke="#FF6B6B" strokeWidth="3.2" opacity="0.82" />
+          <rect x="-8" y="3" width="16" height="10" rx="4" fill="#FFF8EC" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'party_mini_cape' && (
+        <g transform="translate(32, 32)">
+          <path d="M -18 -14 L -23 16 Q 0 22 23 16 L 18 -14 Q 0 -7 -18 -14 Z" fill="#FF85B3" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -15 -10 Q 0 -4 15 -10" fill="none" stroke="#FFE066" strokeWidth="3.2" strokeLinecap="round" />
+          <circle cx="-8" cy="4" r="2.5" fill="#85D7FF" />
+          <circle cx="8" cy="4" r="2.5" fill="#FFE066" />
+          <circle cx="0" cy="11" r="2.5" fill="#95E8C9" />
+        </g>
+      )}
+      {accessoryId === 'pink_balloon' && (
+        <g transform="translate(32, 32)">
+          <path d="M 0 5 Q -4 14 2 22" fill="none" stroke="#5A3E36" strokeWidth="2.4" strokeLinecap="round" />
+          <ellipse cx="0" cy="-6" rx="14" ry="16" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.8" />
+          <ellipse cx="-5" cy="-12" rx="3.5" ry="5" transform="rotate(-20 -5 -12)" fill="#FFD3E3" />
+          <polygon points="0,10 -3,14 3,14" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
+      {accessoryId === 'milk_bottle' && (
+        <g transform="translate(32, 34) rotate(-14)">
+          <path d="M -4 -20 C -4 -25 4 -25 4 -20 L 5 -14 L -5 -14 Z" fill="#FFE082" stroke="#5A3E36" strokeWidth="2.2" />
+          <rect x="-8" y="-14" width="16" height="5" rx="2" fill="#8ED8FF" stroke="#5A3E36" strokeWidth="2.2" />
+          <rect x="-9" y="-9" width="18" height="24" rx="6" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.6" />
+          <rect x="-7" y="1" width="14" height="12" rx="4" fill="#FFF4D8" />
+          <path d="M -4 -3 L 0 -3 M -4 3 L 1 3" stroke="#9EA9B8" strokeWidth="1.8" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'mini_camera' && (
+        <g transform="translate(32, 34)">
+          <rect x="-18" y="-11" width="36" height="25" rx="7" fill="#D79458" stroke="#5A3E36" strokeWidth="2.8" />
+          <rect x="-16" y="-2" width="32" height="14" rx="4" fill="#FFFDF7" />
+          <circle cx="0" cy="2" r="8" fill="#5B4D4B" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="0" cy="2" r="4" fill="#82D4FA" />
+          <circle cx="11" cy="-6" r="2.2" fill="#FFE066" />
+        </g>
+      )}
+      {accessoryId === 'strawberry_icecream' && (
+        <g transform="translate(32, 34)">
+          <polygon points="-10,-1 10,-1 0,21" fill="#F0BA72" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <circle cx="0" cy="-6" r="10" fill="#FF8EB0" stroke="#5A3E36" strokeWidth="2.6" />
+          <circle cx="0" cy="-14" r="7.5" fill="#FFF7EA" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="0" cy="-21" r="3" fill="#FF477E" stroke="#5A3E36" strokeWidth="1.8" />
+        </g>
+      )}
+      {accessoryId === 'little_star_wand' && (
+        <g transform="translate(32, 32) rotate(14)">
+          <line x1="0" y1="-2" x2="0" y2="21" stroke="#D99B26" strokeWidth="4" strokeLinecap="round" />
+          <path
+            d="M 0 -20 L 4 -10 L 15 -9 L 7 -2 L 9 9 L 0 4 L -9 9 L -7 -2 L -15 -9 L -4 -10 Z"
+            fill="#FFE066"
+            stroke="#5A3E36"
+            strokeWidth="2.6"
+            strokeLinejoin="round"
+          />
+          <circle cx="0" cy="-5" r="2.5" fill="#FF7AA8" />
+        </g>
+      )}
+      {accessoryId === 'little_lantern' && (
+        <g transform="translate(32, 33)">
+          <line x1="0" y1="-20" x2="0" y2="-13" stroke="#5A3E36" strokeWidth="2.8" strokeLinecap="round" />
+          <rect x="-8" y="-13" width="16" height="4" rx="2" fill="#D99B26" stroke="#5A3E36" strokeWidth="2" />
+          <ellipse cx="0" cy="2" rx="13" ry="13" fill="#FF8A5B" stroke="#5A3E36" strokeWidth="2.8" />
+          <ellipse cx="0" cy="2" rx="6" ry="13" fill="none" stroke="#FFE082" strokeWidth="2" />
+          <rect x="-7" y="14" width="14" height="4" rx="2" fill="#D99B26" stroke="#5A3E36" strokeWidth="2" />
+          <line x1="0" y1="18" x2="0" y2="23" stroke="#FF5E5B" strokeWidth="2.6" strokeLinecap="round" />
+        </g>
+      )}
+      {accessoryId === 'camping_backpack' && (
+        <g transform="translate(32, 34)">
+          <path d="M -10 -14 Q 0 -22 10 -14" fill="none" stroke="#5A3E36" strokeWidth="3.2" strokeLinecap="round" />
+          <rect x="-17" y="-12" width="34" height="32" rx="11" fill="#679E6B" stroke="#5A3E36" strokeWidth="2.8" />
+          <rect x="-13" y="-16" width="26" height="9" rx="4.5" fill="#D89B5B" stroke="#5A3E36" strokeWidth="2.4" />
+          <rect x="-11" y="2" width="22" height="12" rx="5" fill="#82BA86" stroke="#5A3E36" strokeWidth="2.2" />
+          <circle cx="0" cy="6" r="2.4" fill="#FFE066" />
+        </g>
+      )}
+      {accessoryId === 'space_mini_cape' && (
+        <g transform="translate(32, 32)">
+          <path d="M -18 -14 L -24 18 Q 0 22 24 18 L 18 -14 Q 0 -8 -18 -14 Z" fill="#463F8F" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -12 2 L -4 -6 L -6 4 Z" fill="#85D7FF" />
+          <circle cx="8" cy="4" r="3.2" fill="#FFE066" />
+          <circle cx="-6" cy="11" r="2" fill="#FFFDF7" />
+          <circle cx="11" cy="-3" r="1.8" fill="#FFFDF7" />
+        </g>
+      )}
     </svg>
   );
 };

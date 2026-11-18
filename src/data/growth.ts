@@ -7,10 +7,10 @@ export const GROWTH_STAGES: GrowthStageInfo[] = [
     minGrowth: 0,
     nextGrowth: 100,
     tagline: '剛破殼的軟萌寶寶，最喜歡吃熱呼呼的點心。',
-    unlockFeature: '可使用頭部、臉部、脖子配件',
+    unlockFeature: '可使用頭部、臉部、脖子、手持、背部配件',
     bodyScaleX: 0.94,
     bodyScaleY: 0.94,
-    unlockedSlots: ['head', 'face', 'neck'],
+    unlockedSlots: ['head', 'face', 'neck', 'held', 'back'],
   },
   {
     level: 2,
@@ -21,7 +21,7 @@ export const GROWTH_STAGES: GrowthStageInfo[] = [
     unlockFeature: '解鎖「身體」配件欄位 + 圓潤體型',
     bodyScaleX: 1.03,
     bodyScaleY: 1.0,
-    unlockedSlots: ['head', 'face', 'neck', 'body'],
+    unlockedSlots: ['head', 'face', 'neck', 'body', 'held', 'back'],
   },
   {
     level: 3,
@@ -32,7 +32,7 @@ export const GROWTH_STAGES: GrowthStageInfo[] = [
     unlockFeature: '解鎖閃亮元氣表情與粉紅雙頰光暈',
     bodyScaleX: 1.06,
     bodyScaleY: 1.05,
-    unlockedSlots: ['head', 'face', 'neck', 'body'],
+    unlockedSlots: ['head', 'face', 'neck', 'body', 'held', 'back'],
   },
   {
     level: 4,
@@ -43,7 +43,7 @@ export const GROWTH_STAGES: GrowthStageInfo[] = [
     unlockFeature: '解鎖專屬金星光環與大豬華麗體態',
     bodyScaleX: 1.12,
     bodyScaleY: 1.09,
-    unlockedSlots: ['head', 'face', 'neck', 'body'],
+    unlockedSlots: ['head', 'face', 'neck', 'body', 'held', 'back'],
   },
 ];
 

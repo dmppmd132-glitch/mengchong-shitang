@@ -121,6 +121,12 @@ export const PET_PREFERENCES: Record<PetSpecies, PetPreference> = {
       'pumpkin_plush_pillow',
       'cloud_puff_pillow',
     ],
+    favoriteAccessoryIds: [
+      'strawberry_shake_headband',
+      'mini_chef_hat',
+      'strawberry_icecream',
+      'birthday_mini_crown',
+    ],
     dislikedFoodIds: ['veggie_porridge', 'carrot_salad'],
     dislikedToyIds: ['toy_mirror'],
     dislikedFurnitureIds: ['wooden_welcome_sign', 'linen_flower_curtain'],
@@ -134,6 +140,12 @@ export const PET_PREFERENCES: Record<PetSpecies, PetPreference> = {
       'sunflower_vase',
       'blueberry_scent_pot',
     ],
+    favoriteAccessoryIds: [
+      'mini_mushroom_hat',
+      'cloud_nightcap',
+      'little_star_wand',
+      'strawberry_blush_sticker',
+    ],
     dislikedFoodIds: ['meat_bento', 'cheese_burger'],
     dislikedToyIds: ['toy_frisbee'],
     dislikedFurnitureIds: ['camp_picnic_table', 'camp_trail_sign'],
@@ -143,6 +155,12 @@ export const PET_PREFERENCES: Record<PetSpecies, PetPreference> = {
     favoriteFoodIds: ['meat_bento', 'cheese_burger'],
     favoriteToyIds: ['toy_rainbow_ball', 'toy_frisbee'],
     favoriteFurnitureIds: ['rainbow_bounce_ball', 'cloud_star_ball'],
+    favoriteAccessoryIds: [
+      'starry_goggles',
+      'camping_backpack',
+      'pink_balloon',
+      'party_star_glasses',
+    ],
     dislikedFoodIds: ['dried_fruit', 'mint_parfait'],
     dislikedToyIds: ['toy_mirror'],
     dislikedFurnitureIds: ['strawberry_lace_bed', 'cloud_gauze_curtain'],
@@ -265,3 +283,39 @@ export const FAVORITE_ITEM_BUBBLE_SPEECHES: Record<PetSpecies, string[]> = {
     '眼睛亮晶晶！看到最喜歡的球球和飛盤就停不下來汪！',
   ],
 };
+
+export const PERSONALITY_ACCESSORY_REACTIONS: Record<PersonalityId, string[]> = {
+  greedy: [
+    '這件「{name}」看起來好像草莓蛋糕一樣可口！超級喜歡！',
+    '戴上「{name}」感覺今天會有好多點心吃，口水都要流下來啦！',
+  ],
+  sleepy: [
+    '好喜歡「{name}」軟綿綿的觸感… 戴著它讓人好想安心午睡 Zzz',
+    '「{name}」就像小雲朵一樣舒服，最合我的懶洋洋氣質了～',
+  ],
+  mischievous: [
+    '嘿嘿～戴上「{name}」之後整個人超神氣，等下要來捉弄誰好呢！',
+    '這件「{name}」太酷了！根本是為調皮小明星量身打造的！',
+  ],
+  clingy: [
+    '最喜歡主人幫我挑的「{name}」了！快點抱抱我貼貼～🩷',
+    '戴著你送的「{name}」，走到哪裡都覺得好幸福好安心！',
+  ],
+  elegant: [
+    '「{name}」的質感真是優雅又迷人，完全襯托出我的高貴氣質呢🫧',
+    '好品味！戴上「{name}」後走路都忍不住變得更有範兒了！',
+  ],
+  curious: [
+    '哇哇！「{name}」上面的設計好特別，我研究了好久越看越喜歡！',
+    '戴上「{name}」感覺隨時能展開新探險，我們快去發現新角落吧！',
+  ],
+  lively: [
+    '穿戴「{name}」瞬間元氣爆棚！好想原地轉三圈再衝去玩！',
+    '「{name}」太帥氣有活力啦！現在就想出門散步讓大家看看！',
+  ],
+  shy: [
+    '欸… 戴上「{name}」會不會太可愛了呀… 好害羞但真的超喜歡！',
+    '這件「{name}」溫溫柔柔的好適合我，謝謝你這麼懂我的心意🌸',
+  ],
+};
+

@@ -1,4 +1,5 @@
 import {
+  PERSONALITY_ACCESSORY_REACTIONS,
   PERSONALITY_CARE_DELTAS,
   PERSONALITY_DEFINITIONS,
   PERSONALITY_IDS,
@@ -7,7 +8,9 @@ import {
   SPECIES_INITIAL_PERSONALITY_DEFAULTS,
 } from '../data/personality';
 import {
+  Accessory,
   PersonalityId,
+  PetExpression,
   PetPersonality,
   PetPreference,
   PetSpecies,
@@ -153,3 +156,67 @@ export function getPersonalitySummaryLabel(personality: PetPersonality): string 
   const s = PERSONALITY_DEFINITIONS[personality.secondary];
   return `${p.emoji} ${p.label} · ${s.emoji} ${s.label}`;
 }
+
+export interface AccessoryPreferenceMatch {
+  isLiked: boolean;
+  isSpeciesFavorite: boolean;
+  matchedPersonalities: PersonalityId[];
+  reactionText: string;
+  expression: PetExpression;
+}
+
+const EXPRESSION_BY_PERSONALITY: Record<PersonalityId, PetExpression> = {
+  greedy: 'sparkle',
+  sleepy: 'shy',
+  mischievous: 'wink',
+  clingy: 'happyTongue',
+  elegant: 'wink',
+  curious: 'sparkle',
+  lively: 'happyTongue',
+  shy: 'shy',
+};
+
+export function evaluateAccessoryPreference(
+  personality: PetPersonality,
+  species: PetSpecies,
+  accessory: Accessory
+): AccessoryPreferenceMatch {
+  const pref = getPetPreference(species);
+  const isSpeciesFavorite = Boolean(pref.favoriteAccessoryIds?.includes(accessory.id));
+
+  const matchedPersonalities: PersonalityId[] = [];
+  if (accessory.suitablePersonalities.includes(personality.primary)) {
+    matchedPersonalities.push(personality.primary);
+  }
+  if (accessory.suitablePersonalities.includes(personality.secondary)) {
+    matchedPersonalities.push(personality.secondary);
+  }
+
+  const isLiked = isSpeciesFavorite || matchedPersonalities.length > 0;
+  const anchorTrait: PersonalityId =
+    matchedPersonalities[0] ??
+    (accessory.suitablePersonalities[0] ?? personality.primary);
+
+  if (!isLiked) {
+    return {
+      isLiked: false,
+      isSpeciesFavorite: false,
+      matchedPersonalities: [],
+      reactionText: `換上「${accessory.name}」囉～照鏡子看看好不好看！`,
+      expression: 'normal',
+    };
+  }
+
+  const pool = PERSONALITY_ACCESSORY_REACTIONS[anchorTrait];
+  const template = pool[Math.floor(Math.random() * pool.length)] ?? '超喜歡「{name}」！';
+  const reactionText = template.replace('{name}', accessory.name);
+
+  return {
+    isLiked: true,
+    isSpeciesFavorite,
+    matchedPersonalities,
+    reactionText,
+    expression: EXPRESSION_BY_PERSONALITY[anchorTrait] ?? 'sparkle',
+  };
+}
+

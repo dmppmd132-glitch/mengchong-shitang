@@ -6,7 +6,41 @@ export type PetSpecies = 'pig' | 'rabbit' | 'dog';
 
 export type FoodCategory = 'meal' | 'snack' | 'fastFood';
 
-export type AccessorySlot = 'head' | 'face' | 'neck' | 'body';
+export type AccessorySlot = 'head' | 'face' | 'neck' | 'body' | 'held' | 'back';
+
+export type AccessoryRarity = 'common' | 'advanced' | 'event' | 'coop';
+
+export type AccessoryTheme =
+  | 'strawberry_sweet'
+  | 'forest_camp'
+  | 'cloud_nap'
+  | 'chef_master'
+  | 'starry_explorer'
+  | 'festival_party';
+
+export type PhotoPose =
+  | 'happy'
+  | 'shy'
+  | 'sleep'
+  | 'eat'
+  | 'dance'
+  | 'salute'
+  | 'crown_star'
+  | 'anniversary_cheer';
+
+export type PhotoFilter = 'strawberry' | 'forest' | 'cloud' | 'kitchen' | 'starry' | 'party';
+
+export type PhotoFrame =
+  | 'rounded'
+  | 'heart'
+  | 'star'
+  | 'polaroid'
+  | 'golden_memory'
+  | 'coop_heart';
+
+export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album';
+
+export type PhotoStickerId = 'heart' | 'kiss' | 'burger' | 'fries' | 'carrot' | 'star';
 
 export type PiggyActionState =
   | 'idle'
@@ -68,6 +102,10 @@ export interface Accessory {
   emoji: string;
   description: string;
   initialUnlocked: boolean;
+  rarity: AccessoryRarity;
+  obtainMethod: string;
+  theme: AccessoryTheme | null;
+  suitablePersonalities: PersonalityId[];
 }
 
 export interface WeightLog {
@@ -200,7 +238,13 @@ export type TitleId =
   | 'strawberry_dreamer'
   | 'forest_camper'
   | 'cloud_napper'
-  | 'coop_partner';
+  | 'coop_partner'
+  | 'berry_sweetheart'
+  | 'forest_explorer'
+  | 'cloud_dreamer'
+  | 'little_master_chef'
+  | 'starlight_voyager'
+  | 'party_superstar';
 
 export type PersonalityId =
   | 'greedy'
@@ -225,6 +269,7 @@ export interface PetPreference {
   favoriteFoodIds: string[];
   favoriteToyIds: string[];
   favoriteFurnitureIds: string[];
+  favoriteAccessoryIds?: string[];
   dislikedFoodIds: string[];
   dislikedToyIds: string[];
   dislikedFurnitureIds: string[];
@@ -483,7 +528,15 @@ export interface DialogueState {
   announcedWeightMilestones: number[];
 }
 
-export type StageBackgroundId = 'default' | 'starlight_garden';
+export type StageBackgroundId =
+  | 'default'
+  | 'starlight_garden'
+  | 'strawberry_cafe'
+  | 'forest_camp_bg'
+  | 'cloud_dream_bg'
+  | 'chef_bistro_bg'
+  | 'starry_cosmos_bg'
+  | 'party_carnival_bg';
 
 export type NoviceDayNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -507,6 +560,7 @@ export interface NoviceGrowthStats {
 export interface EncyclopediaState {
   collectedFoodIds: string[];
   claimedAccessoryMilestones: number[];
+  claimedAccessoryThemeSets: AccessoryTheme[];
   unlockedTitles: TitleId[];
   activeTitle: TitleId | null;
 }
@@ -521,7 +575,7 @@ export interface FeedingReactionRule {
   particleEmojis: string[];
 }
 
-import type { SharedHouse, ThemeSetId } from './house';
+import type { RoomPhotoRecord, SharedHouse, ThemeSetId } from './house';
 
 export type {
   RoomZone,
@@ -543,10 +597,148 @@ export type {
   SharedGoalId,
   SharedGoal,
   SharedMilestoneId,
+  PhotoComment,
   RoomPhotoRecord,
   TreasuryContribution,
   SharedHouse,
 } from './house';
+
+export type MemoryType =
+  | 'hatching'
+  | 'feeding'
+  | 'wardrobe'
+  | 'room'
+  | 'farm'
+  | 'weight'
+  | 'growth'
+  | 'coop'
+  | 'cooperation'
+  | 'festival'
+  | 'dialogue'
+  | 'milestone';
+
+export interface MemoryEntry {
+  id: string;
+  uniqueKey?: string;
+  type: MemoryType;
+  title: string;
+  description: string;
+  dateKey: string;
+  createdAt: number;
+  emoji: string;
+  photoId?: string;
+  accessoryId?: string;
+  foodId?: string;
+  weight?: number;
+  level?: number;
+  dialogueText?: string;
+  actorName?: string;
+  isShared?: boolean;
+}
+
+export type PhotoEntry = RoomPhotoRecord;
+
+export type GameMilestoneId =
+  | 'first_feed'
+  | 'first_burger'
+  | 'first_fries'
+  | 'first_equip_accessory'
+  | 'first_weight_log'
+  | 'first_room_decor'
+  | 'first_farm_harvest'
+  | 'reach_lv2'
+  | 'reach_lv3'
+  | 'reach_lv4'
+  | 'coop_7_days'
+  | 'day_100_anniversary';
+
+export interface Milestone {
+  id: GameMilestoneId;
+  title: string;
+  description: string;
+  conditionLabel: string;
+  emoji: string;
+  rewardCoins: number;
+  rewardGrowth: number;
+  rewardCardTitle: string;
+  rewardPoseId?: PhotoPose;
+  rewardFrameId?: PhotoFrame;
+  unlocked: boolean;
+  unlockedAt: number | null;
+  unlockedDateKey: string | null;
+}
+
+export type SharedMemoryKey =
+  | 'shared_first_naming'
+  | 'shared_first_feed'
+  | 'shared_first_message'
+  | 'shared_first_coop_task'
+  | 'shared_first_buy_furniture'
+  | 'shared_house_7_days'
+  | 'shared_house_30_days'
+  | 'shared_house_100_days';
+
+export interface SharedMemory {
+  id: string;
+  key: SharedMemoryKey;
+  title: string;
+  description: string;
+  emoji: string;
+  unlocked: boolean;
+  createdAt: number | null;
+  dateKey: string | null;
+  petName: string;
+  actors: string[];
+  rewardCoins: number;
+  rewardIntimacy: number;
+  rewardCardTitle: string;
+  notifiedUserIds: string[];
+}
+
+export interface MonthlyActivityTracker {
+  monthKey: string;
+  foodCounts: Record<string, number>;
+  interactionCounts: Record<string, number>;
+  accessoryCounts: Record<string, number>;
+  startWeight: number | null;
+  endWeight: number | null;
+  growthGained: number;
+  coopMessagesCount: number;
+  coopTasksCount: number;
+}
+
+export interface MonthlyRecap {
+  id: string;
+  monthKey: string;
+  createdAt: number;
+  generatedDateKey: string;
+  favoriteFoodId: string | null;
+  favoriteFoodName: string;
+  topInteractionLabel: string;
+  favoriteAccessoryId: string | null;
+  favoriteAccessoryName: string;
+  weightDelta: number;
+  growthGained: number;
+  coopMessagesCount: number;
+  coopTasksCount: number;
+  bestPhotoId: string | null;
+  coverPhotoId: string | null;
+  savedToAlbum: boolean;
+}
+
+export interface MemoryAlbumState {
+  memories: MemoryEntry[];
+  favoriteMemoryIds: string[];
+  milestones: Milestone[];
+  sharedMemories: SharedMemory[];
+  sharedRoomStartedDate: string | null;
+  sharedRoomId: string | null;
+  monthlyRecaps: MonthlyRecap[];
+  monthlyTrackers: Record<string, MonthlyActivityTracker>;
+  unlockedPhotoPoses: PhotoPose[];
+  unlockedPhotoFrames: PhotoFrame[];
+  savedDialogueIds: string[];
+}
 
 export interface GameState {
   version: number;
@@ -573,6 +765,7 @@ export interface GameState {
   personality: PetPersonality;
   coop: CoopHubState;
   dialogue: DialogueState;
+  memoryAlbum: MemoryAlbumState;
 }
 
 export interface FloatingFeedback {

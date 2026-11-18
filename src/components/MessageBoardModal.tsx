@@ -17,6 +17,8 @@ interface MessageBoardModalProps {
   sharedRoom: SharedPetRoom | null;
   onSendMessage: (content: string, stickerId: PetStickerId | null) => Promise<string | null>;
   onDeleteMessage: (messageId: string) => Promise<void>;
+  onTogglePhotoLike?: (photoId: string) => void;
+  onAddPhotoComment?: (photoId: string, content: string) => void;
 }
 
 const PHOTO_TAG_REGEX = /\[photo:([^\]]+)\]/;
@@ -51,6 +53,8 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
   sharedRoom,
   onSendMessage,
   onDeleteMessage,
+  onTogglePhotoLike,
+  onAddPhotoComment,
 }) => {
   const [text, setText] = useState<string>('');
   const [selectedSticker, setSelectedSticker] = useState<PetStickerId | null>(null);
@@ -190,13 +194,19 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
 
                     {matchedPhoto && (
                       <div className="my-1.5 w-[240px] max-w-full">
-                        <RoomPhotoCard photo={matchedPhoto} compact />
+                        <RoomPhotoCard
+                          photo={matchedPhoto}
+                          compact
+                          currentUserId={currentUserId ?? 'local'}
+                          onToggleLike={onTogglePhotoLike}
+                          onAddComment={onAddPhotoComment}
+                        />
                       </div>
                     )}
 
                     {!matchedPhoto && photoId && (
                       <div className="my-1 rounded-xl bg-[#FFF8EE] border border-[#EED9C4] px-2.5 py-1.5 text-[11px] font-bold text-[#8A5A12]">
-                        📸 分享了一張小屋合照（早期相片已不在最新 24 張相簿內）
+                        📸 分享了一張紀念相片（早期相片已不在最新 36 張相簿內）
                       </div>
                     )}
 

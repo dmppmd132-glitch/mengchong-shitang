@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Camera,
   Check,
   Coins,
   CookingPot,
@@ -54,6 +55,7 @@ interface CanteenViewProps {
   onHarvestCrop: (plotId: number) => void;
   onCookRecipe: (recipe: KitchenRecipe) => void;
   onOpenMinigame?: () => void;
+  onOpenFarmPhotoStudio?: () => void;
   onExpandFarmPlot: (paySource: PaymentSource) => void;
   onUpgradeFarmFacility: (upgradeId: FarmUpgradeId, paySource: PaymentSource) => void;
   onToggleFarmDecoration: (decorId: FarmDecorationId, paySource: PaymentSource) => void;
@@ -87,6 +89,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onHarvestCrop,
   onCookRecipe,
   onOpenMinigame,
+  onOpenFarmPhotoStudio,
   onExpandFarmPlot,
   onUpgradeFarmFacility,
   onToggleFarmDecoration,
@@ -340,6 +343,17 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
               setEditingSignName((prev) => !prev);
             }}
           />
+
+          {onOpenFarmPhotoStudio && (
+            <button
+              type="button"
+              onClick={onOpenFarmPhotoStudio}
+              className="w-full min-h-[44px] rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center justify-center gap-1.5 hover:bg-[#F76890] active:translate-y-0.5 transition"
+            >
+              <Camera className="w-4 h-4 shrink-0" />
+              <span>📸 在開心農場拍照留念（可選貼圖與濾鏡）</span>
+            </button>
+          )}
 
           {/* Inline House Signboard Editor */}
           {editingSignName && (

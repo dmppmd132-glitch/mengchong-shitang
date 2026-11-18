@@ -1,5 +1,6 @@
 import React from 'react';
 import { Heart, Sparkles, ThumbsDown, X } from 'lucide-react';
+import { ACCESSORIES } from '../data/accessories';
 import { FOODS } from '../data/foods';
 import { ROOM_ITEM_BY_ID } from '../data/house';
 import {
@@ -10,6 +11,7 @@ import { getPetSpeciesInfo } from '../data/species';
 import { TOY_BY_ID } from '../data/toys';
 import { Pet, PetPersonality } from '../types';
 import { getPetPreference } from '../utils/personality';
+import { AccessoryPreview } from './AccessoryPreview';
 import { FurnitureGraphic } from './house/FurnitureGraphic';
 
 interface PersonalityProfileViewProps {
@@ -220,6 +222,48 @@ export const PersonalityProfileView: React.FC<PersonalityProfileViewProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Favorite & Personality-Matched Accessories */}
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-extrabold text-[#C43463]">
+            🎀 最適合的穿搭配件（穿戴會觸發專屬反應與台詞）
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {ACCESSORIES.filter(
+              (acc) =>
+                pref.favoriteAccessoryIds?.includes(acc.id) ||
+                acc.suitablePersonalities.includes(personality.primary)
+            )
+              .slice(0, 6)
+              .map((acc) => {
+                const isSpeciesFav = Boolean(
+                  pref.favoriteAccessoryIds?.includes(acc.id)
+                );
+                return (
+                  <div
+                    key={acc.id}
+                    className="rounded-2xl bg-[#FFF5F8] border border-[#F5CBD9] p-2 flex items-center gap-2"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-white border border-[#F4DFD7] flex items-center justify-center shrink-0">
+                      <div className="scale-75">
+                        <AccessoryPreview accessoryId={acc.id} />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                        {acc.name}
+                      </div>
+                      <div className="text-[10px] font-bold text-[#B83B64] truncate">
+                        {isSpeciesFav
+                          ? '本命偏愛穿搭'
+                          : `契合「${primaryDef.label}」`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       </section>

@@ -20,6 +20,7 @@ import {
   MinigameReward,
   MinigameWeeklyChallengeId,
 } from '../types/minigame';
+import { syncAllAccessoryProgress } from './accessories';
 
 function clampNum(val: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, val));
@@ -465,7 +466,7 @@ export function settleMinigameOutcome(
   };
 
   return {
-    nextState,
+    nextState: syncAllAccessoryProgress(nextState).nextState,
     reward,
     isNewHighScore,
     newlyUnlockedBadges: newlyUnlocked,
@@ -535,7 +536,7 @@ export function claimWeeklyMinigameChallenge(
   };
 
   return {
-    nextState,
+    nextState: syncAllAccessoryProgress(nextState).nextState,
     claimed: true,
     unlockedChampionBadge,
   };

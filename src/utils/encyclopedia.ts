@@ -1,4 +1,4 @@
-import { ACCESSORIES } from '../data/accessories';
+import { ACCESSORIES, ACCESSORY_THEME_SETS } from '../data/accessories';
 import {
   ACCESSORY_MILESTONE_COINS,
   ACCESSORY_MILESTONE_GROWTH,
@@ -6,7 +6,13 @@ import {
 } from '../data/encyclopedia';
 import { FOODS } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
-import { EncyclopediaState, GameState, TitleId } from '../types';
+import {
+  AccessoryTheme,
+  EncyclopediaState,
+  GameState,
+  StageBackgroundId,
+  TitleId,
+} from '../types';
 
 export function createInitialEncyclopediaState(
   seedFoodIds: string[] = []
@@ -19,6 +25,7 @@ export function createInitialEncyclopediaState(
   return {
     collectedFoodIds: uniqueFoods,
     claimedAccessoryMilestones: [],
+    claimedAccessoryThemeSets: [],
     unlockedTitles: [],
     activeTitle: null,
   };
@@ -35,6 +42,7 @@ export function getAccessoryMilestoneThresholds(): number[] {
 export interface EncyclopediaSyncOutcome {
   nextState: GameState;
   newlyAwardedMilestones: number[];
+  newlyCompletedThemes: AccessoryTheme[];
   newlyUnlockedTitles: TitleId[];
   bonusCoins: number;
   bonusGrowth: number;
@@ -42,7 +50,8 @@ export interface EncyclopediaSyncOutcome {
 
 export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutcome {
   const validAccessoryIds = new Set(ACCESSORIES.map((a) => a.id));
-  const ownedCount = state.accessories.filter((id) => validAccessoryIds.has(id)).length;
+  const ownedSet = new Set(state.accessories.filter((id) => validAccessoryIds.has(id)));
+  const ownedCount = ownedSet.size;
 
   const thresholds = getAccessoryMilestoneThresholds();
   const newlyAwardedMilestones = thresholds.filter(
@@ -51,8 +60,8 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
       !state.encyclopedia.claimedAccessoryMilestones.includes(threshold)
   );
 
-  const bonusCoins = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_COINS;
-  const bonusGrowth = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_GROWTH;
+  let bonusCoins = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_COINS;
+  let bonusGrowth = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_GROWTH;
 
   const validFoodIds = new Set(FOODS.map((f) => f.id));
   const collectedFoodCount = state.encyclopedia.collectedFoodIds.filter((id) =>
@@ -61,6 +70,30 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
 
   const unlockedTitles = [...state.encyclopedia.unlockedTitles];
   const newlyUnlockedTitles: TitleId[] = [];
+  const claimedAccessoryThemeSets = [...(state.encyclopedia.claimedAccessoryThemeSets ?? [])];
+  const newlyCompletedThemes: AccessoryTheme[] = [];
+  const unlockedBackgrounds: StageBackgroundId[] = [...state.unlockedBackgrounds];
+
+  for (const theme of ACCESSORY_THEME_SETS) {
+    const isComplete = theme.accessoryIds.every((id) => ownedSet.has(id));
+    if (!isComplete) continue;
+
+    if (!claimedAccessoryThemeSets.includes(theme.id)) {
+      claimedAccessoryThemeSets.push(theme.id);
+      newlyCompletedThemes.push(theme.id);
+      bonusCoins += theme.rewardCoins;
+      bonusGrowth += theme.rewardGrowth;
+    }
+
+    if (!unlockedTitles.includes(theme.rewardTitleId)) {
+      unlockedTitles.push(theme.rewardTitleId);
+      newlyUnlockedTitles.push(theme.rewardTitleId);
+    }
+
+    if (!unlockedBackgrounds.includes(theme.rewardBackgroundId)) {
+      unlockedBackgrounds.push(theme.rewardBackgroundId);
+    }
+  }
 
   if (collectedFoodCount >= FOODS.length && !unlockedTitles.includes('gourmet_owner')) {
     unlockedTitles.push('gourmet_owner');
@@ -72,10 +105,16 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     newlyUnlockedTitles.push('fashion_stylist');
   }
 
-  if (newlyAwardedMilestones.length === 0 && newlyUnlockedTitles.length === 0) {
+  if (
+    newlyAwardedMilestones.length === 0 &&
+    newlyCompletedThemes.length === 0 &&
+    newlyUnlockedTitles.length === 0 &&
+    unlockedBackgrounds.length === state.unlockedBackgrounds.length
+  ) {
     return {
       nextState: state,
       newlyAwardedMilestones: [],
+      newlyCompletedThemes: [],
       newlyUnlockedTitles: [],
       bonusCoins: 0,
       bonusGrowth: 0,
@@ -91,6 +130,7 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     nextState: {
       ...state,
       coins: state.coins + bonusCoins,
+      unlockedBackgrounds,
       pet: {
         ...state.pet,
         growth: nextGrowth,
@@ -102,13 +142,16 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
           ...state.encyclopedia.claimedAccessoryMilestones,
           ...newlyAwardedMilestones,
         ].sort((a, b) => a - b),
+        claimedAccessoryThemeSets,
         unlockedTitles,
         activeTitle: nextActiveTitle,
       },
     },
     newlyAwardedMilestones,
+    newlyCompletedThemes,
     newlyUnlockedTitles,
     bonusCoins,
     bonusGrowth,
   };
 }
+

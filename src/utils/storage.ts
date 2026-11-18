@@ -23,7 +23,17 @@ import { PERSONALITY_IDS } from '../data/personality';
 import { COOP_BADGES, COOP_FARM_DAILY_ORDERS } from '../data/coop';
 import { WEATHER_META } from '../data/dialogue';
 import {
+  MILESTONE_DEFINITIONS,
+  MEMORY_TYPE_META,
+  SHARED_MEMORY_DEFINITIONS,
+} from '../data/memories';
+import {
+  PHOTO_SCENE_BY_ID,
+  PHOTO_STICKER_BY_ID,
+} from '../data/photoStudio';
+import {
   AccessorySlot,
+  AccessoryTheme,
   CoopBadgeId,
   CoopFarmOrderState,
   CoopGameType,
@@ -44,8 +54,15 @@ import {
   FeedLog,
   FlooringId,
   FurnitureNote,
+  GameMilestoneId,
   GameState,
   IngredientId,
+  MemoryAlbumState,
+  MemoryEntry,
+  MemoryType,
+  Milestone,
+  MonthlyActivityTracker,
+  MonthlyRecap,
   NoviceGrowthStats,
   PersonalityId,
   Pet,
@@ -54,11 +71,19 @@ import {
   PetMessage,
   PetPersonality,
   PetSpecies,
+  PhotoComment,
+  PhotoFilter,
+  PhotoFrame,
+  PhotoPose,
+  PhotoScene,
+  PhotoStickerId,
   PlacedRoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
   SharedGoalId,
   SharedHouse,
+  SharedMemory,
+  SharedMemoryKey,
   SharedMilestoneId,
   StageBackgroundId,
   ThemeSetId,
@@ -76,6 +101,7 @@ import {
   MinigameId,
   MinigameWeeklyChallengeId,
 } from '../types/minigame';
+import { syncAllAccessoryProgress } from './accessories';
 import {
   createDailyFarmOrder,
   createInitialCoopHubState,
@@ -90,6 +116,11 @@ import {
 } from './dialogue';
 import { createInitialEncyclopediaState } from './encyclopedia';
 import { createInitialSharedHouse, syncHouseProgress } from './house';
+import {
+  createInitialMemoryAlbumState,
+  evaluateAndSyncMilestones,
+  recordMemoryEntry,
+} from './memories';
 import {
   createInitialMinigameHubState,
   createZeroRecord,
@@ -154,6 +185,8 @@ export function createInitialPet(): Pet {
       face: null,
       neck: null,
       body: null,
+      held: null,
+      back: null,
     },
     hatched: false,
     consecutiveFastFood: 0,
@@ -187,6 +220,7 @@ export function createInitialGameState(): GameState {
     personality: createInitialPetPersonality('pig'),
     coop: createInitialCoopHubState(today),
     dialogue: createInitialDialogueState(today),
+    memoryAlbum: createInitialMemoryAlbumState('布丁'),
   };
 }
 
@@ -270,6 +304,8 @@ function parseAccessoriesRecord(
     face: asNullableString(raw.face ?? raw['臉部']) ?? null,
     neck: asNullableString(raw.neck ?? raw['脖子']) ?? null,
     body: asNullableString(raw.body ?? raw['身體']) ?? null,
+    held: asNullableString(raw.held ?? raw['手持']) ?? null,
+    back: asNullableString(raw.back ?? raw['背部']) ?? null,
   };
 }
 
@@ -493,7 +529,27 @@ function asTitleId(value: unknown): TitleId | null {
     value === 'strawberry_dreamer' ||
     value === 'forest_camper' ||
     value === 'cloud_napper' ||
-    value === 'coop_partner'
+    value === 'coop_partner' ||
+    value === 'berry_sweetheart' ||
+    value === 'forest_explorer' ||
+    value === 'cloud_dreamer' ||
+    value === 'little_master_chef' ||
+    value === 'starlight_voyager' ||
+    value === 'party_superstar'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function asAccessoryTheme(value: unknown): AccessoryTheme | null {
+  if (
+    value === 'strawberry_sweet' ||
+    value === 'forest_camp' ||
+    value === 'cloud_nap' ||
+    value === 'chef_master' ||
+    value === 'starry_explorer' ||
+    value === 'festival_party'
   ) {
     return value;
   }
@@ -519,6 +575,16 @@ function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaSta
       ).sort((a, b) => a - b)
     : [];
 
+  const claimedAccessoryThemeSets = Array.isArray(raw.claimedAccessoryThemeSets)
+    ? Array.from(
+        new Set(
+          raw.claimedAccessoryThemeSets
+            .map(asAccessoryTheme)
+            .filter((t): t is AccessoryTheme => t !== null)
+        )
+      )
+    : [];
+
   const unlockedTitles = Array.isArray(raw.unlockedTitles)
     ? Array.from(
         new Set(raw.unlockedTitles.map(asTitleId).filter((t): t is TitleId => t !== null))
@@ -534,13 +600,24 @@ function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaSta
   return {
     collectedFoodIds: mergedFoods,
     claimedAccessoryMilestones,
+    claimedAccessoryThemeSets,
     unlockedTitles,
     activeTitle,
   };
 }
 
 function asStageBackgroundId(value: unknown): StageBackgroundId {
-  if (value === 'starlight_garden') return 'starlight_garden';
+  if (
+    value === 'starlight_garden' ||
+    value === 'strawberry_cafe' ||
+    value === 'forest_camp_bg' ||
+    value === 'cloud_dream_bg' ||
+    value === 'chef_bistro_bg' ||
+    value === 'starry_cosmos_bg' ||
+    value === 'party_carnival_bg'
+  ) {
+    return value;
+  }
   return 'default';
 }
 
@@ -826,30 +903,128 @@ function parseSharedHouse(raw: unknown): SharedHouse {
       )
     : [];
 
+  const asWardrobePose = (v: unknown): PhotoPose | undefined => {
+    if (
+      v === 'happy' ||
+      v === 'shy' ||
+      v === 'sleep' ||
+      v === 'eat' ||
+      v === 'dance' ||
+      v === 'salute' ||
+      v === 'crown_star' ||
+      v === 'anniversary_cheer'
+    ) {
+      return v;
+    }
+    return undefined;
+  };
+  const asPhotoFilter = (v: unknown): PhotoFilter | undefined => {
+    if (
+      v === 'strawberry' ||
+      v === 'forest' ||
+      v === 'cloud' ||
+      v === 'kitchen' ||
+      v === 'starry' ||
+      v === 'party'
+    ) {
+      return v;
+    }
+    return undefined;
+  };
+  const asPhotoFrame = (v: unknown): PhotoFrame | undefined => {
+    if (
+      v === 'rounded' ||
+      v === 'heart' ||
+      v === 'star' ||
+      v === 'polaroid' ||
+      v === 'golden_memory' ||
+      v === 'coop_heart'
+    ) {
+      return v;
+    }
+    return undefined;
+  };
+  const asPhotoScene = (v: unknown): PhotoScene | undefined => {
+    if (typeof v === 'string' && v in PHOTO_SCENE_BY_ID) {
+      return v as PhotoScene;
+    }
+    return undefined;
+  };
+
   const photos: RoomPhotoRecord[] = Array.isArray(raw.photos)
     ? raw.photos
         .filter((p): p is Record<string, unknown> => isRecord(p))
-        .map((p) => ({
-          id: asString(p.id, `photo_${Date.now()}`),
-          title: asString(p.title, '小屋合照'),
-          caption: asString(p.caption, ''),
-          createdAt: asNumber(p.createdAt, Date.now()),
-          houseName: asString(p.houseName, '萌寵暖暖小屋'),
-          species: asSpecies(p.species),
-          petName: asString(p.petName, '布丁'),
-          equipped: parseAccessoriesRecord(p.equipped, {
-            head: null,
-            face: null,
-            neck: null,
-            body: null,
-          }),
-          poseId: asPhotoPoseId(p.poseId),
-          wallpaperId: asWallpaperId(p.wallpaperId),
-          flooringId: asFlooringId(p.flooringId),
-          placedItems: parsePlacedItems(p.placedItems),
-          noteHighlight: typeof p.noteHighlight === 'string' ? p.noteHighlight : undefined,
-        }))
-        .slice(0, 24)
+        .map((p) => {
+          const comments: PhotoComment[] | undefined = Array.isArray(p.comments)
+            ? p.comments
+                .filter((c): c is Record<string, unknown> => isRecord(c))
+                .map((c) => ({
+                  id: asString(c.id, `pcom_${Date.now()}`),
+                  authorId: asString(c.authorId, 'local'),
+                  authorName: asString(c.authorName, '飼主'),
+                  content: asString(c.content, ''),
+                  createdAt: asNumber(c.createdAt, Date.now()),
+                }))
+                .filter((c) => Boolean(c.content))
+                .slice(-30)
+            : undefined;
+          const likes = Array.isArray(p.likes)
+            ? Array.from(new Set(p.likes.filter((u): u is string => typeof u === 'string')))
+            : undefined;
+          const stickers = Array.isArray(p.stickers)
+            ? Array.from(
+                new Set(
+                  p.stickers.filter(
+                    (s): s is PhotoStickerId =>
+                      typeof s === 'string' && s in PHOTO_STICKER_BY_ID
+                  )
+                )
+              )
+            : undefined;
+          const kindRaw = p.photoKind;
+          const photoKind: RoomPhotoRecord['photoKind'] =
+            kindRaw === 'wardrobe' ||
+            kindRaw === 'room' ||
+            kindRaw === 'farm' ||
+            kindRaw === 'album'
+              ? kindRaw
+              : undefined;
+          return {
+            id: asString(p.id, `photo_${Date.now()}`),
+            title: asString(p.title, '小屋合照'),
+            caption: asString(p.caption, ''),
+            createdAt: asNumber(p.createdAt, Date.now()),
+            houseName: asString(p.houseName, '萌寵暖暖小屋'),
+            species: asSpecies(p.species),
+            petName: asString(p.petName, '布丁'),
+            equipped: parseAccessoriesRecord(p.equipped, {
+              head: null,
+              face: null,
+              neck: null,
+              body: null,
+              held: null,
+              back: null,
+            }),
+            poseId: asPhotoPoseId(p.poseId),
+            wallpaperId: asWallpaperId(p.wallpaperId),
+            flooringId: asFlooringId(p.flooringId),
+            placedItems: parsePlacedItems(p.placedItems),
+            noteHighlight: typeof p.noteHighlight === 'string' ? p.noteHighlight : undefined,
+            photoKind,
+            scene: asPhotoScene(p.scene),
+            wardrobePoseId: asWardrobePose(p.wardrobePoseId),
+            filterId: asPhotoFilter(p.filterId),
+            frameId: asPhotoFrame(p.frameId),
+            stickers,
+            weightAtCapture:
+              typeof p.weightAtCapture === 'number' && Number.isFinite(p.weightAtCapture)
+                ? p.weightAtCapture
+                : undefined,
+            likes,
+            comments,
+          };
+        })
+        .slice(0, 36)
     : [];
 
   return {
@@ -1525,6 +1700,230 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     personality: createInitialPetPersonality('pig'),
     coop: createInitialCoopHubState(formatLocalDate()),
     dialogue: createInitialDialogueState(formatLocalDate()),
+    memoryAlbum: createInitialMemoryAlbumState(pet.name),
+  };
+}
+
+function asMemoryType(value: unknown): MemoryType | null {
+  if (typeof value === 'string' && value in MEMORY_TYPE_META) {
+    return value as MemoryType;
+  }
+  return null;
+}
+
+function asPhotoPoseOption(value: unknown): PhotoPose | null {
+  if (
+    value === 'happy' ||
+    value === 'shy' ||
+    value === 'sleep' ||
+    value === 'eat' ||
+    value === 'dance' ||
+    value === 'salute' ||
+    value === 'crown_star' ||
+    value === 'anniversary_cheer'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function asPhotoFrameOption(value: unknown): PhotoFrame | null {
+  if (
+    value === 'rounded' ||
+    value === 'heart' ||
+    value === 'star' ||
+    value === 'polaroid' ||
+    value === 'golden_memory' ||
+    value === 'coop_heart'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function parseMemoryAlbum(raw: unknown, petName: string): MemoryAlbumState {
+  const defaults = createInitialMemoryAlbumState(petName);
+  if (!isRecord(raw)) return defaults;
+
+  const memories: MemoryEntry[] = Array.isArray(raw.memories)
+    ? raw.memories
+        .filter((m): m is Record<string, unknown> => isRecord(m))
+        .map((m) => {
+          const type = asMemoryType(m.type);
+          if (!type) return null;
+          return {
+            id: asString(m.id, `mem_${Date.now()}`),
+            uniqueKey: typeof m.uniqueKey === 'string' ? m.uniqueKey : undefined,
+            type,
+            title: asString(m.title, '幸福回憶'),
+            description: asString(m.description, ''),
+            dateKey: asString(m.dateKey, formatLocalDate()),
+            createdAt: asNumber(m.createdAt, Date.now()),
+            emoji: asString(m.emoji, MEMORY_TYPE_META[type].emoji),
+            photoId: typeof m.photoId === 'string' ? m.photoId : undefined,
+            accessoryId: typeof m.accessoryId === 'string' ? m.accessoryId : undefined,
+            foodId: typeof m.foodId === 'string' ? m.foodId : undefined,
+            weight: typeof m.weight === 'number' ? m.weight : undefined,
+            level: typeof m.level === 'number' ? m.level : undefined,
+            dialogueText: typeof m.dialogueText === 'string' ? m.dialogueText : undefined,
+            actorName: typeof m.actorName === 'string' ? m.actorName : undefined,
+            isShared: typeof m.isShared === 'boolean' ? m.isShared : undefined,
+          } as MemoryEntry;
+        })
+        .filter((m): m is MemoryEntry => m !== null)
+        .slice(0, 160)
+    : [];
+
+  const favoriteMemoryIds = Array.isArray(raw.favoriteMemoryIds)
+    ? Array.from(
+        new Set(raw.favoriteMemoryIds.filter((id): id is string => typeof id === 'string'))
+      )
+    : [];
+
+  const rawMilestonesMap = new Map<GameMilestoneId, Record<string, unknown>>();
+  if (Array.isArray(raw.milestones)) {
+    for (const item of raw.milestones) {
+      if (isRecord(item) && typeof item.id === 'string') {
+        rawMilestonesMap.set(item.id as GameMilestoneId, item);
+      }
+    }
+  }
+  const milestones: Milestone[] = MILESTONE_DEFINITIONS.map((def) => {
+    const saved = rawMilestonesMap.get(def.id);
+    const unlocked = saved && typeof saved.unlocked === 'boolean' ? saved.unlocked : false;
+    return {
+      ...def,
+      unlocked,
+      unlockedAt:
+        unlocked && saved && typeof saved.unlockedAt === 'number' ? saved.unlockedAt : null,
+      unlockedDateKey:
+        unlocked && saved && typeof saved.unlockedDateKey === 'string'
+          ? saved.unlockedDateKey
+          : null,
+    };
+  });
+
+  const rawSharedMap = new Map<SharedMemoryKey, Record<string, unknown>>();
+  if (Array.isArray(raw.sharedMemories)) {
+    for (const item of raw.sharedMemories) {
+      if (isRecord(item) && typeof item.key === 'string') {
+        rawSharedMap.set(item.key as SharedMemoryKey, item);
+      }
+    }
+  }
+  const sharedMemories: SharedMemory[] = SHARED_MEMORY_DEFINITIONS.map((def) => {
+    const saved = rawSharedMap.get(def.key);
+    const unlocked = saved && typeof saved.unlocked === 'boolean' ? saved.unlocked : false;
+    return {
+      id: `smem_${def.key}`,
+      key: def.key,
+      title: def.title,
+      description: def.description,
+      emoji: def.emoji,
+      unlocked,
+      createdAt:
+        unlocked && saved && typeof saved.createdAt === 'number' ? saved.createdAt : null,
+      dateKey:
+        unlocked && saved && typeof saved.dateKey === 'string' ? saved.dateKey : null,
+      petName: saved ? asString(saved.petName, petName) : petName,
+      actors:
+        saved && Array.isArray(saved.actors)
+          ? Array.from(new Set(saved.actors.filter((a): a is string => typeof a === 'string')))
+          : [],
+      rewardCoins: def.rewardCoins,
+      rewardIntimacy: def.rewardIntimacy,
+      rewardCardTitle: def.rewardCardTitle,
+      notifiedUserIds:
+        saved && Array.isArray(saved.notifiedUserIds)
+          ? Array.from(
+              new Set(saved.notifiedUserIds.filter((u): u is string => typeof u === 'string'))
+            )
+          : [],
+    };
+  });
+
+  const monthlyRecaps: MonthlyRecap[] = Array.isArray(raw.monthlyRecaps)
+    ? raw.monthlyRecaps
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .map((r) => ({
+          id: asString(r.id, `recap_${Date.now()}`),
+          monthKey: asString(r.monthKey, ''),
+          createdAt: asNumber(r.createdAt, Date.now()),
+          generatedDateKey: asString(r.generatedDateKey, formatLocalDate()),
+          favoriteFoodId: asNullableString(r.favoriteFoodId),
+          favoriteFoodName: asString(r.favoriteFoodName, '等待餵食'),
+          topInteractionLabel: asString(r.topInteractionLabel, '陪伴互動'),
+          favoriteAccessoryId: asNullableString(r.favoriteAccessoryId),
+          favoriteAccessoryName: asString(r.favoriteAccessoryName, '尚未穿戴配件'),
+          weightDelta: asNumber(r.weightDelta, 0),
+          growthGained: Math.max(0, Math.floor(asNumber(r.growthGained, 0))),
+          coopMessagesCount: Math.max(0, Math.floor(asNumber(r.coopMessagesCount, 0))),
+          coopTasksCount: Math.max(0, Math.floor(asNumber(r.coopTasksCount, 0))),
+          bestPhotoId: asNullableString(r.bestPhotoId),
+          coverPhotoId: asNullableString(r.coverPhotoId),
+          savedToAlbum: typeof r.savedToAlbum === 'boolean' ? r.savedToAlbum : false,
+        }))
+        .filter((r) => Boolean(r.monthKey))
+        .slice(0, 12)
+    : [];
+
+  const monthlyTrackers: Record<string, MonthlyActivityTracker> = {};
+  if (isRecord(raw.monthlyTrackers)) {
+    for (const [key, val] of Object.entries(raw.monthlyTrackers)) {
+      if (!isRecord(val)) continue;
+      monthlyTrackers[key] = {
+        monthKey: asString(val.monthKey, key),
+        foodCounts: parseStringNumberRecord(val.foodCounts, {}),
+        interactionCounts: parseStringNumberRecord(val.interactionCounts, {}),
+        accessoryCounts: parseStringNumberRecord(val.accessoryCounts, {}),
+        startWeight: typeof val.startWeight === 'number' ? val.startWeight : null,
+        endWeight: typeof val.endWeight === 'number' ? val.endWeight : null,
+        growthGained: Math.max(0, Math.floor(asNumber(val.growthGained, 0))),
+        coopMessagesCount: Math.max(0, Math.floor(asNumber(val.coopMessagesCount, 0))),
+        coopTasksCount: Math.max(0, Math.floor(asNumber(val.coopTasksCount, 0))),
+      };
+    }
+  }
+
+  const unlockedPhotoPoses = Array.isArray(raw.unlockedPhotoPoses)
+    ? Array.from(
+        new Set(
+          raw.unlockedPhotoPoses
+            .map(asPhotoPoseOption)
+            .filter((p): p is PhotoPose => p !== null)
+        )
+      )
+    : [];
+
+  const unlockedPhotoFrames = Array.isArray(raw.unlockedPhotoFrames)
+    ? Array.from(
+        new Set(
+          raw.unlockedPhotoFrames
+            .map(asPhotoFrameOption)
+            .filter((f): f is PhotoFrame => f !== null)
+        )
+      )
+    : [];
+
+  const savedDialogueIds = Array.isArray(raw.savedDialogueIds)
+    ? Array.from(
+        new Set(raw.savedDialogueIds.filter((id): id is string => typeof id === 'string'))
+      ).slice(0, 80)
+    : [];
+
+  return {
+    memories,
+    favoriteMemoryIds,
+    milestones,
+    sharedMemories,
+    sharedRoomStartedDate:
+      typeof raw.sharedRoomStartedDate === 'string' ? raw.sharedRoomStartedDate : null,
+    sharedRoomId: typeof raw.sharedRoomId === 'string' ? raw.sharedRoomId : null,
+    monthlyRecaps,
+    monthlyTrackers,
+    unlockedPhotoPoses,
+    unlockedPhotoFrames,
+    savedDialogueIds,
   };
 }
 
@@ -1612,9 +2011,24 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     personality: parsePetPersonality(parsed.personality, pet.species),
     coop: parseCoopHubState(parsed.coop),
     dialogue: parseDialogueState(parsed.dialogue),
+    memoryAlbum: parseMemoryAlbum(parsed.memoryAlbum, pet.name),
   };
 
-  return syncHouseProgress(draft).nextState;
+  let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
+  if (hydrated.pet.hatched) {
+    hydrated = recordMemoryEntry(hydrated, {
+      uniqueKey: 'hatching_welcome',
+      type: 'hatching',
+      title: `${hydrated.pet.name} 加入我們的家！`,
+      description: `${hydrated.pet.name}破殼報到了，一起展開幸福的食堂生活吧！`,
+      emoji: '🐣',
+      dateKey: hydrated.noviceGrowth.startedDate || formatLocalDate(),
+      weight: hydrated.pet.weight,
+      level: hydrated.pet.level,
+    });
+    hydrated = evaluateAndSyncMilestones(hydrated, false).nextState;
+  }
+  return hydrated;
 }
 
 export function loadGameState(): GameState {

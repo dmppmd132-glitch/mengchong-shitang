@@ -15,6 +15,8 @@ import {
 import { IntroHatching } from './components/IntroHatching';
 import { JournalView } from './components/JournalView';
 import { LevelUpModal } from './components/LevelUpModal';
+import { MemoryDetailModal } from './components/memories/MemoryDetailModal';
+import { ShareCardModal } from './components/memories/ShareCardModal';
 import { MessageBoardModal } from './components/MessageBoardModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PersonalityProfileModal } from './components/PersonalityProfileView';
@@ -23,10 +25,12 @@ import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { QuestsView } from './components/QuestsView';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SharedPetModal } from './components/SharedPetModal';
+import { WardrobePhotoModal } from './components/WardrobePhotoModal';
 import { WardrobeView } from './components/WardrobeView';
+import { ACCESSORY_THEME_BY_ID } from './data/accessories';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getTitleDefinition } from './data/encyclopedia';
-import { getGrowthStage } from './data/growth';
+import { getGrowthStage, getRoundnessTier } from './data/growth';
 import { ROOM_ITEM_BY_ID } from './data/house';
 import { INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
@@ -64,6 +68,7 @@ import {
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
+  DialogueLine,
   DialogueSettings,
   FarmDecorationId,
   FarmUpgradeId,
@@ -75,11 +80,18 @@ import {
   GrowthStageInfo,
   IngredientId,
   KitchenRecipe,
+  MemoryEntry,
+  MonthlyRecap,
   PetExpression,
   PetMessage,
   PetSpecies,
   PetStickerId,
   PetTouchZone,
+  PhotoFilter,
+  PhotoFrame,
+  PhotoPose,
+  PhotoScene,
+  PhotoStickerId,
   PiggyActionState,
   RoomPhotoRecord,
   SharedPetRoom,
@@ -112,7 +124,12 @@ import {
   respondToActiveDialogue,
   updateDialogueSettings,
 } from './utils/dialogue';
-import { syncEncyclopediaRewards } from './utils/encyclopedia';
+import {
+  addPhotoComment,
+  isAccessoryPurchasable,
+  syncAllAccessoryProgress,
+  togglePhotoLike,
+} from './utils/accessories';
 import { resolveFeedingOutcome } from './utils/feeding';
 import {
   PaymentSource,
@@ -128,8 +145,23 @@ import {
   claimWeeklyMinigameChallenge,
   settleMinigameOutcome,
 } from './utils/minigame';
+import {
+  evaluateAndSyncMilestones,
+  evaluateAndSyncSharedMemories,
+  recordMemoryEntry,
+  recordMonthlyActivity,
+  saveDialogueToMemories,
+  saveOrUpdateMonthlyRecap,
+  saveScenePhoto,
+  syncAutoMonthlyRecap,
+  toggleFavoriteMemory,
+} from './utils/memories';
 import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
-import { applyPersonalityDevelopment } from './utils/personality';
+import {
+  applyPersonalityDevelopment,
+  evaluateAccessoryPreference,
+} from './utils/personality';
+import { ShareCardPayload } from './utils/shareCardCanvas';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
 import { soundFX } from './utils/sound';
 import {
@@ -151,7 +183,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [questsInitialSection, setQuestsInitialSection] = useState<'daily' | 'growth'>('daily');
   const [journalInitialSection, setJournalInitialSection] = useState<
-    'journal' | 'personality' | 'encyclopedia'
+    'journal' | 'memories' | 'personality' | 'encyclopedia'
   >('journal');
   const [journalEncyclopediaSection, setJournalEncyclopediaSection] =
     useState<EncyclopediaSection>('foods');
@@ -177,6 +209,11 @@ export default function App() {
   const [coopModalOpen, setCoopModalOpen] = useState<boolean>(false);
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
+  const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
+  const [wardrobePhotoScene, setWardrobePhotoScene] = useState<PhotoScene>('wardrobe');
+  const [shareCardPayload, setShareCardPayload] = useState<ShareCardPayload | null>(null);
+  const [selectedMemoryEntry, setSelectedMemoryEntry] = useState<MemoryEntry | null>(null);
+  const [wardrobeReactionText, setWardrobeReactionText] = useState<string | null>(null);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
   const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
   const [sharedMessages, setSharedMessages] = useState<PetMessage[]>([]);
@@ -402,8 +439,19 @@ export default function App() {
         setLastSyncedAt(remoteRoom.updatedAt);
         setSyncStatus('synced');
         const mergedState = mergeCoopRemoteState(gameRef.current, remoteState);
-        const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
-        const nextMerged: GameState = { ...mergedState, dialogue: evaluatedDialogue };
+        const partnerFedNow = remoteState.feedLogs.length > gameRef.current.feedLogs.length;
+        const withPartnerFeedMem = partnerFedNow
+          ? recordMemoryEntry(mergedState, {
+              uniqueKey: 'coop_partner_first_feed',
+              type: 'coop',
+              title: `夥伴第一次餵食 ${mergedState.pet.name}`,
+              description: `共養夥伴細心照顧 ${mergedState.pet.name}，一起分享美味時光！`,
+              emoji: '🍱',
+              isShared: true,
+            })
+          : mergedState;
+        const evaluatedDialogue = evaluateAndSelectDialogue(withPartnerFeedMem, cloudUser.id);
+        const nextMerged: GameState = { ...withPartnerFeedMem, dialogue: evaluatedDialogue };
         applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMerged.pet.name}與小屋！`);
         const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了共養空間！', emoji: '💞' }]);
@@ -508,10 +556,26 @@ export default function App() {
               { ...prev, dialogue: nextDialogue },
               cloudUser.id
             );
-            return {
+            let updated: GameState = {
               ...prev,
               dialogue: evaluated,
             };
+            updated = recordMonthlyActivity(updated, {
+              coopMessageDelta: 1,
+              interactionLabel: '留言互動',
+            });
+            updated = recordMemoryEntry(updated, {
+              uniqueKey: 'coop_partner_first_msg',
+              type: 'coop',
+              title: `收到 ${incoming.authorName} 的第一則留言`,
+              description: incoming.content
+                ? `「${incoming.content.slice(0, 40)}」`
+                : `傳來可愛貼圖「${stickerInfo?.label ?? '問候'}」`,
+              emoji: '💌',
+              actorName: incoming.authorName,
+              isShared: true,
+            });
+            return updated;
           });
         }
       },
@@ -587,16 +651,74 @@ export default function App() {
     if (currentStage.level > prevStageLevelRef.current) {
       soundFX.levelUp(game.soundEnabled);
       setLevelUpStage(currentStage);
-      setGame((prev) => ({
-        ...prev,
-        dialogue: appendMemoryEvent(prev.dialogue, {
-          type: 'milestone',
-          detail: `升上 Lv.${currentStage.level} ${currentStage.name}`,
-        }),
-      }));
+      setGame((prev) => {
+        let next: GameState = {
+          ...prev,
+          dialogue: appendMemoryEvent(prev.dialogue, {
+            type: 'milestone',
+            detail: `升上 Lv.${currentStage.level} ${currentStage.name}`,
+          }),
+        };
+        if (currentStage.level >= 2) {
+          next = recordMemoryEntry(next, {
+            uniqueKey: `growth_lv_${currentStage.level}`,
+            type: 'growth',
+            title: `成長至 Lv.${currentStage.level}「${currentStage.name}」！`,
+            description: `${prev.pet.name}邁入全新成長階段，解鎖更多可愛互動與穿搭！`,
+            emoji: '✨',
+            level: currentStage.level,
+            weight: prev.pet.weight,
+          });
+        }
+        return next;
+      });
     }
     prevStageLevelRef.current = currentStage.level;
   }, [game.pet.growth, game.soundEnabled]);
+
+  // 自動評估 12 項里程碑、8 項共養共同回憶（支援離線後恢復同步雙端通知）與月末/月初月度回顧卡
+  useEffect(() => {
+    if (!game.pet.hatched) return;
+    const activeMsgs = sharedRoom ? sharedMessages : game.messages;
+    let nextState = game;
+
+    const msRes = evaluateAndSyncMilestones(nextState, Boolean(sharedRoom));
+    nextState = msRes.nextState;
+
+    const smRes = evaluateAndSyncSharedMemories(
+      nextState,
+      sharedRoom,
+      activeMsgs,
+      currentUserId,
+      actorName
+    );
+    nextState = smRes.nextState;
+
+    const withRecap = syncAutoMonthlyRecap(nextState, activeMsgs);
+    nextState = withRecap;
+
+    if (nextState !== game) {
+      setGame(nextState);
+      if (msRes.newlyUnlocked.length > 0) {
+        soundFX.levelUp(game.soundEnabled);
+        msRes.newlyUnlocked.forEach((ms) => {
+          pushFeedback(`達成里程碑「${ms.title}」！`, ms.emoji);
+        });
+      }
+      if (smRes.newlyNotified.length > 0) {
+        soundFX.levelUp(game.soundEnabled);
+        smRes.newlyNotified.forEach((sm) => {
+          pushFeedback(`共同回憶解鎖「${sm.title}」！`, sm.emoji);
+        });
+      }
+    }
+  }, [
+    game,
+    sharedRoom,
+    sharedMessages,
+    currentUserId,
+    actorName,
+  ]);
 
   // 啟動與回到頁面時評估一次對話氣泡（含昨日最愛食物回顧 / 急迫需求 / 時間問候）
   useEffect(() => {
@@ -693,20 +815,32 @@ export default function App() {
       timestamp: now.getTime(),
     };
     soundFX.petVoice(game.soundEnabled, species);
-    setGame((prev) => ({
-      ...prev,
-      pet: {
-        ...prev.pet,
-        name: petName,
-        species,
-        hatched: true,
-      },
-      weightLogs: [initialWeightLog, ...prev.weightLogs],
-      noviceGrowth: {
-        ...prev.noviceGrowth,
-        startedDate: prev.noviceGrowth.startedDate || todayStr,
-      },
-    }));
+    setGame((prev) => {
+      const hatchedState: GameState = {
+        ...prev,
+        pet: {
+          ...prev.pet,
+          name: petName,
+          species,
+          hatched: true,
+        },
+        weightLogs: [initialWeightLog, ...prev.weightLogs],
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          startedDate: prev.noviceGrowth.startedDate || todayStr,
+        },
+      };
+      return recordMemoryEntry(hatchedState, {
+        uniqueKey: 'hatching_welcome',
+        type: 'hatching',
+        title: `${petName} 加入我們的家！`,
+        description: `在萌寵食堂破殼報到（${speciesInfo.label}），正式展開幸福的美食與陪伴之旅！`,
+        emoji: '🐣',
+        weight: prev.pet.weight,
+        level: 1,
+        createdAt: now.getTime(),
+      });
+    });
     setSpeech(`嗨～我是${petName}，${speciesInfo.greeting}`);
   };
 
@@ -767,7 +901,7 @@ export default function App() {
         type: 'petted',
         detail: zoneLabels[zone],
       });
-      return {
+      const draftState: GameState = {
         ...prev,
         pet: {
           ...prev.pet,
@@ -785,6 +919,10 @@ export default function App() {
           petCount: prev.noviceGrowth.petCount + 1,
         },
       };
+      return recordMonthlyActivity(draftState, {
+        interactionLabel: '撫摸互動',
+        growthDelta: 5,
+      });
     });
   };
 
@@ -960,7 +1098,93 @@ export default function App() {
         },
       };
 
-      return syncEncyclopediaRewards(draftState).nextState;
+      const syncedAcc = syncAllAccessoryProgress(draftState).nextState;
+      let nextMem = recordMonthlyActivity(syncedAcc, {
+        foodId: food.id,
+        interactionLabel: '餵食料理',
+        weight: newWeight,
+        growthDelta: food.growthGain + bonusGrowth,
+      });
+
+      nextMem = recordMemoryEntry(nextMem, {
+        uniqueKey: `feed_first_food_${food.id}`,
+        type: 'feeding',
+        title: `第一次品嚐「${food.name}」`,
+        description: `${nextMem.pet.name}首次吃下 ${food.emoji} ${food.name}，目前體重 ${newWeight.toFixed(1)} kg！`,
+        emoji: food.emoji,
+        foodId: food.id,
+        weight: newWeight,
+        level: nextMem.pet.level,
+      });
+
+      if (effectiveFavorite) {
+        nextMem = recordMemoryEntry(nextMem, {
+          uniqueKey: 'feed_first_favorite',
+          type: 'feeding',
+          title: `第一次吃到最愛料理！`,
+          description: `${food.emoji} ${food.name}讓${nextMem.pet.name}眼睛發亮、開心轉圈圈！`,
+          emoji: '💖',
+          foodId: food.id,
+          weight: newWeight,
+          level: nextMem.pet.level,
+        });
+      }
+
+      if (food.id === 'cheese_burger') {
+        nextMem = recordMemoryEntry(nextMem, {
+          uniqueKey: 'feed_first_burger',
+          type: 'feeding',
+          title: '第一次漢堡美味時刻',
+          description: `大口咬下多汁的起司漢堡，滿足感直衝 100%！`,
+          emoji: '🍔',
+          foodId: food.id,
+          weight: newWeight,
+        });
+      }
+
+      if (food.id === 'crispy_fries') {
+        nextMem = recordMemoryEntry(nextMem, {
+          uniqueKey: 'feed_first_fries',
+          type: 'feeding',
+          title: '第一次香脆薯條派對',
+          description: `咔滋咔滋的金黃薯條，一根接著一根停不下來！`,
+          emoji: '🍟',
+          foodId: food.id,
+          weight: newWeight,
+        });
+      }
+
+      const nextRoundness = nextMem.pet.roundness;
+      if (nextRoundness >= 40) {
+        const tier = getRoundnessTier(nextRoundness);
+        nextMem = recordMemoryEntry(nextMem, {
+          uniqueKey:
+            nextRoundness >= 85
+              ? 'weight_round_85'
+              : nextRoundness >= 65
+              ? 'weight_round_65'
+              : 'weight_round_40',
+          type: 'weight',
+          title: `體態成長為「${tier.label}」！`,
+          description: `${nextMem.pet.name}吃得圓滾滾超療癒（目前體重 ${newWeight.toFixed(1)} kg）`,
+          emoji: '⚖️',
+          weight: newWeight,
+        });
+      }
+
+      if (newWeight >= 8) {
+        const milestoneKg = newWeight >= 16 ? 16 : newWeight >= 12 ? 12 : 8;
+        nextMem = recordMemoryEntry(nextMem, {
+          uniqueKey: `weight_milestone_${milestoneKg}`,
+          type: 'weight',
+          title: `體重突破 ${milestoneKg} kg 里程碑！`,
+          description: `${nextMem.pet.name}健康幸福地長大中，目前 ${newWeight.toFixed(1)} kg！`,
+          emoji: '🐷',
+          weight: newWeight,
+        });
+      }
+
+      return nextMem;
     });
   };
 
@@ -1127,16 +1351,30 @@ export default function App() {
     const actualGain = Math.max(1, nextQty - curQty);
     soundFX.heart(game.soundEnabled);
 
-    setGame((prev) => ({
-      ...prev,
-      ingredients: {
-        ...prev.ingredients,
-        [harvestedId]: Math.min(storageCap, (prev.ingredients[harvestedId] ?? 0) + totalYield),
-      },
-      farmPlots: prev.farmPlots.map((p) =>
-        p.id === plotId ? { ...p, cropId: null, plantedAt: null, durationMs: 0 } : p
-      ),
-    }));
+    setGame((prev) => {
+      const harvestedState: GameState = {
+        ...prev,
+        ingredients: {
+          ...prev.ingredients,
+          [harvestedId]: Math.min(storageCap, (prev.ingredients[harvestedId] ?? 0) + totalYield),
+        },
+        farmPlots: prev.farmPlots.map((p) =>
+          p.id === plotId ? { ...p, cropId: null, plantedAt: null, durationMs: 0 } : p
+        ),
+      };
+      let withMem = recordMonthlyActivity(harvestedState, {
+        interactionLabel: '農場收成',
+      });
+      withMem = recordMemoryEntry(withMem, {
+        uniqueKey: 'farm_harvest_first',
+        type: 'farm',
+        title: `第一次農場收成：${cropInfo.name}`,
+        description: `親手種植的${cropInfo.name}成熟採收 +${actualGain}，食材小倉庫大豐收！`,
+        emoji: cropInfo.emoji,
+        weight: withMem.pet.weight,
+      });
+      return withMem;
+    });
     pushFeedback(`${cropInfo.name} +${actualGain}`, cropInfo.emoji);
     setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做料理或手作家具吧～`);
   };
@@ -1241,7 +1479,20 @@ export default function App() {
           collectedFoodIds: nextCollectedFoods,
         },
       };
-      return syncEncyclopediaRewards(draftState).nextState;
+      const syncedAcc = syncAllAccessoryProgress(draftState).nextState;
+      let withMem = recordMonthlyActivity(syncedAcc, {
+        interactionLabel: '廚房料理',
+        growthDelta: recipe.bonusGrowth,
+      });
+      withMem = recordMemoryEntry(withMem, {
+        uniqueKey: 'farm_cook_first',
+        type: 'farm',
+        title: `第一次料理合成：${recipe.name}`,
+        description: `用新鮮農場作物親手完成美味的「${recipe.name}」！`,
+        emoji: recipe.emoji,
+        weight: withMem.pet.weight,
+      });
+      return withMem;
     });
     pushFeedback(`做出 ${recipe.name}！`, recipe.emoji);
     setSpeech(`香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`);
@@ -1317,11 +1568,34 @@ export default function App() {
   };
 
   const handleToggleEquip = (item: Accessory) => {
-    soundFX.pop(game.soundEnabled);
+    const currentlyEquipped = game.pet.accessories[item.slot] === item.id;
+    const isEquipping = !currentlyEquipped;
+
+    if (isEquipping) {
+      const match = evaluateAccessoryPreference(
+        game.personality,
+        game.pet.species,
+        item
+      );
+      setWardrobeReactionText(match.reactionText);
+      setSpeech(match.reactionText);
+      if (match.isLiked) {
+        soundFX.heart(game.soundEnabled);
+        setTemporaryAction('petted', 1500, match.expression);
+        pushFeedback('最愛穿搭加成！', '💖');
+      } else {
+        soundFX.pop(game.soundEnabled);
+      }
+    } else {
+      soundFX.pop(game.soundEnabled);
+      const offMsg = `先脫下「${item.name}」透透氣～`;
+      setWardrobeReactionText(offMsg);
+    }
+
     setGame((prev) => {
       const current = prev.pet.accessories[item.slot];
       const next = current === item.id ? null : item.id;
-      return {
+      let updated: GameState = {
         ...prev,
         pet: {
           ...prev.pet,
@@ -1331,37 +1605,141 @@ export default function App() {
           },
         },
       };
+      if (next) {
+        updated = recordMonthlyActivity(updated, {
+          interactionLabel: '穿搭換裝',
+          accessoryId: item.id,
+        });
+        updated = recordMemoryEntry(updated, {
+          uniqueKey: 'wardrobe_first_equip',
+          type: 'wardrobe',
+          title: `第一次穿戴配件：${item.name}`,
+          description: `${prev.pet.name}戴上第一件專屬造型配件，可愛度爆表！`,
+          emoji: item.emoji,
+          accessoryId: item.id,
+          weight: prev.pet.weight,
+        });
+        if (item.rarity !== 'common') {
+          updated = recordMemoryEntry(updated, {
+            uniqueKey: `wardrobe_rare_${item.id}`,
+            type: 'wardrobe',
+            title: `換上稀有造型「${item.name}」`,
+            description: `閃閃發光的稀有配件登場，${prev.pet.name}成為全場焦點！`,
+            emoji: item.emoji,
+            accessoryId: item.id,
+            weight: prev.pet.weight,
+          });
+        }
+      }
+      return updated;
     });
   };
 
   const handleBuyAccessory = (item: Accessory) => {
-    if (game.coins < item.price || game.accessories.includes(item.id)) return;
+    if (
+      !isAccessoryPurchasable(item) ||
+      game.coins < item.price ||
+      game.accessories.includes(item.id)
+    ) {
+      return;
+    }
     soundFX.levelUp(game.soundEnabled);
-    setGame((prev) => {
-      const stage = getGrowthStage(prev.pet.growth);
-      const canAutoEquip = stage.unlockedSlots.includes(item.slot);
-      const draftState: GameState = {
-        ...prev,
-        coins: prev.coins - item.price,
-        accessories: [...prev.accessories, item.id],
-        pet: {
-          ...prev.pet,
-          accessories: canAutoEquip
-            ? { ...prev.pet.accessories, [item.slot]: item.id }
-            : prev.pet.accessories,
-        },
-        dialogue: appendMemoryEvent(prev.dialogue, {
-          type: 'newAccessory',
-          detail: item.name,
-          itemId: item.id,
-        }),
-        noviceGrowth: {
-          ...prev.noviceGrowth,
-          boughtAccessoryCount: prev.noviceGrowth.boughtAccessoryCount + 1,
-        },
-      };
-      return syncEncyclopediaRewards(draftState).nextState;
-    });
+
+    const stage = getGrowthStage(game.pet.growth);
+    const canAutoEquip = stage.unlockedSlots.includes(item.slot);
+    const match = evaluateAccessoryPreference(
+      game.personality,
+      game.pet.species,
+      item
+    );
+
+    const draftState: GameState = {
+      ...game,
+      coins: game.coins - item.price,
+      accessories: [...game.accessories, item.id],
+      pet: {
+        ...game.pet,
+        accessories: canAutoEquip
+          ? { ...game.pet.accessories, [item.slot]: item.id }
+          : game.pet.accessories,
+      },
+      dialogue: appendMemoryEvent(game.dialogue, {
+        type: 'newAccessory',
+        detail: item.name,
+        itemId: item.id,
+      }),
+      noviceGrowth: {
+        ...game.noviceGrowth,
+        boughtAccessoryCount: game.noviceGrowth.boughtAccessoryCount + 1,
+      },
+    };
+    const synced = syncAllAccessoryProgress(draftState);
+    let nextBought = synced.nextState;
+    if (canAutoEquip) {
+      nextBought = recordMonthlyActivity(nextBought, {
+        interactionLabel: '穿搭換裝',
+        accessoryId: item.id,
+      });
+      nextBought = recordMemoryEntry(nextBought, {
+        uniqueKey: 'wardrobe_first_equip',
+        type: 'wardrobe',
+        title: `第一次穿戴配件：${item.name}`,
+        description: `${nextBought.pet.name}戴上第一件專屬造型配件，可愛度爆表！`,
+        emoji: item.emoji,
+        accessoryId: item.id,
+        weight: nextBought.pet.weight,
+      });
+      if (item.rarity !== 'common') {
+        nextBought = recordMemoryEntry(nextBought, {
+          uniqueKey: `wardrobe_rare_${item.id}`,
+          type: 'wardrobe',
+          title: `收藏並穿戴「${item.name}」`,
+          description: `獲得進階限定造型「${item.name}」，穿搭圖鑑更豐富啦！`,
+          emoji: item.emoji,
+          accessoryId: item.id,
+          weight: nextBought.pet.weight,
+        });
+      }
+    }
+    if (item.rarity === 'event') {
+      nextBought = recordMemoryEntry(nextBought, {
+        uniqueKey: `festival_acc_${item.id}`,
+        type: 'festival',
+        title: `獲得節日限定配件：${item.name}`,
+        description: `解鎖活動限定珍藏「${item.name}」，紀念美好派對時刻！`,
+        emoji: '🎉',
+        accessoryId: item.id,
+      });
+    }
+    for (const themeId of synced.newlyCompletedThemes) {
+      const themeDef = ACCESSORY_THEME_BY_ID[themeId];
+      if (themeDef) {
+        nextBought = recordMemoryEntry(nextBought, {
+          uniqueKey: `wardrobe_theme_${themeId}`,
+          type: 'wardrobe',
+          title: `集齊「${themeDef.name}」主題套裝！`,
+          description: `成功收集 4 件「${themeDef.name}」配件，解鎖專屬稱號與獎勵！`,
+          emoji: themeDef.emoji,
+          accessoryId: item.id,
+        });
+      }
+    }
+    setGame(nextBought);
+
+    if (canAutoEquip) {
+      setWardrobeReactionText(match.reactionText);
+      setSpeech(match.reactionText);
+      if (match.isLiked) {
+        setTemporaryAction('petted', 1500, match.expression);
+        pushFeedback('最愛新穿搭！', '💖');
+      }
+    }
+    if (synced.newlyCompletedThemes.length > 0) {
+      const firstTheme = ACCESSORY_THEME_BY_ID[synced.newlyCompletedThemes[0]];
+      if (firstTheme) {
+        pushFeedback(`集齊「${firstTheme.name}」套裝！`, firstTheme.emoji);
+      }
+    }
   };
 
   const handleRecordWeight = (newWeight: number, note?: string) => {
@@ -1384,7 +1762,7 @@ export default function App() {
         timestamp: now.getTime(),
       };
 
-      return {
+      const updated: GameState = {
         ...prev,
         pet: {
           ...prev.pet,
@@ -1404,6 +1782,32 @@ export default function App() {
           weightRecordCount: prev.noviceGrowth.weightRecordCount + 1,
         },
       };
+      let withMem = recordMonthlyActivity(updated, {
+        interactionLabel: '量體重',
+        weight: boundedWeight,
+        growthDelta: 6,
+      });
+      withMem = recordMemoryEntry(withMem, {
+        uniqueKey: 'weight_first_manual',
+        type: 'weight',
+        title: `第一次記錄體重：${boundedWeight.toFixed(1)} kg`,
+        description: `在成長手帳仔細量測體重，守護 ${prev.pet.name} 健康長大！`,
+        emoji: '⚖️',
+        weight: boundedWeight,
+        level: withMem.pet.level,
+      });
+      if (boundedWeight >= 8) {
+        const milestoneKg = boundedWeight >= 16 ? 16 : boundedWeight >= 12 ? 12 : 8;
+        withMem = recordMemoryEntry(withMem, {
+          uniqueKey: `weight_milestone_${milestoneKg}`,
+          type: 'weight',
+          title: `體重突破 ${milestoneKg} kg 里程碑！`,
+          description: `${prev.pet.name}目前體重 ${boundedWeight.toFixed(1)} kg，幸福成長中！`,
+          emoji: '🐷',
+          weight: boundedWeight,
+        });
+      }
+      return withMem;
     });
   };
 
@@ -1422,7 +1826,7 @@ export default function App() {
         t.id === taskId ? { ...t, claimed: true } : t
       );
 
-      return {
+      const draftState: GameState = {
         ...prev,
         coins: prev.coins + targetTask.reward.coins,
         foods: {
@@ -1442,6 +1846,7 @@ export default function App() {
           completedDailyTasksCount: prev.noviceGrowth.completedDailyTasksCount + 1,
         },
       };
+      return syncAllAccessoryProgress(draftState).nextState;
     });
   };
 
@@ -1504,7 +1909,18 @@ export default function App() {
         },
       };
 
-      return syncEncyclopediaRewards(draftState).nextState;
+      let finalNovice = syncAllAccessoryProgress(draftState).nextState;
+      if (day === 7) {
+        finalNovice = recordMemoryEntry(finalNovice, {
+          uniqueKey: 'festival_novice_day7',
+          type: 'festival',
+          title: '完成 7 天新手成長慶典！',
+          description: `連續完成 7 天成長之路任務，獲得派對限定獎勵與星光背景！`,
+          emoji: '🎉',
+          accessoryId: 'party_cape',
+        });
+      }
+      return finalNovice;
     });
   };
 
@@ -1668,10 +2084,20 @@ export default function App() {
     if (res.state) {
       applyCloudStateLocally(res.state);
     }
-    setGame((prev) => ({
-      ...prev,
-      noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
-    }));
+    setGame((prev) => {
+      const updated: GameState = {
+        ...prev,
+        noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
+      };
+      return recordMemoryEntry(updated, {
+        uniqueKey: 'coop_join_room',
+        type: 'coop',
+        title: `建立兩人共養小屋「${updated.house.houseName}」`,
+        description: `產生專屬邀請碼 ${res.room!.inviteCode}，開啟雙人共同照護模式！`,
+        emoji: '💞',
+        isShared: true,
+      });
+    });
     setSyncStatus('synced');
     setLastSyncedAt(res.room.updatedAt);
     pushFeedback(`共養邀請碼：${res.room.inviteCode}`, '💞');
@@ -1695,10 +2121,20 @@ export default function App() {
         `成功加入！一起來照顧${res.state.pet.name}吧！`
       );
     }
-    setGame((prev) => ({
-      ...prev,
-      noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
-    }));
+    setGame((prev) => {
+      const updated: GameState = {
+        ...prev,
+        noviceGrowth: { ...prev.noviceGrowth, createdSharedRoom: true },
+      };
+      return recordMemoryEntry(updated, {
+        uniqueKey: 'coop_join_room',
+        type: 'coop',
+        title: `加入兩人共養小屋「${updated.house.houseName}」`,
+        description: `與夥伴會合啦！一起餵食、佈置房間並寫下專屬共同回憶！`,
+        emoji: '💞',
+        isShared: true,
+      });
+    });
     setSyncStatus('synced');
     setLastSyncedAt(res.room.updatedAt);
     pushFeedback('成功加入兩人共養！', '💞');
@@ -1780,18 +2216,25 @@ export default function App() {
         if (prev.some((m) => m.id === created.id)) return prev;
         return [...prev, created].slice(-80);
       });
-      setGame((prev) => ({
-        ...prev,
-        personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
-          .nextPersonality,
-        dialogue: appendMemoryEvent(prev.dialogue, {
-          type: 'partnerMessage',
-          detail: cleanText || stickerInfo?.label || '貼圖留言',
-          actorId: cloudUser.id,
-          actorName,
-          isCoopHighlight: true,
-        }),
-      }));
+      setGame((prev) => {
+        let updated: GameState = {
+          ...prev,
+          personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
+            .nextPersonality,
+          dialogue: appendMemoryEvent(prev.dialogue, {
+            type: 'partnerMessage',
+            detail: cleanText || stickerInfo?.label || '貼圖留言',
+            actorId: cloudUser.id,
+            actorName,
+            isCoopHighlight: true,
+          }),
+        };
+        updated = recordMonthlyActivity(updated, {
+          coopMessageDelta: 1,
+          interactionLabel: '留言互動',
+        });
+        return updated;
+      });
       soundFX.heart(game.soundEnabled);
       if (stickerInfo) {
         setSpeech(stickerInfo.caption);
@@ -1813,12 +2256,18 @@ export default function App() {
       createdAt: Date.now(),
     };
 
-    setGame((prev) => ({
-      ...prev,
-      messages: [...prev.messages, localMsg].slice(-80),
-      personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
-        .nextPersonality,
-    }));
+    setGame((prev) => {
+      const updated: GameState = {
+        ...prev,
+        messages: [...prev.messages, localMsg].slice(-80),
+        personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
+          .nextPersonality,
+      };
+      return recordMonthlyActivity(updated, {
+        coopMessageDelta: 1,
+        interactionLabel: '留言互動',
+      });
+    });
     soundFX.heart(game.soundEnabled);
     if (stickerInfo) {
       setSpeech(stickerInfo.caption);
@@ -1847,12 +2296,76 @@ export default function App() {
 
   const handleUpdateHouseGame = (updater: (prev: GameState) => GameState) => {
     setGame((prev) => {
-      const next = updater(prev);
+      let next = updater(prev);
       const prevPlacedIds = new Set(prev.house.roomLayout.placedItems.map((p) => p.instanceId));
       const newPlaced = next.house.roomLayout.placedItems.find((p) => !prevPlacedIds.has(p.instanceId));
       const newCollectedId = next.house.collectedFurnitureIds.find(
         (id) => !prev.house.collectedFurnitureIds.includes(id)
       );
+      const newThemeId = next.house.completedThemeSets.find(
+        (id) => !prev.house.completedThemeSets.includes(id)
+      );
+      const newPhoto = next.house.photos.find(
+        (p) => !prev.house.photos.some((op) => op.id === p.id)
+      );
+      const treasurySpent = next.house.treasuryCoins < prev.house.treasuryCoins;
+
+      if (newCollectedId) {
+        const buyName = ROOM_ITEM_BY_ID[newCollectedId]?.name ?? '新家具';
+        next = recordMemoryEntry(next, {
+          uniqueKey: 'room_first_buy',
+          type: 'room',
+          title: `第一次購買家具：${buyName}`,
+          description: `為 ${next.pet.name} 的小屋添購「${buyName}」，空間越來越溫馨！`,
+          emoji: '🛋️',
+        });
+        if (sharedRoom && treasurySpent) {
+          next = recordMemoryEntry(next, {
+            uniqueKey: 'coop_first_buy_furniture',
+            type: 'coop',
+            title: `共同購買第一件家具「${buyName}」`,
+            description: `使用兩人共同金庫買下「${buyName}」，攜手築起溫暖小屋！`,
+            emoji: '🛋️',
+            isShared: true,
+          });
+        }
+      }
+
+      if (newPlaced) {
+        const placeName = ROOM_ITEM_BY_ID[newPlaced.itemId]?.name ?? '新家具';
+        next = recordMemoryEntry(next, {
+          uniqueKey: 'room_first_place',
+          type: 'room',
+          title: `第一次放置家具：${placeName}`,
+          description: `把「${placeName}」擺進寵物房間裡，${next.pet.name}開心地逛起新角落！`,
+          emoji: '🏡',
+        });
+        next = recordMonthlyActivity(next, { interactionLabel: '佈置房間' });
+      }
+
+      if (newThemeId) {
+        next = recordMemoryEntry(next, {
+          uniqueKey: `room_theme_${newThemeId}`,
+          type: 'room',
+          title: '完成主題房間套裝佈置！',
+          description: `在小屋湊齊同一主題系列的所有家具，房間煥然一新！`,
+          emoji: '✨',
+        });
+      }
+
+      if (newPhoto) {
+        next = recordMemoryEntry(next, {
+          uniqueKey: `photo_${newPhoto.id}`,
+          type: 'room',
+          title: `拍下「${newPhoto.title}」`,
+          description: `在房間留下的溫馨合照（當時體重 ${next.pet.weight.toFixed(1)} kg）`,
+          emoji: '📸',
+          photoId: newPhoto.id,
+          weight: next.pet.weight,
+          level: next.pet.level,
+        });
+      }
+
       const changedItemId = newPlaced?.itemId ?? newCollectedId ?? null;
       if (!changedItemId) {
         return next;
@@ -1974,7 +2487,19 @@ export default function App() {
     const res = settleRoomDecorSession(gameRef.current);
     if (res.ok) {
       soundFX.levelUp(game.soundEnabled);
-      setGame(res.nextState);
+      let next = recordMonthlyActivity(res.nextState, {
+        coopTaskDelta: 1,
+        interactionLabel: '合作佈置',
+      });
+      next = recordMemoryEntry(next, {
+        uniqueKey: 'cooperation_room_decor',
+        type: 'cooperation',
+        title: '完成「一起布置房間」合作挑戰！',
+        description: `兩人並肩合作擺放家具，打造充滿默契的夢幻空間！`,
+        emoji: '🤝',
+        isShared: true,
+      });
+      setGame(next);
       if (res.notice) {
         pushFeedback('佈置挑戰結算！', '🎁');
         setSpeech(res.notice);
@@ -2034,6 +2559,7 @@ export default function App() {
   };
 
   const handleCookCoopRecipe = (recipe: KitchenRecipe) => {
+    const prevOrderDone = gameRef.current.coop.dailyFarmOrder.completed;
     const res = cookCoopOrderRecipe(
       gameRef.current,
       recipe,
@@ -2042,7 +2568,28 @@ export default function App() {
     );
     if (res.ok) {
       soundFX.levelUp(game.soundEnabled);
-      setGame(res.nextState);
+      let next = recordMonthlyActivity(res.nextState, {
+        coopTaskDelta: 1,
+        interactionLabel: '農場接力',
+      });
+      next = recordMemoryEntry(next, {
+        uniqueKey: 'farm_coop_order_first',
+        type: 'farm',
+        title: `完成農場訂單：${recipe.name}`,
+        description: `協力把農場新鮮作物端上料理台，順利完成合作訂單！`,
+        emoji: recipe.emoji,
+      });
+      if (next.coop.dailyFarmOrder.completed && !prevOrderDone) {
+        next = recordMemoryEntry(next, {
+          uniqueKey: 'cooperation_farm_relay',
+          type: 'cooperation',
+          title: '完成「農場訂單接力」合作任務！',
+          description: `兩人接力種植、收成並端出每日特餐，默契滿分！`,
+          emoji: '🌾',
+          isShared: true,
+        });
+      }
+      setGame(next);
       if (res.notice) {
         pushFeedback(`完成「${recipe.name}」`, recipe.emoji);
         setSpeech(res.notice);
@@ -2112,6 +2659,105 @@ export default function App() {
   ): Promise<string | null> => {
     const cleanCaption = caption.trim() || photo.title;
     return handleSendMessage(`${cleanCaption} [photo:${photo.id}]`, null);
+  };
+
+  const handleOpenScenePhoto = (scene: PhotoScene = 'wardrobe') => {
+    setWardrobePhotoScene(scene);
+    setWardrobePhotoOpen(true);
+  };
+
+  const handleSaveWardrobePhoto = (params: {
+    title: string;
+    caption: string;
+    scene: PhotoScene;
+    poseId: PhotoPose;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): RoomPhotoRecord => {
+    soundFX.heart(game.soundEnabled);
+    const { nextState, photo } = saveScenePhoto(gameRef.current, params);
+    setGame(nextState);
+    pushFeedback('已儲存寫真到照片牆！', '📸');
+    return photo;
+  };
+
+  const handleTogglePhotoLike = (photoId: string) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => togglePhotoLike(prev, photoId, currentUserId));
+  };
+
+  const handleAddPhotoComment = (photoId: string, content: string) => {
+    soundFX.heart(game.soundEnabled);
+    setGame(
+      (prev) =>
+        addPhotoComment(prev, photoId, currentUserId, actorName, content).nextState
+    );
+  };
+
+  const handleSaveDialogueToMemory = (line: DialogueLine) => {
+    const res = saveDialogueToMemories(gameRef.current, line);
+    if (res.saved) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback('已收藏這句話到回憶冊！', '💬');
+    }
+  };
+
+  const handleToggleFavoriteMemory = (memoryId: string) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => toggleFavoriteMemory(prev, memoryId));
+  };
+
+  const handleSaveMonthlyRecap = (recap: MonthlyRecap) => {
+    soundFX.heart(game.soundEnabled);
+    setGame((prev) => saveOrUpdateMonthlyRecap(prev, recap, true));
+    pushFeedback(`已收藏 ${recap.monthKey} 回顧卡！`, '🗓️');
+  };
+
+  const handleShareRecapToBoard = async (
+    recap: MonthlyRecap
+  ): Promise<string | null> => {
+    const deltaLabel =
+      recap.weightDelta >= 0
+        ? `+${recap.weightDelta.toFixed(1)}`
+        : recap.weightDelta.toFixed(1);
+    const body = `最愛食物：${recap.favoriteFoodName} · 最常互動：${recap.topInteractionLabel} · 體重變化 ${deltaLabel} kg · 成長 +${recap.growthGained}`;
+    if (recap.coverPhotoId) {
+      return handleSendMessage(
+        `🗓️ ${recap.monthKey} 本月回顧卡：${body} [photo:${recap.coverPhotoId}]`,
+        null
+      );
+    }
+    return handleSendMessage(`🗓️ ${recap.monthKey} 本月回顧卡：${body}`, 'heart');
+  };
+
+  const handleShareMemoryToBoard = async (
+    memory: MemoryEntry
+  ): Promise<string | null> => {
+    if (memory.photoId) {
+      return handleSendMessage(
+        `${memory.emoji} ${memory.title}：${memory.description} [photo:${memory.photoId}]`,
+        null
+      );
+    }
+    return handleSendMessage(
+      `${memory.emoji} ${memory.title}：${memory.description}`,
+      'heart'
+    );
+  };
+
+  const handleShareCardPayloadToBoard = async (
+    payload: ShareCardPayload
+  ): Promise<string | null> => {
+    const summary = payload.subtitle ? `：${payload.subtitle}` : '';
+    if (payload.photo) {
+      return handleSendMessage(
+        `${payload.emoji} ${payload.title}${summary} [photo:${payload.photo.id}]`,
+        null
+      );
+    }
+    return handleSendMessage(`${payload.emoji} ${payload.title}${summary}`, 'heart');
   };
 
   const activeMessages = sharedRoom ? sharedMessages : game.messages;
@@ -2280,6 +2926,12 @@ export default function App() {
                   onRespondDialogue={handleRespondDialogue}
                   onDismissDialogue={handleDismissDialogue}
                   onOpenDialogueHistory={() => setDialogueHistoryOpen(true)}
+                  savedDialogueIds={game.memoryAlbum.savedDialogueIds}
+                  onSaveDialogueToMemory={handleSaveDialogueToMemory}
+                  onOpenMemories={() => {
+                    setJournalInitialSection('memories');
+                    setActiveTab('journal');
+                  }}
                 />
               )}
 
@@ -2300,6 +2952,7 @@ export default function App() {
                   onHarvestCrop={handleHarvestCrop}
                   onCookRecipe={handleCookRecipe}
                   onOpenMinigame={() => setMinigameOpen(true)}
+                  onOpenFarmPhotoStudio={() => handleOpenScenePhoto('farm')}
                   onExpandFarmPlot={handleExpandFarmPlot}
                   onUpgradeFarmFacility={handleUpgradeFarmFacility}
                   onToggleFarmDecoration={handleToggleFarmDecoration}
@@ -2310,6 +2963,7 @@ export default function App() {
               {activeTab === 'wardrobe' && (
                 <WardrobeView
                   pet={game.pet}
+                  personality={game.personality}
                   coins={game.coins}
                   unlockedAccessories={game.accessories}
                   encyclopedia={game.encyclopedia}
@@ -2318,6 +2972,8 @@ export default function App() {
                   onBuyAccessory={handleBuyAccessory}
                   onChangeSpecies={handleChangeSpecies}
                   onSelectTitle={handleSelectTitle}
+                  onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe')}
+                  lastReactionText={wardrobeReactionText}
                 />
               )}
 
@@ -2344,10 +3000,21 @@ export default function App() {
                     setHouseModalTab('photo');
                     setHouseModalOpen(true);
                   }}
+                  onOpenWardrobePhotoMode={(sc) => handleOpenScenePhoto(sc ?? 'wardrobe')}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
+                  onTogglePhotoLike={handleTogglePhotoLike}
+                  onAddPhotoComment={handleAddPhotoComment}
                   onSelectTitle={handleSelectTitle}
                   dialogueCount={game.dialogue.history.length}
                   onOpenDialogueHistory={() => setDialogueHistoryOpen(true)}
+                  game={game}
+                  messages={activeMessages}
+                  onOpenMemoryDetail={(m) => setSelectedMemoryEntry(m)}
+                  onToggleFavoriteMemory={handleToggleFavoriteMemory}
+                  onOpenShareCard={(payload) => setShareCardPayload(payload)}
+                  onSaveMonthlyRecap={handleSaveMonthlyRecap}
+                  onShareRecapToBoard={handleShareRecapToBoard}
+                  onShareTextToBoard={handleShareCoopCardToBoard}
                 />
               )}
 
@@ -2454,6 +3121,8 @@ export default function App() {
           sharedRoom={sharedRoom}
           onSendMessage={handleSendMessage}
           onDeleteMessage={handleDeleteMessage}
+          onTogglePhotoLike={handleTogglePhotoLike}
+          onAddPhotoComment={handleAddPhotoComment}
         />
 
         <MinigameHubModal
@@ -2493,12 +3162,58 @@ export default function App() {
           personality={game.personality}
         />
 
+        <WardrobePhotoModal
+          open={wardrobePhotoOpen}
+          onClose={() => setWardrobePhotoOpen(false)}
+          pet={game.pet}
+          sharedRoom={sharedRoom}
+          initialScene={wardrobePhotoScene}
+          unlockedPoses={game.memoryAlbum.unlockedPhotoPoses}
+          unlockedFrames={game.memoryAlbum.unlockedPhotoFrames}
+          onSavePhoto={handleSaveWardrobePhoto}
+          onSharePhotoToBoard={handleSharePhotoToBoard}
+        />
+
         <DialogueHistoryModal
           open={dialogueHistoryOpen}
           onClose={() => setDialogueHistoryOpen(false)}
           pet={game.pet}
           dialogue={game.dialogue}
           onUpdateSettings={handleUpdateDialogueSettings}
+          savedDialogueIds={game.memoryAlbum.savedDialogueIds}
+          onSaveDialogueToMemory={handleSaveDialogueToMemory}
+        />
+
+        <MemoryDetailModal
+          open={Boolean(selectedMemoryEntry)}
+          onClose={() => setSelectedMemoryEntry(null)}
+          memory={selectedMemoryEntry}
+          pet={game.pet}
+          isFavorite={
+            selectedMemoryEntry
+              ? game.memoryAlbum.favoriteMemoryIds.includes(selectedMemoryEntry.id)
+              : false
+          }
+          relatedPhoto={
+            selectedMemoryEntry?.photoId
+              ? game.house.photos.find((p) => p.id === selectedMemoryEntry.photoId) ?? null
+              : null
+          }
+          sharedRoom={sharedRoom}
+          currentUserId={currentUserId}
+          onToggleFavorite={handleToggleFavoriteMemory}
+          onTogglePhotoLike={handleTogglePhotoLike}
+          onAddPhotoComment={handleAddPhotoComment}
+          onOpenShareCard={(payload) => setShareCardPayload(payload)}
+          onShareMemoryToBoard={handleShareMemoryToBoard}
+        />
+
+        <ShareCardModal
+          open={Boolean(shareCardPayload)}
+          onClose={() => setShareCardPayload(null)}
+          payload={shareCardPayload}
+          sharedRoom={sharedRoom}
+          onShareToBoard={handleShareCardPayloadToBoard}
         />
 
         <CoopHubModal

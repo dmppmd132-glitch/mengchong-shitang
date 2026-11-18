@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Bath,
+  BookHeart,
   Footprints,
   Gamepad2,
   Heart,
@@ -85,6 +86,9 @@ interface HomeViewProps {
   onRespondDialogue?: (responseId: string) => void;
   onDismissDialogue?: () => void;
   onOpenDialogueHistory?: () => void;
+  savedDialogueIds?: string[];
+  onSaveDialogueToMemory?: (line: DialogueLine) => void;
+  onOpenMemories?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -142,6 +146,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onRespondDialogue,
   onDismissDialogue,
   onOpenDialogueHistory,
+  savedDialogueIds = [],
+  onSaveDialogueToMemory,
+  onOpenMemories,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -351,6 +358,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
             onRespond={onRespondDialogue}
             onClose={onDismissDialogue}
             onOpenHistory={onOpenDialogueHistory}
+            savedToMemories={savedDialogueIds.includes(activeDialogue.id)}
+            onSaveToMemory={onSaveDialogueToMemory}
           />
         ) : (
           <div className="min-h-[34px] mb-1 flex items-center justify-center">
@@ -557,6 +566,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
           <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            打開 ›
+          </span>
+        </button>
+      )}
+
+      {onOpenMemories && (
+        <button
+          type="button"
+          onClick={onOpenMemories}
+          className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#FFF4EC] to-[#FFFDF8] border-2 border-[#F4DFD7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF5EE] active:scale-[0.99] transition text-left"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FFF3D8] text-[#9D5B12] flex items-center justify-center shrink-0">
+              <BookHeart className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold text-[#4A3531]">
+                📖 照片牆與回憶冊
+              </div>
+              <p className="text-[11px] text-[#7D635D] truncate">
+                回味時間軸、照片牆、成長里程碑與本月回顧卡
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">
             打開 ›
           </span>
         </button>

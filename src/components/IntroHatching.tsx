@@ -184,7 +184,14 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
                 growth={0}
                 roundness={28}
                 action="petted"
-                equipped={{ head: 'pink_bow', face: null, neck: null, body: null }}
+                equipped={{
+                  head: 'pink_bow',
+                  face: null,
+                  neck: null,
+                  body: null,
+                  held: null,
+                  back: null,
+                }}
                 interactive={false}
                 size={196}
               />

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  BookHeart,
   BookOpen,
   Camera,
   Cloud,
@@ -19,17 +20,24 @@ import {
   CloudSyncStatus,
   CloudUser,
   EncyclopediaState,
+  GameState,
+  MemoryEntry,
+  MonthlyRecap,
   Pet,
+  PetMessage,
   PetPersonality,
+  PhotoScene,
   RoomPhotoRecord,
   SharedHouse,
   SharedPetRoom,
   TitleId,
   WeightLog,
 } from '../types';
+import { ShareCardPayload } from '../utils/shareCardCanvas';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 import { EncyclopediaSection, EncyclopediaView } from './EncyclopediaView';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
+import { MemoriesView } from './memories/MemoriesView';
 import { PersonalityProfileView } from './PersonalityProfileView';
 
 interface JournalViewProps {
@@ -48,13 +56,24 @@ interface JournalViewProps {
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
   house: SharedHouse;
-  initialSection?: 'journal' | 'personality' | 'encyclopedia';
+  initialSection?: 'journal' | 'memories' | 'personality' | 'encyclopedia';
   initialEncyclopediaSection?: EncyclopediaSection;
   onOpenHousePhotoMode?: () => void;
+  onOpenWardrobePhotoMode?: (scene?: PhotoScene) => void;
   onSharePhotoToBoard?: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
+  onTogglePhotoLike?: (photoId: string) => void;
+  onAddPhotoComment?: (photoId: string, content: string) => void;
   onSelectTitle?: (titleId: TitleId | null) => void;
   dialogueCount?: number;
   onOpenDialogueHistory?: () => void;
+  game?: GameState;
+  messages?: PetMessage[];
+  onOpenMemoryDetail?: (memory: MemoryEntry) => void;
+  onToggleFavoriteMemory?: (memoryId: string) => void;
+  onOpenShareCard?: (payload: ShareCardPayload) => void;
+  onSaveMonthlyRecap?: (recap: MonthlyRecap) => void;
+  onShareRecapToBoard?: (recap: MonthlyRecap) => Promise<string | null>;
+  onShareTextToBoard?: (title: string, body: string) => Promise<string | null>;
 }
 
 interface ChartPoint {
@@ -82,12 +101,23 @@ export const JournalView: React.FC<JournalViewProps> = ({
   initialSection = 'journal',
   initialEncyclopediaSection = 'foods',
   onOpenHousePhotoMode,
+  onOpenWardrobePhotoMode,
   onSharePhotoToBoard,
+  onTogglePhotoLike,
+  onAddPhotoComment,
   onSelectTitle,
   dialogueCount = 0,
   onOpenDialogueHistory,
+  game,
+  messages = [],
+  onOpenMemoryDetail,
+  onToggleFavoriteMemory,
+  onOpenShareCard,
+  onSaveMonthlyRecap,
+  onShareRecapToBoard,
+  onShareTextToBoard,
 }) => {
-  const [section, setSection] = useState<'journal' | 'personality' | 'encyclopedia'>(
+  const [section, setSection] = useState<'journal' | 'memories' | 'personality' | 'encyclopedia'>(
     initialSection
   );
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
@@ -223,42 +253,54 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
-      <div className="grid grid-cols-3 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-4 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('journal')}
-          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
             section === 'journal'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <NotebookPen className="w-3.5 h-3.5 shrink-0" />
-          <span>成長手帳</span>
+          <span>手帳</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('memories')}
+          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+            section === 'memories'
+              ? 'bg-white text-[#B83B64] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <BookHeart className="w-3.5 h-3.5 shrink-0" />
+          <span>回憶冊</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('personality')}
-          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
             section === 'personality'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span>個性檔案</span>
+          <span>個性</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('encyclopedia')}
-          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
             section === 'encyclopedia'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <BookOpen className="w-3.5 h-3.5 shrink-0" />
-          <span>收集圖鑑</span>
+          <span>圖鑑</span>
         </button>
       </div>
 
@@ -269,6 +311,26 @@ export const JournalView: React.FC<JournalViewProps> = ({
           house={house}
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
+        />
+      ) : section === 'memories' && game ? (
+        <MemoriesView
+          game={game}
+          sharedRoom={sharedRoom}
+          messages={messages}
+          currentUserId={cloudUser?.id ?? 'local'}
+          onOpenPhotoStudio={(sc) => onOpenWardrobePhotoMode?.(sc ?? 'album')}
+          onOpenMemoryDetail={(m) => onOpenMemoryDetail?.(m)}
+          onToggleFavoriteMemory={(id) => onToggleFavoriteMemory?.(id)}
+          onTogglePhotoLike={(id) => onTogglePhotoLike?.(id)}
+          onAddPhotoComment={(id, content) => onAddPhotoComment?.(id, content)}
+          onSharePhotoToBoard={
+            onSharePhotoToBoard ?? (async () => '尚未啟用留言板分享')
+          }
+          onOpenShareCard={(payload) => onOpenShareCard?.(payload)}
+          onSaveMonthlyRecap={(recap) => onSaveMonthlyRecap?.(recap)}
+          onShareRecapToBoard={onShareRecapToBoard}
+          onShareTextToBoard={onShareTextToBoard}
+          onOpenSharedPet={onOpenSharedPet}
         />
       ) : section === 'personality' ? (
         <PersonalityProfileView pet={pet} personality={personality} />
@@ -483,19 +545,25 @@ export const JournalView: React.FC<JournalViewProps> = ({
         </form>
       </section>
 
-      {/* 小屋紀念相簿 */}
+      {/* 小屋與穿搭紀念相簿 */}
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-base font-extrabold text-[#4A3531]">📸 小屋紀念相簿</h2>
+            <h2 className="text-base font-extrabold text-[#4A3531]">
+              📸 紀念相簿（小屋合照・穿搭寫真）
+            </h2>
             <p className="text-xs text-[#7D635D]">
-              在「佈置小屋 → 拍照」留下的合照都會收藏在這裡
+              在「更衣室 → 拍照」或「佈置小屋 → 拍照」留下的作品都會收藏在這裡
             </p>
           </div>
-          {onOpenHousePhotoMode && (
+          {(onOpenWardrobePhotoMode || onOpenHousePhotoMode) && (
             <button
               type="button"
-              onClick={onOpenHousePhotoMode}
+              onClick={() =>
+                onOpenWardrobePhotoMode
+                  ? onOpenWardrobePhotoMode('wardrobe')
+                  : onOpenHousePhotoMode?.()
+              }
               className="min-h-[40px] px-3 rounded-2xl bg-[#FFEAF0] border border-[#F5C6D4] text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
             >
               <Camera className="w-3.5 h-3.5" />
@@ -513,14 +581,19 @@ export const JournalView: React.FC<JournalViewProps> = ({
         {house.photos.length === 0 ? (
           <div className="rounded-2xl bg-[#FFF9F2] border border-[#EFE0D7] py-5 px-3 text-center space-y-2">
             <p className="text-xs text-[#8D746E]">
-              還沒有拍攝小屋合照喔，佈置完房間快和 {pet.name} 合照一張吧！
+              還沒有拍攝相片喔，幫 {pet.name} 搭配造型或佈置房間拍張紀念照吧！
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {house.photos.slice(0, 6).map((photo) => (
+            {house.photos.slice(0, 12).map((photo) => (
               <div key={photo.id} className="space-y-1.5">
-                <RoomPhotoCard photo={photo} />
+                <RoomPhotoCard
+                  photo={photo}
+                  currentUserId={cloudUser?.id ?? 'local'}
+                  onToggleLike={onTogglePhotoLike}
+                  onAddComment={onAddPhotoComment}
+                />
                 {onSharePhotoToBoard && (
                   <button
                     type="button"
@@ -535,7 +608,9 @@ export const JournalView: React.FC<JournalViewProps> = ({
                     className="w-full min-h-[40px] rounded-2xl bg-[#FFF3D8] border border-[#F2CE6D] text-xs font-extrabold text-[#8A5610] inline-flex items-center justify-center gap-1.5 hover:bg-[#FFE9BF] active:scale-[0.99] transition"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>分享這張合照到留言板</span>
+                    <span>
+                      {sharedRoom ? '分享給共養夥伴 & 留言板' : '分享這張照片到留言板'}
+                    </span>
                   </button>
                 )}
               </div>

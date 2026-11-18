@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, X } from 'lucide-react';
+import { Bookmark, History, X } from 'lucide-react';
 import { DIALOGUE_CATEGORY_META } from '../../data/dialogue';
 import { DialogueLine, Pet } from '../../types';
 import { PiggyCharacter } from '../PiggyCharacter';
@@ -10,6 +10,8 @@ interface PetDialogueBubbleProps {
   onRespond: (responseId: string) => void;
   onClose: () => void;
   onOpenHistory?: () => void;
+  savedToMemories?: boolean;
+  onSaveToMemory?: (line: DialogueLine) => void;
 }
 
 export const PetDialogueBubble: React.FC<PetDialogueBubbleProps> = ({
@@ -18,6 +20,8 @@ export const PetDialogueBubble: React.FC<PetDialogueBubbleProps> = ({
   onRespond,
   onClose,
   onOpenHistory,
+  savedToMemories = false,
+  onSaveToMemory,
 }) => {
   const catMeta = DIALOGUE_CATEGORY_META[line.category];
 
@@ -27,7 +31,7 @@ export const PetDialogueBubble: React.FC<PetDialogueBubbleProps> = ({
       role="status"
       aria-live="polite"
     >
-      {/* Bubble Header: Mini Pet Avatar + Name + Category + History + Close */}
+      {/* Bubble Header: Mini Pet Avatar + Name + Category + Save + History + Close */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-9 h-9 rounded-full bg-[#FFF2F6] border border-[#F3CBD8] flex items-center justify-center overflow-hidden shrink-0">
@@ -58,6 +62,25 @@ export const PetDialogueBubble: React.FC<PetDialogueBubbleProps> = ({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {onSaveToMemory && (
+            <button
+              type="button"
+              disabled={savedToMemories}
+              onClick={() => onSaveToMemory(line)}
+              aria-label={savedToMemories ? '已收藏到回憶冊' : '收藏這句話到回憶冊'}
+              title={savedToMemories ? '已收藏到回憶冊' : '收藏這句話到回憶冊'}
+              className={`min-h-[32px] px-2 rounded-xl text-[10px] font-extrabold inline-flex items-center gap-1 transition ${
+                savedToMemories
+                  ? 'bg-[#E5F8F0] text-[#1F6B54]'
+                  : 'bg-[#FFF3D8] text-[#8A5610] hover:bg-[#FFE9BF]'
+              }`}
+            >
+              <Bookmark
+                className={`w-3 h-3 ${savedToMemories ? 'fill-[#1F6B54]' : ''}`}
+              />
+              <span>{savedToMemories ? '已收藏' : '收藏'}</span>
+            </button>
+          )}
           {onOpenHistory && (
             <button
               type="button"
