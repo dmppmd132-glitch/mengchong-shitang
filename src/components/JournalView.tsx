@@ -1,9 +1,32 @@
-import React, { useMemo, useState } from 'react';
-import { BookOpen, Cloud, MessageCircleHeart, Minus, NotebookPen, Plus, RotateCcw, Scale, Users } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  BookOpen,
+  Camera,
+  Cloud,
+  MessageCircleHeart,
+  Minus,
+  NotebookPen,
+  Plus,
+  RotateCcw,
+  Scale,
+  Send,
+  Users,
+} from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
-import { CloudSyncStatus, CloudUser, EncyclopediaState, Pet, SharedPetRoom, TitleId, WeightLog } from '../types';
+import {
+  CloudSyncStatus,
+  CloudUser,
+  EncyclopediaState,
+  Pet,
+  RoomPhotoRecord,
+  SharedHouse,
+  SharedPetRoom,
+  TitleId,
+  WeightLog,
+} from '../types';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
-import { EncyclopediaView } from './EncyclopediaView';
+import { EncyclopediaSection, EncyclopediaView } from './EncyclopediaView';
+import { RoomPhotoCard } from './house/RoomPhotoCard';
 
 interface JournalViewProps {
   pet: Pet;
@@ -19,6 +42,11 @@ interface JournalViewProps {
   onOpenMessageBoard?: () => void;
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
+  house: SharedHouse;
+  initialSection?: 'journal' | 'encyclopedia';
+  initialEncyclopediaSection?: EncyclopediaSection;
+  onOpenHousePhotoMode?: () => void;
+  onSharePhotoToBoard?: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
   onSelectTitle?: (titleId: TitleId | null) => void;
 }
 
@@ -42,14 +70,24 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onOpenMessageBoard,
   encyclopedia,
   unlockedAccessories,
+  house,
+  initialSection = 'journal',
+  initialEncyclopediaSection = 'foods',
+  onOpenHousePhotoMode,
+  onSharePhotoToBoard,
   onSelectTitle,
 }) => {
-  const [section, setSection] = useState<'journal' | 'encyclopedia'>('journal');
+  const [section, setSection] = useState<'journal' | 'encyclopedia'>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
   const [customNote, setCustomNote] = useState<string>('');
   const [selectedPoint, setSelectedPoint] = useState<ChartPoint | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string>('');
+  const [sharedPhotoNotice, setSharedPhotoNotice] = useState<string>('');
+
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
 
   const roundnessTier = getRoundnessTier(pet.roundness);
 
@@ -204,7 +242,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
         <EncyclopediaView
           encyclopedia={encyclopedia}
           unlockedAccessories={unlockedAccessories}
-          initialSection="foods"
+          house={house}
+          initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
         />
       ) : (
@@ -416,6 +455,67 @@ export const JournalView: React.FC<JournalViewProps> = ({
             <p className="text-xs font-bold text-[#256D57]">{feedbackMsg}</p>
           )}
         </form>
+      </section>
+
+      {/* 小屋紀念相簿 */}
+      <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-extrabold text-[#4A3531]">📸 小屋紀念相簿</h2>
+            <p className="text-xs text-[#7D635D]">
+              在「佈置小屋 → 拍照」留下的合照都會收藏在這裡
+            </p>
+          </div>
+          {onOpenHousePhotoMode && (
+            <button
+              type="button"
+              onClick={onOpenHousePhotoMode}
+              className="min-h-[40px] px-3 rounded-2xl bg-[#FFEAF0] border border-[#F5C6D4] text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>去拍照</span>
+            </button>
+          )}
+        </div>
+
+        {sharedPhotoNotice && (
+          <p className="rounded-2xl bg-[#E5F8F0] border border-[#AEE3D0] px-3 py-2 text-xs font-extrabold text-[#1F6B54]">
+            ✨ {sharedPhotoNotice}
+          </p>
+        )}
+
+        {house.photos.length === 0 ? (
+          <div className="rounded-2xl bg-[#FFF9F2] border border-[#EFE0D7] py-5 px-3 text-center space-y-2">
+            <p className="text-xs text-[#8D746E]">
+              還沒有拍攝小屋合照喔，佈置完房間快和 {pet.name} 合照一張吧！
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {house.photos.slice(0, 6).map((photo) => (
+              <div key={photo.id} className="space-y-1.5">
+                <RoomPhotoCard photo={photo} />
+                {onSharePhotoToBoard && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void onSharePhotoToBoard(photo, photo.caption).then((err) => {
+                        setSharedPhotoNotice(
+                          err ? err : `已將「${photo.title}」分享到留言板！`
+                        );
+                        window.setTimeout(() => setSharedPhotoNotice(''), 2600);
+                      });
+                    }}
+                    className="w-full min-h-[40px] rounded-2xl bg-[#FFF3D8] border border-[#F2CE6D] text-xs font-extrabold text-[#8A5610] inline-flex items-center justify-center gap-1.5 hover:bg-[#FFE9BF] active:scale-[0.99] transition"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>分享這張合照到留言板</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">

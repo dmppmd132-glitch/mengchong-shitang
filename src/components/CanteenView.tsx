@@ -1,18 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import { Coins, CookingPot, Gamepad2, ShoppingBag, Sprout, Utensils } from 'lucide-react';
+import {
+  Check,
+  Coins,
+  CookingPot,
+  Gamepad2,
+  Lock,
+  ShoppingBag,
+  Sprout,
+  Utensils,
+} from 'lucide-react';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
+import {
+  FARM_DECORATIONS,
+  FARM_PLOT_EXPANSION_COSTS,
+  FARM_UPGRADES,
+} from '../data/house';
 import { INGREDIENT_IDS, INGREDIENTS, KITCHEN_RECIPES } from '../data/kitchen';
 import { getPetSpeciesInfo } from '../data/species';
 import {
   CropPlot,
+  FarmDecorationId,
+  FarmUpgradeId,
   Food,
   FoodCategory,
   IngredientId,
   KitchenRecipe,
   Pet,
   PiggyActionState,
+  SharedHouse,
 } from '../types';
+import {
+  PaymentSource,
+  getEffectiveGrowDurationMs,
+  getEffectiveHarvestYield,
+  getIngredientStorageCap,
+} from '../utils/house';
 import { PiggyCharacter } from './PiggyCharacter';
+import { FarmSceneBanner } from './house/FarmSceneBanner';
 
 interface CanteenViewProps {
   pet: Pet;
@@ -23,12 +47,17 @@ interface CanteenViewProps {
   inventory: Record<string, number>;
   ingredients: Record<IngredientId, number>;
   farmPlots: CropPlot[];
+  house: SharedHouse;
   onFeed: (food: Food) => void;
   onBuyFood: (food: Food) => void;
   onPlantCrop: (plotId: number, ingredientId: IngredientId) => void;
   onHarvestCrop: (plotId: number) => void;
   onCookRecipe: (recipe: KitchenRecipe) => void;
   onOpenMinigame?: () => void;
+  onExpandFarmPlot: (paySource: PaymentSource) => void;
+  onUpgradeFarmFacility: (upgradeId: FarmUpgradeId, paySource: PaymentSource) => void;
+  onToggleFarmDecoration: (decorId: FarmDecorationId, paySource: PaymentSource) => void;
+  onUpdateHouseName: (newName: string) => void;
 }
 
 type CanteenSection = 'shop' | 'farm' | 'kitchen';
@@ -51,16 +80,24 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   inventory,
   ingredients,
   farmPlots,
+  house,
   onFeed,
   onBuyFood,
   onPlantCrop,
   onHarvestCrop,
   onCookRecipe,
   onOpenMinigame,
+  onExpandFarmPlot,
+  onUpgradeFarmFacility,
+  onToggleFarmDecoration,
+  onUpdateHouseName,
 }) => {
   const [section, setSection] = useState<CanteenSection>('shop');
   const [filter, setFilter] = useState<CategoryFilter>('all');
   const [selectedSeed, setSelectedSeed] = useState<IngredientId>('carrot');
+  const [farmPaySource, setFarmPaySource] = useState<PaymentSource>('personal');
+  const [editingSignName, setEditingSignName] = useState<boolean>(false);
+  const [signNameDraft, setSignNameDraft] = useState<string>(house.houseName);
   const [now, setNow] = useState<number>(() => Date.now());
 
   const hasGrowingCrops = farmPlots.some((p) => p.cropId !== null);
@@ -74,13 +111,24 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
     return () => window.clearInterval(timer);
   }, [hasGrowingCrops]);
 
+  useEffect(() => {
+    setSignNameDraft(house.houseName);
+  }, [house.houseName]);
+
   const speciesInfo = getPetSpeciesInfo(pet.species);
   const items = filter === 'all' ? FOODS : FOODS.filter((f) => f.category === filter);
   const isFull = pet.hunger >= 100;
+  const storageCap = getIngredientStorageCap(house);
+  const availableFarmCoins = farmPaySource === 'treasury' ? house.treasuryCoins : coins;
 
   const readyCropsCount = farmPlots.filter(
     (p) => p.cropId !== null && p.plantedAt !== null && now >= p.plantedAt + p.durationMs
   ).length;
+
+  const nextExpandPlotNumber = house.unlockedFarmPlots < 8 ? house.unlockedFarmPlots + 1 : null;
+  const nextExpandCost = nextExpandPlotNumber
+    ? FARM_PLOT_EXPANSION_COSTS[nextExpandPlotNumber] ?? 0
+    : 0;
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
@@ -283,26 +331,75 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
       {section === 'farm' && (
         <div className="space-y-3.5">
+          {/* Illustrated Live Farm Banner */}
+          <FarmSceneBanner
+            house={house}
+            farmPlots={farmPlots}
+            onEditHouseName={() => {
+              setSignNameDraft(house.houseName);
+              setEditingSignName((prev) => !prev);
+            }}
+          />
+
+          {/* Inline House Signboard Editor */}
+          {editingSignName && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (signNameDraft.trim()) {
+                  onUpdateHouseName(signNameDraft);
+                  setEditingSignName(false);
+                }
+              }}
+              className="rounded-2xl bg-[#FFFDF8] border-2 border-[#E7C6A5] p-3 flex items-center gap-2"
+            >
+              <input
+                type="text"
+                maxLength={14}
+                value={signNameDraft}
+                onChange={(e) => setSignNameDraft(e.target.value)}
+                placeholder="輸入農場招牌名稱（最多14字）"
+                className="flex-1 min-w-0 min-h-[44px] rounded-xl bg-white border border-[#E5CBB3] px-3 text-sm font-bold text-[#4A3531] focus:outline-none focus:border-[#FF7A9E]"
+              />
+              <button
+                type="submit"
+                className="min-h-[44px] px-3.5 rounded-xl bg-[#5CC9A7] text-white text-xs font-extrabold shrink-0"
+              >
+                改名
+              </button>
+            </form>
+          )}
+
+          {/* 7 Ingredients Warehouse */}
           <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#D4EFE4] p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-extrabold text-[#4A3531]">食材庫存</h3>
-              <span className="text-[11px] font-bold text-[#7D635D]">收成後可到廚房做料理</span>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-extrabold text-[#4A3531]">食材小倉庫</h3>
+              <span className="text-[11px] font-extrabold text-[#256D57] tabular-nums">
+                每種儲存上限 {storageCap} 份
+              </span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {INGREDIENT_IDS.map((id) => {
                 const info = INGREDIENTS[id];
                 const qty = ingredients[id] ?? 0;
+                const isNearCap = qty >= storageCap;
                 return (
                   <div
                     key={id}
-                    className="rounded-2xl bg-[#F4FBF8] border border-[#CFECE0] p-2.5 text-center"
+                    className={`rounded-2xl border p-2 text-center ${
+                      isNearCap
+                        ? 'bg-[#FFF3DA] border-[#F0CE7D]'
+                        : 'bg-[#F4FBF8] border-[#CFECE0]'
+                    }`}
                   >
-                    <div className="text-2xl leading-none" aria-hidden="true">
+                    <div className="text-xl leading-none" aria-hidden="true">
                       {info.emoji}
                     </div>
-                    <p className="text-xs font-extrabold text-[#4A3531] mt-1">{info.name}</p>
-                    <p className="text-xs font-extrabold text-[#256D57] tabular-nums">
-                      庫存 {qty}
+                    <p className="text-[11px] font-extrabold text-[#4A3531] mt-1 truncate">
+                      {info.name}
+                    </p>
+                    <p className="text-[10px] font-extrabold text-[#256D57] tabular-nums">
+                      {qty}/{storageCap}
                     </p>
                   </div>
                 );
@@ -310,17 +407,21 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             </div>
           </section>
 
+          {/* 7 Seed Selector */}
           <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-3.5 space-y-2.5">
             <div>
-              <h3 className="text-sm font-extrabold text-[#4A3531]">選擇要種植的種子</h3>
+              <h3 className="text-sm font-extrabold text-[#4A3531]">選擇要種植的種子（7 種作物）</h3>
               <p className="text-[11px] text-[#7D635D]">
-                先點選一種作物種子，再點擊下方空田地即可開始種植
+                新作物可製作限定美食與手作家具！點選作物後點擊空田地播種。
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {INGREDIENT_IDS.map((id) => {
                 const info = INGREDIENTS[id];
                 const active = selectedSeed === id;
+                const effectiveSec = Math.round(
+                  getEffectiveGrowDurationMs(info.growSeconds, house) / 1000
+                );
                 return (
                   <button
                     key={id}
@@ -336,8 +437,8 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       {info.emoji}
                     </span>
                     <span className="text-xs font-extrabold">{info.name}</span>
-                    <span className="text-[11px] font-bold text-[#826862] tabular-nums">
-                      {info.seedCost} 金幣 · {info.growSeconds}秒
+                    <span className="text-[10px] font-bold text-[#826862] tabular-nums">
+                      {info.seedCost}幣 · {effectiveSec}秒
                     </span>
                   </button>
                 );
@@ -345,6 +446,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             </div>
           </section>
 
+          {/* Unlocked Plots (4 to 8) + Next Expansion Card */}
           <section className="grid grid-cols-2 gap-2.5">
             {farmPlots.map((plot) => {
               const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
@@ -360,6 +462,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                   : 0;
               const seedInfo = INGREDIENTS[selectedSeed];
               const canPlant = coins >= seedInfo.seedCost;
+              const effectiveYield = crop
+                ? getEffectiveHarvestYield(crop.harvestYield, house)
+                : 2;
 
               return (
                 <article
@@ -382,7 +487,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                     {crop ? (
                       isReady ? (
                         <p className="text-[11px] font-extrabold text-[#9D5B12]">
-                          已成熟！可採收 +{crop.harvestYield}
+                          已成熟！可採收 +{effectiveYield}
                         </p>
                       ) : (
                         <div className="space-y-1">
@@ -407,20 +512,20 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       type="button"
                       disabled={!isReady}
                       onClick={() => onHarvestCrop(plot.id)}
-                      className={`w-full min-h-[40px] rounded-xl text-xs font-extrabold transition ${
+                      className={`w-full min-h-[44px] rounded-xl text-xs font-extrabold transition ${
                         isReady
                           ? 'bg-[#5CC9A7] text-white shadow-[0_2px_0_#3BA886] hover:bg-[#49B895] active:translate-y-0.5'
                           : 'bg-[#E5F2ED] text-[#6B9687] cursor-not-allowed'
                       }`}
                     >
-                      {isReady ? `採收 ${crop.name} +${crop.harvestYield}` : '細心灌溉中…'}
+                      {isReady ? `採收 ${crop.name} +${effectiveYield}` : '細心灌溉中…'}
                     </button>
                   ) : (
                     <button
                       type="button"
                       disabled={!canPlant}
                       onClick={() => onPlantCrop(plot.id, selectedSeed)}
-                      className={`w-full min-h-[40px] rounded-xl text-xs font-extrabold transition ${
+                      className={`w-full min-h-[44px] rounded-xl text-xs font-extrabold transition ${
                         canPlant
                           ? 'bg-[#FF7A9E] text-white hover:bg-[#F45D86] active:scale-95'
                           : 'bg-[#EFE6E2] text-[#A89690] cursor-not-allowed'
@@ -432,17 +537,193 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 </article>
               );
             })}
+
+            {nextExpandPlotNumber && (
+              <article className="rounded-3xl border-2 border-dashed border-[#D9BFA9] bg-[#FAF4EE] p-3 flex flex-col justify-between gap-2.5 text-center">
+                <div className="space-y-1 pt-1">
+                  <div className="w-9 h-9 mx-auto rounded-full bg-[#EFE2D5] text-[#8A6748] flex items-center justify-center">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-extrabold text-[#4A3531]">
+                    擴建第 {nextExpandPlotNumber} 塊農地
+                  </h4>
+                  <p className="text-[10px] font-bold text-[#7D635D]">
+                    開墾後兩人都能一起播種採收！
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={availableFarmCoins < nextExpandCost}
+                  onClick={() => onExpandFarmPlot(farmPaySource)}
+                  className={`w-full min-h-[44px] rounded-xl text-xs font-extrabold transition ${
+                    availableFarmCoins >= nextExpandCost
+                      ? 'bg-[#F8C956] text-[#4A3531] hover:bg-[#F3BE40] active:scale-95'
+                      : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                  }`}
+                >
+                  開墾 ({nextExpandCost} 幣)
+                </button>
+              </article>
+            )}
+          </section>
+
+          {/* Farm Upgrades & Decorations Shop */}
+          <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#CFECE0] p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-[#4A3531]">農場設施升級與裝飾</h3>
+                <p className="text-[11px] text-[#7D635D]">
+                  購買灑水器、玻璃溫室、小倉庫與圍欄花圃，打造夢幻莊園！
+                </p>
+              </div>
+            </div>
+
+            {/* Pay Source Toggle */}
+            <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setFarmPaySource('personal')}
+                className={`min-h-[40px] rounded-lg text-xs font-extrabold transition ${
+                  farmPaySource === 'personal'
+                    ? 'bg-white text-[#9D5B12] shadow-xs'
+                    : 'text-[#6E544E]'
+                }`}
+              >
+                🪙 個人金幣 ({coins})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFarmPaySource('treasury')}
+                className={`min-h-[40px] rounded-lg text-xs font-extrabold transition ${
+                  farmPaySource === 'treasury'
+                    ? 'bg-white text-[#256D57] shadow-xs'
+                    : 'text-[#6E544E]'
+                }`}
+              >
+                💞 共同金庫 ({house.treasuryCoins})
+              </button>
+            </div>
+
+            {/* Facility Upgrades */}
+            <div className="space-y-2">
+              {FARM_UPGRADES.map((upg) => {
+                const curLvl =
+                  upg.id === 'sprinkler'
+                    ? house.farmUpgrades.sprinklerLevel
+                    : upg.id === 'greenhouse'
+                    ? house.farmUpgrades.greenhouseLevel
+                    : house.farmUpgrades.storageLevel;
+                const isMax = curLvl >= upg.maxLevel;
+                const price = upg.prices[curLvl] ?? upg.prices[upg.prices.length - 1];
+                const canUpgrade = !isMax && availableFarmCoins >= price;
+
+                return (
+                  <div
+                    key={upg.id}
+                    className="rounded-2xl bg-[#F5FBF8] border border-[#CBE8DB] p-3 flex items-center justify-between gap-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-xs font-extrabold text-[#4A3531]">
+                        {upg.emoji} {upg.name}
+                        {upg.maxLevel > 1 ? ` (Lv.${curLvl}/${upg.maxLevel})` : ''}
+                      </div>
+                      <p className="text-[10px] text-[#6E544E] mt-0.5 leading-snug">
+                        {upg.description}
+                      </p>
+                      {!isMax && upg.effectSummaries[curLvl] && (
+                        <p className="text-[10px] font-extrabold text-[#1F6B54] mt-0.5">
+                          下一級：{upg.effectSummaries[curLvl]}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isMax || !canUpgrade}
+                      onClick={() => onUpgradeFarmFacility(upg.id, farmPaySource)}
+                      className={`min-h-[44px] px-3 rounded-xl text-xs font-extrabold shrink-0 transition ${
+                        isMax
+                          ? 'bg-[#E3F5ED] text-[#256D57]'
+                          : canUpgrade
+                          ? 'bg-[#5CC9A7] text-white active:scale-95'
+                          : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                      }`}
+                    >
+                      {isMax ? '已啟用' : `${price} 金幣`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Farm Decorations */}
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-extrabold text-[#4A3531]">裝飾圍欄、花圃與招牌</p>
+              <div className="grid grid-cols-2 gap-2">
+                {FARM_DECORATIONS.map((dec) => {
+                  const owned = house.ownedFarmDecorations.includes(dec.id);
+                  const active =
+                    house.activeFarmDecor.fenceId === dec.id ||
+                    house.activeFarmDecor.flowerbedId === dec.id ||
+                    house.activeFarmDecor.signId === dec.id;
+                  const canAfford = owned || availableFarmCoins >= dec.price;
+
+                  return (
+                    <article
+                      key={dec.id}
+                      className="rounded-2xl bg-[#FFFDF8] border border-[#EBD8CE] p-2.5 flex flex-col justify-between gap-2"
+                    >
+                      <div>
+                        <div className="text-xs font-extrabold text-[#4A3531]">
+                          {dec.emoji} {dec.name}
+                        </div>
+                        <p className="text-[10px] text-[#7D635D] mt-0.5 leading-snug">
+                          {dec.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => onToggleFarmDecoration(dec.id, farmPaySource)}
+                        className={`min-h-[40px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
+                          active
+                            ? 'bg-[#5CC9A7] text-white'
+                            : owned
+                            ? 'bg-[#FFEAF0] text-[#B83B64]'
+                            : canAfford
+                            ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E]'
+                            : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                        }`}
+                      >
+                        {active ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>擺設中</span>
+                          </>
+                        ) : owned ? (
+                          <span>啟用裝飾</span>
+                        ) : (
+                          <span>購買 ({dec.price} 幣)</span>
+                        )}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
           </section>
         </div>
       )}
 
       {section === 'kitchen' && (
         <div className="space-y-3">
-          <section className="rounded-2xl bg-[#FFF6E5] border border-[#F2D9A5] px-3.5 py-2.5 flex items-center justify-between text-xs font-bold text-[#7A540E]">
-            <span>目前食材：</span>
-            <span className="tabular-nums">
-              {INGREDIENT_IDS.map((id) => `${INGREDIENTS[id].emoji} ${ingredients[id] ?? 0}`).join('  ·  ')}
-            </span>
+          <section className="rounded-2xl bg-[#FFF6E5] border border-[#F2D9A5] px-3.5 py-2.5 space-y-1 text-xs font-bold text-[#7A540E]">
+            <div>目前食材庫存：</div>
+            <div className="tabular-nums leading-relaxed">
+              {INGREDIENT_IDS.map((id) => `${INGREDIENTS[id].emoji} ${ingredients[id] ?? 0}`).join(
+                ' · '
+              )}
+            </div>
           </section>
 
           {KITCHEN_RECIPES.map((recipe) => {
@@ -502,7 +783,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                   }`}
                 >
                   <CookingPot className="w-4 h-4" />
-                  <span>{canCook ? `合成料理 (+1 份 · 成長 +${recipe.bonusGrowth})` : '食材不足，先去農場種植'}</span>
+                  <span>
+                    {canCook ? `合成料理 (+1 份 · 成長 +${recipe.bonusGrowth})` : '食材不足，先去農場種植'}
+                  </span>
                 </button>
               </article>
             );

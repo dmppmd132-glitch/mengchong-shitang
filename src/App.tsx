@@ -3,7 +3,9 @@ import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
+import { EncyclopediaSection } from './components/EncyclopediaView';
 import { HomeView } from './components/HomeView';
+import { HouseHubModal, HouseModalTab } from './components/house/HouseHubModal';
 import {
   MinigameHubModal,
   MinigameSettlementSummary,
@@ -57,6 +59,8 @@ import {
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
+  FarmDecorationId,
+  FarmUpgradeId,
   FeedLog,
   FeedingVisualEffect,
   FloatingFeedback,
@@ -71,6 +75,7 @@ import {
   PetStickerId,
   PetTouchZone,
   PiggyActionState,
+  RoomPhotoRecord,
   SharedPetRoom,
   StageBackgroundId,
   TabKey,
@@ -80,6 +85,16 @@ import {
 import { MinigameResult, MinigameWeeklyChallengeId } from './types/minigame';
 import { syncEncyclopediaRewards } from './utils/encyclopedia';
 import { resolveFeedingOutcome } from './utils/feeding';
+import {
+  PaymentSource,
+  buyOrToggleFarmDecoration,
+  expandNextFarmPlot,
+  getEffectiveGrowDurationMs,
+  getEffectiveHarvestYield,
+  getIngredientStorageCap,
+  updateHouseName,
+  upgradeFarmFacility,
+} from './utils/house';
 import {
   claimWeeklyMinigameChallenge,
   settleMinigameOutcome,
@@ -104,6 +119,13 @@ export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [questsInitialSection, setQuestsInitialSection] = useState<'daily' | 'growth'>('daily');
+  const [journalInitialSection, setJournalInitialSection] = useState<'journal' | 'encyclopedia'>(
+    'journal'
+  );
+  const [journalEncyclopediaSection, setJournalEncyclopediaSection] =
+    useState<EncyclopediaSection>('foods');
+  const [houseModalOpen, setHouseModalOpen] = useState<boolean>(false);
+  const [houseModalTab, setHouseModalTab] = useState<HouseModalTab>('room');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
   const [expressionState, setExpressionState] = useState<PetExpression>('normal');
   const [flyingFoodEmoji, setFlyingFoodEmoji] = useState<string | null>(null);
@@ -336,9 +358,9 @@ export default function App() {
         lastSharedUpdatedAtRef.current = remoteRoom.updatedAt;
         setLastSyncedAt(remoteRoom.updatedAt);
         setSyncStatus('synced');
-        applyCloudStateLocally(remoteState, `夥伴剛剛照顧了${remoteState.pet.name}！`);
+        applyCloudStateLocally(remoteState, `夥伴剛剛照顧了${remoteState.pet.name}與小屋！`);
         const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了小豬！', emoji: '💞' }]);
+        setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了共養空間！', emoji: '💞' }]);
         window.setTimeout(() => {
           setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
         }, 1500);
@@ -366,11 +388,13 @@ export default function App() {
       });
     };
 
+    const periodicTimer = window.setInterval(handleResumeSync, 15000);
     window.addEventListener('focus', handleResumeSync);
     window.addEventListener('online', handleResumeSync);
 
     return () => {
       unsubscribe();
+      window.clearInterval(periodicTimer);
       window.removeEventListener('focus', handleResumeSync);
       window.removeEventListener('online', handleResumeSync);
     };
@@ -870,7 +894,8 @@ export default function App() {
 
     soundFX.pop(game.soundEnabled);
     const plantedAt = Date.now();
-    const durationMs = info.growSeconds * 1000;
+    const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
+    const effectiveSec = Math.max(1, Math.round(durationMs / 1000));
 
     setGame((prev) => ({
       ...prev,
@@ -884,7 +909,7 @@ export default function App() {
           prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
       },
     }));
-    setSpeech(`種下${info.name}種子囉，再等 ${info.growSeconds} 秒就可以收成了！`);
+    setSpeech(`種下${info.name}種子囉，再等 ${effectiveSec} 秒就可以收成了！`);
   };
 
   const handleHarvestCrop = (plotId: number) => {
@@ -894,20 +919,96 @@ export default function App() {
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
     const harvestedId = targetPlot.cropId;
+    const storageCap = getIngredientStorageCap(game.house);
+    const curQty = game.ingredients[harvestedId] ?? 0;
+
+    if (curQty >= storageCap) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(`倉庫上限已滿 (${storageCap})`, '🏚️');
+      setSpeech(`${cropInfo.name}已達小倉庫上限 ${storageCap} 個！快去升級小倉庫或先到廚房做料理吧！`);
+      return;
+    }
+
+    const totalYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+    const nextQty = Math.min(storageCap, curQty + totalYield);
+    const actualGain = Math.max(1, nextQty - curQty);
     soundFX.heart(game.soundEnabled);
 
     setGame((prev) => ({
       ...prev,
       ingredients: {
         ...prev.ingredients,
-        [harvestedId]: (prev.ingredients[harvestedId] ?? 0) + cropInfo.harvestYield,
+        [harvestedId]: Math.min(storageCap, (prev.ingredients[harvestedId] ?? 0) + totalYield),
       },
       farmPlots: prev.farmPlots.map((p) =>
         p.id === plotId ? { ...p, cropId: null, plantedAt: null, durationMs: 0 } : p
       ),
     }));
-    pushFeedback(`${cropInfo.name} +${cropInfo.harvestYield}`, cropInfo.emoji);
-    setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做布丁或水果盒吧～`);
+    pushFeedback(`${cropInfo.name} +${actualGain}`, cropInfo.emoji);
+    setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做料理或手作家具吧～`);
+  };
+
+  const handleExpandFarmPlot = (paySource: PaymentSource) => {
+    const res = expandNextFarmPlot(game, paySource);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error ?? '無法擴建農地', '⚠️');
+      if (res.error) setSpeech(res.error);
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(() => res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🌱');
+      setSpeech(res.notice);
+    }
+  };
+
+  const handleUpgradeFarmFacility = (upgradeId: FarmUpgradeId, paySource: PaymentSource) => {
+    const res = upgradeFarmFacility(game, upgradeId, paySource);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error ?? '無法升級設施', '⚠️');
+      if (res.error) setSpeech(res.error);
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(() => res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🏡');
+      setSpeech(res.notice);
+    }
+  };
+
+  const handleToggleFarmDecoration = (decorId: FarmDecorationId, paySource: PaymentSource) => {
+    const res = buyOrToggleFarmDecoration(game, decorId, paySource);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error ?? '無法佈置裝飾', '⚠️');
+      if (res.error) setSpeech(res.error);
+      return;
+    }
+    soundFX.pop(game.soundEnabled);
+    setGame(() => res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🌸');
+      setSpeech(res.notice);
+    }
+  };
+
+  const handleUpdateHouseName = (newName: string) => {
+    const res = updateHouseName(game, newName);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+      return;
+    }
+    soundFX.pop(game.soundEnabled);
+    setGame(() => res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🪧');
+      setSpeech(res.notice);
+    }
   };
 
   const handleCookRecipe = (recipe: KitchenRecipe) => {
@@ -1533,6 +1634,16 @@ export default function App() {
     setResetModalOpen(false);
   };
 
+  const handleSharePhotoToBoard = async (
+    photo: RoomPhotoRecord,
+    caption: string
+  ): Promise<string | null> => {
+    const cleanCaption = caption.trim() || photo.title;
+    return handleSendMessage(`${cleanCaption} [photo:${photo.id}]`, null);
+  };
+
+  const actorName = cloudUser?.email ? cloudUser.email.split('@')[0] || '飼主' : '飼主';
+
   const activeMessages = sharedRoom ? sharedMessages : game.messages;
   const latestMessage =
     activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
@@ -1644,6 +1755,11 @@ export default function App() {
                   onWalk={handleWalk}
                   onGoToCanteen={() => setActiveTab('canteen')}
                   onOpenMinigame={() => setMinigameOpen(true)}
+                  onOpenHouse={(tab = 'room') => {
+                    setHouseModalTab(tab);
+                    setHouseModalOpen(true);
+                  }}
+                  house={game.house}
                   onOpenNoviceGrowth={() => {
                     setQuestsInitialSection('growth');
                     setActiveTab('quests');
@@ -1672,12 +1788,17 @@ export default function App() {
                   inventory={game.foods}
                   ingredients={game.ingredients}
                   farmPlots={game.farmPlots}
+                  house={game.house}
                   onFeed={handleFeed}
                   onBuyFood={handleBuyFood}
                   onPlantCrop={handlePlantCrop}
                   onHarvestCrop={handleHarvestCrop}
                   onCookRecipe={handleCookRecipe}
                   onOpenMinigame={() => setMinigameOpen(true)}
+                  onExpandFarmPlot={handleExpandFarmPlot}
+                  onUpgradeFarmFacility={handleUpgradeFarmFacility}
+                  onToggleFarmDecoration={handleToggleFarmDecoration}
+                  onUpdateHouseName={handleUpdateHouseName}
                 />
               )}
 
@@ -1687,6 +1808,7 @@ export default function App() {
                   coins={game.coins}
                   unlockedAccessories={game.accessories}
                   encyclopedia={game.encyclopedia}
+                  house={game.house}
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
                   onChangeSpecies={handleChangeSpecies}
@@ -1709,6 +1831,14 @@ export default function App() {
                   onOpenMessageBoard={handleOpenMessageBoard}
                   encyclopedia={game.encyclopedia}
                   unlockedAccessories={game.accessories}
+                  house={game.house}
+                  initialSection={journalInitialSection}
+                  initialEncyclopediaSection={journalEncyclopediaSection}
+                  onOpenHousePhotoMode={() => {
+                    setHouseModalTab('photo');
+                    setHouseModalOpen(true);
+                  }}
+                  onSharePhotoToBoard={handleSharePhotoToBoard}
                   onSelectTitle={handleSelectTitle}
                 />
               )}
@@ -1732,6 +1862,10 @@ export default function App() {
               onChange={(tab) => {
                 if (tab === 'quests') {
                   setQuestsInitialSection('daily');
+                }
+                if (tab === 'journal') {
+                  setJournalInitialSection('journal');
+                  setJournalEncyclopediaSection('foods');
                 }
                 setActiveTab(tab);
               }}
@@ -1804,6 +1938,7 @@ export default function App() {
           onClose={() => setMessageModalOpen(false)}
           petName={game.pet.name}
           messages={activeMessages}
+          roomPhotos={game.house.photos}
           loading={messagesLoading}
           error={messagesError}
           currentUserId={cloudUser?.id ?? null}
@@ -1822,6 +1957,23 @@ export default function App() {
           onSpendReplayCoins={handleSpendReplayCoins}
           onFinishMinigame={handleFinishMinigame}
           onClaimWeeklyChallenge={handleClaimWeeklyChallenge}
+        />
+
+        <HouseHubModal
+          open={houseModalOpen}
+          initialTab={houseModalTab}
+          onClose={() => setHouseModalOpen(false)}
+          game={game}
+          sharedRoom={sharedRoom}
+          actorName={actorName}
+          onUpdateGame={(updater) => setGame(updater)}
+          onOpenSharedPet={() => setSharedModalOpen(true)}
+          onOpenHouseEncyclopedia={() => {
+            setJournalInitialSection('encyclopedia');
+            setJournalEncyclopediaSection('house');
+            setActiveTab('journal');
+          }}
+          onSharePhotoToBoard={handleSharePhotoToBoard}
         />
       </div>
     </div>

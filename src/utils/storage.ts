@@ -2,6 +2,17 @@ import { INITIAL_UNLOCKED_ACCESSORIES } from '../data/accessories';
 import { INITIAL_FOOD_INVENTORY } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
 import {
+  FARM_DECORATION_BY_ID,
+  FLOORING_BY_ID,
+  ROOM_GRID_COLS,
+  ROOM_GRID_ROWS,
+  ROOM_ITEM_BY_ID,
+  SHARED_GOAL_BY_ID,
+  WALLPAPER_BY_ID,
+  getZoneForCell,
+} from '../data/house';
+import {
+  INGREDIENT_IDS,
   INGREDIENTS,
   createInitialFarmPlots,
   createInitialIngredients,
@@ -13,15 +24,27 @@ import {
   CropPlot,
   DailyTask,
   EncyclopediaState,
+  FarmDecorationId,
   FeedLog,
+  FlooringId,
+  FurnitureNote,
   GameState,
   IngredientId,
   NoviceGrowthStats,
   Pet,
   PetMessage,
   PetSpecies,
+  PlacedRoomItem,
+  RoomPhotoPoseId,
+  RoomPhotoRecord,
+  SharedGoalId,
+  SharedHouse,
+  SharedMilestoneId,
   StageBackgroundId,
+  ThemeSetId,
   TitleId,
+  TreasuryContribution,
+  WallpaperId,
   WeightLog,
 } from '../types';
 import {
@@ -31,6 +54,7 @@ import {
   MinigameWeeklyChallengeId,
 } from '../types/minigame';
 import { createInitialEncyclopediaState } from './encyclopedia';
+import { createInitialSharedHouse, syncHouseProgress } from './house';
 import {
   createInitialMinigameHubState,
   createZeroRecord,
@@ -108,7 +132,7 @@ export function createInitialGameState(): GameState {
     coins: 120,
     foods: { ...INITIAL_FOOD_INVENTORY },
     ingredients: createInitialIngredients(),
-    farmPlots: createInitialFarmPlots(),
+    farmPlots: createInitialFarmPlots(4),
     accessories: [...INITIAL_UNLOCKED_ACCESSORIES],
     weightLogs: [],
     feedLogs: [],
@@ -122,6 +146,7 @@ export function createInitialGameState(): GameState {
     unlockedBackgrounds: ['default'],
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(today),
+    house: createInitialSharedHouse(),
   };
 }
 
@@ -223,7 +248,15 @@ function parseStringNumberRecord(
 }
 
 function asIngredientId(value: unknown): IngredientId | null {
-  if (value === 'carrot' || value === 'corn' || value === 'strawberry') {
+  if (
+    value === 'carrot' ||
+    value === 'corn' ||
+    value === 'strawberry' ||
+    value === 'pumpkin' ||
+    value === 'blueberry' ||
+    value === 'mint' ||
+    value === 'sunflower'
+  ) {
     return value;
   }
   return null;
@@ -235,7 +268,7 @@ function parseIngredients(
 ): Record<IngredientId, number> {
   const result: Record<IngredientId, number> = { ...fallback };
   if (!isRecord(raw)) return result;
-  (['carrot', 'corn', 'strawberry'] as IngredientId[]).forEach((key) => {
+  INGREDIENT_IDS.forEach((key) => {
     const val = raw[key];
     if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
       result[key] = Math.floor(val);
@@ -244,8 +277,9 @@ function parseIngredients(
   return result;
 }
 
-function parseFarmPlots(raw: unknown): CropPlot[] {
-  const defaults = createInitialFarmPlots();
+function parseFarmPlots(raw: unknown, unlockedFarmPlots = 4): CropPlot[] {
+  const safePlotCount = Math.min(8, Math.max(4, unlockedFarmPlots));
+  const defaults = createInitialFarmPlots(safePlotCount);
   if (!Array.isArray(raw)) return defaults;
 
   const byId = new Map<number, Record<string, unknown>>();
@@ -413,7 +447,15 @@ function parseNoviceGrowth(
 }
 
 function asTitleId(value: unknown): TitleId | null {
-  if (value === 'gourmet_owner' || value === 'fashion_stylist') return value;
+  if (
+    value === 'gourmet_owner' ||
+    value === 'fashion_stylist' ||
+    value === 'strawberry_dreamer' ||
+    value === 'forest_camper' ||
+    value === 'cloud_napper'
+  ) {
+    return value;
+  }
   return null;
 }
 
@@ -521,6 +563,293 @@ function parseStageBackgrounds(raw: unknown): StageBackgroundId[] {
   return Array.from(result);
 }
 
+function asWallpaperId(value: unknown): WallpaperId {
+  if (typeof value === 'string' && value in WALLPAPER_BY_ID) {
+    return value as WallpaperId;
+  }
+  return 'cream_warm';
+}
+
+function asFlooringId(value: unknown): FlooringId {
+  if (typeof value === 'string' && value in FLOORING_BY_ID) {
+    return value as FlooringId;
+  }
+  return 'oak_wood';
+}
+
+function asThemeSetId(value: unknown): ThemeSetId | null {
+  if (value === 'strawberry_sweet' || value === 'forest_camp' || value === 'cloud_nap') {
+    return value;
+  }
+  return null;
+}
+
+function asPhotoPoseId(value: unknown): RoomPhotoPoseId {
+  if (
+    value === 'normal' ||
+    value === 'happy_jump' ||
+    value === 'sleepy_cozy' ||
+    value === 'berry_heart' ||
+    value === 'camp_cheer' ||
+    value === 'cloud_float'
+  ) {
+    return value;
+  }
+  return 'normal';
+}
+
+function asFarmDecorationId(value: unknown): FarmDecorationId | null {
+  if (typeof value === 'string' && value in FARM_DECORATION_BY_ID) {
+    return value as FarmDecorationId;
+  }
+  return null;
+}
+
+function asSharedGoalId(value: unknown): SharedGoalId {
+  if (typeof value === 'string' && value in SHARED_GOAL_BY_ID) {
+    return value as SharedGoalId;
+  }
+  return 'goal_cloud_bed';
+}
+
+function asSharedMilestoneId(value: unknown): SharedMilestoneId | null {
+  if (
+    value === 'first_furniture' ||
+    value === 'four_zones_filled' ||
+    value === 'theme_room_complete' ||
+    value === 'farm_expanded' ||
+    value === 'shared_goal_completed' ||
+    value === 'first_room_photo'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function parsePlacedItems(raw: unknown): PlacedRoomItem[] {
+  if (!Array.isArray(raw)) return [];
+  const occupied = new Set<string>();
+  const list: PlacedRoomItem[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const itemId = asString(item.itemId, '');
+    if (!itemId || !(itemId in ROOM_ITEM_BY_ID)) continue;
+    const x = Math.floor(asNumber(item.x, -1));
+    const y = Math.floor(asNumber(item.y, -1));
+    if (x < 0 || x >= ROOM_GRID_COLS || y < 0 || y >= ROOM_GRID_ROWS) continue;
+    const cellKey = `${x}_${y}`;
+    if (occupied.has(cellKey)) continue;
+    occupied.add(cellKey);
+    list.push({
+      instanceId: asString(item.instanceId, `rm_${Date.now()}_${x}_${y}`),
+      itemId,
+      x,
+      y,
+      zone: getZoneForCell(x, y),
+      placedBy: typeof item.placedBy === 'string' ? item.placedBy : undefined,
+      updatedAt: asNumber(item.updatedAt, Date.now()),
+    });
+  }
+  return list;
+}
+
+function parseSharedHouse(raw: unknown): SharedHouse {
+  const defaults = createInitialSharedHouse();
+  if (!isRecord(raw)) return defaults;
+
+  const rawLayout = isRecord(raw.roomLayout) ? raw.roomLayout : {};
+  const unlockedWallpapers = Array.from(
+    new Set<WallpaperId>([
+      'cream_warm',
+      ...(Array.isArray(raw.unlockedWallpapers) ? raw.unlockedWallpapers.map(asWallpaperId) : []),
+    ])
+  );
+  const unlockedFloorings = Array.from(
+    new Set<FlooringId>([
+      'oak_wood',
+      ...(Array.isArray(raw.unlockedFloorings) ? raw.unlockedFloorings.map(asFlooringId) : []),
+    ])
+  );
+  const reqWall = asWallpaperId(rawLayout.wallpaperId);
+  const reqFloor = asFlooringId(rawLayout.flooringId);
+
+  const ownedFurnitureCounts: Record<string, number> = {};
+  if (isRecord(raw.ownedFurnitureCounts)) {
+    for (const [k, v] of Object.entries(raw.ownedFurnitureCounts)) {
+      if (k in ROOM_ITEM_BY_ID && typeof v === 'number' && Number.isFinite(v) && v > 0) {
+        ownedFurnitureCounts[k] = Math.floor(v);
+      }
+    }
+  }
+
+  const placedItems = parsePlacedItems(rawLayout.placedItems);
+  const collectedSet = new Set<string>(
+    Array.isArray(raw.collectedFurnitureIds)
+      ? raw.collectedFurnitureIds.filter((id): id is string => typeof id === 'string' && id in ROOM_ITEM_BY_ID)
+      : []
+  );
+  Object.keys(ownedFurnitureCounts).forEach((id) => collectedSet.add(id));
+
+  const claimedFurnitureMilestones = Array.isArray(raw.claimedFurnitureMilestones)
+    ? Array.from(
+        new Set(
+          raw.claimedFurnitureMilestones.filter(
+            (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 5
+          )
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
+  const completedThemeSets = Array.isArray(raw.completedThemeSets)
+    ? Array.from(new Set(raw.completedThemeSets.map(asThemeSetId).filter((t): t is ThemeSetId => t !== null)))
+    : [];
+
+  const unlockedPhotoPoses = Array.from(
+    new Set<RoomPhotoPoseId>([
+      'normal',
+      'happy_jump',
+      'sleepy_cozy',
+      ...(Array.isArray(raw.unlockedPhotoPoses) ? raw.unlockedPhotoPoses.map(asPhotoPoseId) : []),
+    ])
+  );
+
+  const rawUpgrades = isRecord(raw.farmUpgrades) ? raw.farmUpgrades : {};
+  const ownedFarmDecorations = Array.isArray(raw.ownedFarmDecorations)
+    ? Array.from(
+        new Set(
+          raw.ownedFarmDecorations
+            .map(asFarmDecorationId)
+            .filter((d): d is FarmDecorationId => d !== null)
+        )
+      )
+    : [];
+
+  const rawActiveDecor = isRecord(raw.activeFarmDecor) ? raw.activeFarmDecor : {};
+  const fenceId = asFarmDecorationId(rawActiveDecor.fenceId);
+  const flowerbedId = asFarmDecorationId(rawActiveDecor.flowerbedId);
+  const signId = asFarmDecorationId(rawActiveDecor.signId);
+
+  const treasuryHistory: TreasuryContribution[] = Array.isArray(raw.treasuryHistory)
+    ? raw.treasuryHistory
+        .filter((h): h is Record<string, unknown> => isRecord(h))
+        .map((h) => ({
+          id: asString(h.id, `tr_${Date.now()}`),
+          authorName: asString(h.authorName, '飼主'),
+          amount: Math.max(0, Math.floor(asNumber(h.amount, 0))),
+          createdAt: asNumber(h.createdAt, Date.now()),
+        }))
+        .slice(0, 20)
+    : [];
+
+  const completedGoalIds = Array.isArray(raw.completedGoalIds)
+    ? Array.from(
+        new Set(
+          raw.completedGoalIds
+            .map((g) => (typeof g === 'string' && g in SHARED_GOAL_BY_ID ? (g as SharedGoalId) : null))
+            .filter((g): g is SharedGoalId => g !== null)
+        )
+      )
+    : [];
+
+  const furnitureNotes: FurnitureNote[] = Array.isArray(raw.furnitureNotes)
+    ? raw.furnitureNotes
+        .filter((n): n is Record<string, unknown> => isRecord(n))
+        .map((n) => ({
+          id: asString(n.id, `fn_${Date.now()}`),
+          itemId: asString(n.itemId, ''),
+          authorName: asString(n.authorName, '飼主'),
+          content: asString(n.content, ''),
+          createdAt: asNumber(n.createdAt, Date.now()),
+        }))
+        .filter((n) => n.itemId && n.content)
+        .slice(0, 60)
+    : [];
+
+  const achievedMilestones = Array.isArray(raw.achievedMilestones)
+    ? Array.from(
+        new Set(
+          raw.achievedMilestones
+            .map(asSharedMilestoneId)
+            .filter((m): m is SharedMilestoneId => m !== null)
+        )
+      )
+    : [];
+
+  const claimedMilestones = Array.isArray(raw.claimedMilestones)
+    ? Array.from(
+        new Set(
+          raw.claimedMilestones
+            .map(asSharedMilestoneId)
+            .filter((m): m is SharedMilestoneId => m !== null)
+        )
+      )
+    : [];
+
+  const photos: RoomPhotoRecord[] = Array.isArray(raw.photos)
+    ? raw.photos
+        .filter((p): p is Record<string, unknown> => isRecord(p))
+        .map((p) => ({
+          id: asString(p.id, `photo_${Date.now()}`),
+          title: asString(p.title, '小屋合照'),
+          caption: asString(p.caption, ''),
+          createdAt: asNumber(p.createdAt, Date.now()),
+          houseName: asString(p.houseName, '萌寵暖暖小屋'),
+          species: asSpecies(p.species),
+          petName: asString(p.petName, '布丁'),
+          equipped: parseAccessoriesRecord(p.equipped, {
+            head: null,
+            face: null,
+            neck: null,
+            body: null,
+          }),
+          poseId: asPhotoPoseId(p.poseId),
+          wallpaperId: asWallpaperId(p.wallpaperId),
+          flooringId: asFlooringId(p.flooringId),
+          placedItems: parsePlacedItems(p.placedItems),
+          noteHighlight: typeof p.noteHighlight === 'string' ? p.noteHighlight : undefined,
+        }))
+        .slice(0, 24)
+    : [];
+
+  return {
+    houseName: asString(raw.houseName, defaults.houseName).slice(0, 14) || defaults.houseName,
+    roomLayout: {
+      cols: ROOM_GRID_COLS,
+      rows: ROOM_GRID_ROWS,
+      wallpaperId: unlockedWallpapers.includes(reqWall) ? reqWall : 'cream_warm',
+      flooringId: unlockedFloorings.includes(reqFloor) ? reqFloor : 'oak_wood',
+      placedItems,
+    },
+    ownedFurnitureCounts,
+    collectedFurnitureIds: Array.from(collectedSet),
+    unlockedWallpapers,
+    unlockedFloorings,
+    claimedFurnitureMilestones,
+    completedThemeSets,
+    unlockedPhotoPoses,
+    unlockedFarmPlots: Math.min(8, Math.max(4, Math.floor(asNumber(raw.unlockedFarmPlots, 4)))),
+    farmUpgrades: {
+      sprinklerLevel: Math.min(1, Math.max(0, Math.floor(asNumber(rawUpgrades.sprinklerLevel, 0)))),
+      greenhouseLevel: Math.min(1, Math.max(0, Math.floor(asNumber(rawUpgrades.greenhouseLevel, 0)))),
+      storageLevel: Math.min(3, Math.max(0, Math.floor(asNumber(rawUpgrades.storageLevel, 0)))),
+    },
+    ownedFarmDecorations,
+    activeFarmDecor: {
+      fenceId: fenceId && ownedFarmDecorations.includes(fenceId) ? fenceId : null,
+      flowerbedId: flowerbedId && ownedFarmDecorations.includes(flowerbedId) ? flowerbedId : null,
+      signId: signId && ownedFarmDecorations.includes(signId) ? signId : null,
+    },
+    treasuryCoins: Math.max(0, Math.floor(asNumber(raw.treasuryCoins, 0))),
+    treasuryHistory,
+    activeGoalId: asSharedGoalId(raw.activeGoalId),
+    completedGoalIds,
+    furnitureNotes,
+    achievedMilestones,
+    claimedMilestones,
+    photos,
+  };
+}
+
 function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   const base = createInitialGameState();
   const now = Date.now();
@@ -579,7 +908,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     coins: asNumber(raw.coins, base.coins),
     foods: parseStringNumberRecord(raw.foodInventory, base.foods),
     ingredients: createInitialIngredients(),
-    farmPlots: createInitialFarmPlots(),
+    farmPlots: createInitialFarmPlots(4),
     accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
     weightLogs: parseWeightLogs(raw.records),
     feedLogs: [],
@@ -593,6 +922,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     unlockedBackgrounds: ['default'],
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(),
+    house: createInitialSharedHouse(),
   };
 }
 
@@ -646,14 +976,15 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   const unlockedBackgrounds = parseStageBackgrounds(parsed.unlockedBackgrounds);
   const requestedBg = asStageBackgroundId(parsed.activeBackground);
   const activeBackground = unlockedBackgrounds.includes(requestedBg) ? requestedBg : 'default';
+  const parsedHouse = parseSharedHouse(parsed.house);
 
-  return {
+  const draft: GameState = {
     version: 2,
     pet,
     coins: asNumber(parsed.coins, base.coins),
     foods: parseStringNumberRecord(parsed.foods, base.foods),
     ingredients: parseIngredients(parsed.ingredients, base.ingredients),
-    farmPlots: parseFarmPlots(parsed.farmPlots),
+    farmPlots: parseFarmPlots(parsed.farmPlots, parsedHouse.unlockedFarmPlots),
     accessories: mergedAccessories,
     weightLogs: parsedWeightLogs,
     feedLogs: parsedFeedLogs,
@@ -674,7 +1005,10 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     unlockedBackgrounds,
     activeBackground,
     minigameHub: parseMinigameHub(parsed.minigameHub),
+    house: parsedHouse,
   };
+
+  return syncHouseProgress(draft).nextState;
 }
 
 export function loadGameState(): GameState {

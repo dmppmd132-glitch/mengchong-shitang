@@ -1,20 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, MessageCircleHeart, Send, Smile, Trash2, X } from 'lucide-react';
 import { getStickerById, PET_STICKERS } from '../data/stickers';
-import { PetMessage, PetStickerId, SharedPetRoom } from '../types';
+import { PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom } from '../types';
 import { PiggySticker } from './PiggySticker';
+import { RoomPhotoCard } from './house/RoomPhotoCard';
 
 interface MessageBoardModalProps {
   open: boolean;
   onClose: () => void;
   petName: string;
   messages: PetMessage[];
+  roomPhotos?: RoomPhotoRecord[];
   loading: boolean;
   error: string | null;
   currentUserId: string | null;
   sharedRoom: SharedPetRoom | null;
   onSendMessage: (content: string, stickerId: PetStickerId | null) => Promise<string | null>;
   onDeleteMessage: (messageId: string) => Promise<void>;
+}
+
+const PHOTO_TAG_REGEX = /\[photo:([^\]]+)\]/;
+
+function parseMessagePhotoTag(content: string): { cleanText: string; photoId: string | null } {
+  const match = PHOTO_TAG_REGEX.exec(content);
+  if (!match) return { cleanText: content, photoId: null };
+  const cleanText = content.replace(PHOTO_TAG_REGEX, '').trim();
+  return { cleanText, photoId: match[1] };
 }
 
 function formatMessageTime(ts: number): string {
@@ -33,6 +44,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
   onClose,
   petName,
   messages,
+  roomPhotos = [],
   loading,
   error,
   currentUserId,
@@ -139,6 +151,10 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                 msg.authorId === 'local' ||
                 (currentUserId !== null && msg.authorId === currentUserId);
               const stickerInfo = getStickerById(msg.stickerId);
+              const { cleanText, photoId } = parseMessagePhotoTag(msg.content);
+              const matchedPhoto = photoId
+                ? roomPhotos.find((p) => p.id === photoId) ?? null
+                : null;
 
               return (
                 <div
@@ -164,7 +180,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                     {msg.stickerId && (
                       <div className="flex flex-col items-center my-0.5">
                         <PiggySticker stickerId={msg.stickerId} size={74} />
-                        {stickerInfo && !msg.content && (
+                        {stickerInfo && !cleanText && !matchedPhoto && (
                           <span className="mt-1 text-[11px] font-extrabold text-[#B84A6F]">
                             {stickerInfo.label}
                           </span>
@@ -172,9 +188,21 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                       </div>
                     )}
 
-                    {msg.content && (
+                    {matchedPhoto && (
+                      <div className="my-1.5 w-[240px] max-w-full">
+                        <RoomPhotoCard photo={matchedPhoto} compact />
+                      </div>
+                    )}
+
+                    {!matchedPhoto && photoId && (
+                      <div className="my-1 rounded-xl bg-[#FFF8EE] border border-[#EED9C4] px-2.5 py-1.5 text-[11px] font-bold text-[#8A5A12]">
+                        📸 分享了一張小屋合照（早期相片已不在最新 24 張相簿內）
+                      </div>
+                    )}
+
+                    {cleanText && (
                       <p className="text-sm font-medium leading-relaxed break-words whitespace-pre-wrap">
-                        {msg.content}
+                        {cleanText}
                       </p>
                     )}
 

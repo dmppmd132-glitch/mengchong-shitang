@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
   Bath,
+  Camera,
   Footprints,
   Gamepad2,
   Heart,
+  Home,
   MessageCircleHeart,
   Moon,
   Sparkles,
@@ -28,10 +30,12 @@ import {
   PetMessage,
   PetTouchZone,
   PiggyActionState,
+  SharedHouse,
   SharedPetRoom,
   StageBackgroundId,
   TitleId,
 } from '../types';
+import { HouseModalTab } from './house/HouseHubModal';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface HomeViewProps {
@@ -51,6 +55,8 @@ interface HomeViewProps {
   onWalk: () => void;
   onGoToCanteen: () => void;
   onOpenMinigame?: () => void;
+  onOpenHouse?: (tab?: HouseModalTab) => void;
+  house?: SharedHouse;
   onOpenNoviceGrowth?: () => void;
   noviceClaimableCount?: number;
   activeTitle?: TitleId | null;
@@ -96,6 +102,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onWalk,
   onGoToCanteen,
   onOpenMinigame,
+  onOpenHouse,
+  house,
   onOpenNoviceGrowth,
   noviceClaimableCount = 0,
   activeTitle = null,
@@ -365,6 +373,51 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
+      {onOpenHouse && house && (
+        <div className="flex items-stretch gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenHouse('room')}
+            className="flex-1 min-w-0 min-h-[54px] rounded-2xl bg-gradient-to-r from-[#FFFDF8] to-[#FFF3F7] border-2 border-[#F3CBD9] px-3.5 py-2.5 flex items-center justify-between gap-2 hover:bg-[#FFF5F8] active:scale-[0.99] transition text-left"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-[#FFEAF0] text-[#D64470] flex items-center justify-center shrink-0">
+                <Home className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-[#4A3531] truncate">
+                    佈置小屋 · {house.houseName}
+                  </span>
+                  {house.achievedMilestones.some((id) => !house.claimedMilestones.includes(id)) && (
+                    <span className="px-1.5 py-0.5 rounded-lg bg-[#FF7A9E] text-white text-[10px] font-extrabold shrink-0">
+                      有獎勵
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#7D635D] truncate tabular-nums">
+                  已放 {house.roomLayout.placedItems.length} 件家具 · 共養金庫 {house.treasuryCoins} 幣
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-extrabold text-[#D64470] whitespace-nowrap shrink-0">
+              佈置 ›
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenHouse('photo')}
+            aria-label="小屋拍照模式"
+            title="小屋拍照模式"
+            className="min-h-[54px] min-w-[54px] rounded-2xl bg-[#FFF6DF] border-2 border-[#F2D59B] text-[#9D5B12] flex flex-col items-center justify-center gap-0.5 hover:bg-[#FFEDC6] active:scale-95 transition shrink-0"
+          >
+            <Camera className="w-4 h-4" />
+            <span className="text-[10px] font-extrabold">拍照</span>
+          </button>
+        </div>
+      )}
+
       {onOpenMinigame && (
         <button
           type="button"
@@ -447,7 +500,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       latestMessage.stickerId
                         ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
                         : ''
-                    }${latestMessage.content}`
+                    }${latestMessage.content.replace(/\[photo:[^\]]+\]/g, '📸 小屋合照').trim()}`
                   : '傳送可愛貼圖或悄悄話給夥伴'}
               </p>
             </div>

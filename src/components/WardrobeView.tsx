@@ -3,7 +3,15 @@ import { BookOpen, Check, Coins, Lock, Shirt } from 'lucide-react';
 import { ACCESSORIES, ACCESSORY_SLOT_LABELS, ACCESSORY_SLOTS } from '../data/accessories';
 import { getGrowthStage } from '../data/growth';
 import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
-import { Accessory, AccessorySlot, EncyclopediaState, Pet, PetSpecies, TitleId } from '../types';
+import {
+  Accessory,
+  AccessorySlot,
+  EncyclopediaState,
+  Pet,
+  PetSpecies,
+  SharedHouse,
+  TitleId,
+} from '../types';
 import { AccessoryPreview } from './AccessoryPreview';
 import { EncyclopediaView } from './EncyclopediaView';
 import { PiggyCharacter } from './PiggyCharacter';
@@ -13,6 +21,7 @@ interface WardrobeViewProps {
   coins: number;
   unlockedAccessories: string[];
   encyclopedia: EncyclopediaState;
+  house: SharedHouse;
   onToggleEquip: (item: Accessory) => void;
   onBuyAccessory: (item: Accessory) => void;
   onChangeSpecies?: (species: PetSpecies) => void;
@@ -24,6 +33,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   coins,
   unlockedAccessories,
   encyclopedia,
+  house,
   onToggleEquip,
   onBuyAccessory,
   onChangeSpecies,
@@ -69,6 +79,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
         <EncyclopediaView
           encyclopedia={encyclopedia}
           unlockedAccessories={unlockedAccessories}
+          house={house}
           initialSection="accessories"
           onSelectTitle={onSelectTitle}
         />

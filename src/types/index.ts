@@ -143,7 +143,14 @@ export interface PetMessage {
   createdAt: number;
 }
 
-export type IngredientId = 'carrot' | 'corn' | 'strawberry';
+export type IngredientId =
+  | 'carrot'
+  | 'corn'
+  | 'strawberry'
+  | 'pumpkin'
+  | 'blueberry'
+  | 'mint'
+  | 'sunflower';
 
 export interface IngredientInfo {
   id: IngredientId;
@@ -187,7 +194,12 @@ export interface PetSpeciesInfo {
 
 export type CatchGameMode = 'apple' | 'fries';
 
-export type TitleId = 'gourmet_owner' | 'fashion_stylist';
+export type TitleId =
+  | 'gourmet_owner'
+  | 'fashion_stylist'
+  | 'strawberry_dreamer'
+  | 'forest_camper'
+  | 'cloud_napper';
 
 export type StageBackgroundId = 'default' | 'starlight_garden';
 
@@ -227,6 +239,33 @@ export interface FeedingReactionRule {
   particleEmojis: string[];
 }
 
+import type { SharedHouse } from './house';
+
+export type {
+  RoomZone,
+  FurnitureCategory,
+  FurnitureTier,
+  ThemeSetId,
+  WallpaperId,
+  FlooringId,
+  RoomPhotoPoseId,
+  RoomItem,
+  PlacedRoomItem,
+  FurnitureNote,
+  RoomLayout,
+  FarmUpgradeId,
+  FarmUpgrade,
+  FarmDecorationCategory,
+  FarmDecorationId,
+  FarmDecoration,
+  SharedGoalId,
+  SharedGoal,
+  SharedMilestoneId,
+  RoomPhotoRecord,
+  TreasuryContribution,
+  SharedHouse,
+} from './house';
+
 export interface GameState {
   version: number;
   pet: Pet;
@@ -247,6 +286,7 @@ export interface GameState {
   unlockedBackgrounds: StageBackgroundId[];
   activeBackground: StageBackgroundId;
   minigameHub: MinigameHubState;
+  house: SharedHouse;
 }
 
 export interface FloatingFeedback {
