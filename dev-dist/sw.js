@@ -67,10 +67,14 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-afac4cd2'], (function (workbox) { 'use strict';
+define(['./workbox-d667eb67'], (function (workbox) { 'use strict';
 
-  self.skipWaiting();
-  workbox.clientsClaim();
+  self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+  });
+
   /**
    * The precacheAndRoute() method efficiently caches and responds to
    * requests for URLs in the manifest.
@@ -78,12 +82,15 @@ define(['./workbox-afac4cd2'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.k73jq501oh8"
+    "revision": "0.2nkv3g2oo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
+    allowlist: [/^\/$/],
+    denylist: [/^\/api\//]
   }));
+  workbox.registerRoute(/^\/api\/.*/i, new workbox.NetworkOnly(), 'GET');
+  workbox.registerRoute(/^https:\/\/.*\.supabase\.co\/.*/i, new workbox.NetworkOnly(), 'GET');
   workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.CacheFirst({
     "cacheName": "google-fonts-cache",
     plugins: [new workbox.ExpirationPlugin({

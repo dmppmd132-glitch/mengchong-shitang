@@ -15,6 +15,7 @@ export default defineConfig(() => {
         includeAssets: ['manifest.json', 'icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
         manifest: false,
         workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
@@ -83,6 +84,9 @@ export default defineConfig(() => {
       },
     },
     server: {
+      host: '0.0.0.0',
+      port: 3000,
+      allowedHosts: true as const,
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
