@@ -70,6 +70,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'strawberry_dreamer',
     'forest_camper',
     'cloud_napper',
+    'coop_partner',
   ];
 
   return (

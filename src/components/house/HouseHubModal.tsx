@@ -78,6 +78,7 @@ import {
   stowFurnitureItem,
   updateHouseName,
 } from '../../utils/house';
+import { evaluateItemPreference } from '../../utils/personality';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { FurnitureGraphic } from './FurnitureGraphic';
@@ -87,6 +88,7 @@ export type HouseModalTab = 'room' | 'shop' | 'coop' | 'photo';
 
 type ShopFilter =
   | 'all'
+  | 'toy'
   | RoomZone
   | 'surfaces'
   | 'themes'
@@ -101,6 +103,7 @@ interface HouseHubModalProps {
   actorName: string;
   onUpdateGame: (updater: (prev: GameState) => GameState) => void;
   onOpenSharedPet: () => void;
+  onOpenCoopGames?: () => void;
   onOpenHouseEncyclopedia: () => void;
   onSharePhotoToBoard: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
 }
@@ -120,6 +123,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
   actorName,
   onUpdateGame,
   onOpenSharedPet,
+  onOpenCoopGames,
   onOpenHouseEncyclopedia,
   onSharePhotoToBoard,
 }) => {
@@ -194,26 +198,47 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
         return (
           def &&
           (def.category === 'bed' ||
+            def.category === 'toy' ||
             def.category === 'toyBall' ||
             def.category === 'snackRack' ||
-            def.category === 'diningTable')
+            def.category === 'diningTable' ||
+            evaluateItemPreference(game.pet.species, def.id) === 'favorite')
         );
       });
-      const pool = priority.length > 0 ? priority : placed;
-      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      const favPool = priority.filter(
+        (p) => evaluateItemPreference(game.pet.species, p.itemId) === 'favorite'
+      );
+      const basePool =
+        favPool.length > 0 && Math.random() < 0.72
+          ? favPool
+          : priority.length > 0
+          ? priority
+          : placed;
+      const chosen = basePool[Math.floor(Math.random() * basePool.length)];
       const itemDef = ROOM_ITEM_BY_ID[chosen.itemId];
       if (!itemDef) return;
 
+      const match = evaluateItemPreference(game.pet.species, itemDef.id);
       setPetCell({ x: chosen.x, y: chosen.y });
       setPetAction(itemDef.petAction);
-      setPetExpression(itemDef.petAction === 'sleeping' ? 'shy' : 'sparkle');
-      setPetSpeech(itemDef.petReactionText);
+      setPetExpression(
+        match === 'favorite'
+          ? 'sparkle'
+          : itemDef.petAction === 'sleeping'
+          ? 'shy'
+          : 'sparkle'
+      );
+      setPetSpeech(
+        match === 'favorite'
+          ? `✨ 最愛這個！${itemDef.petReactionText}`
+          : itemDef.petReactionText
+      );
     };
 
     triggerRandomVisit();
     const timer = window.setInterval(triggerRandomVisit, 6500);
     return () => window.clearInterval(timer);
-  }, [open, tab, house.roomLayout.placedItems]);
+  }, [open, tab, house.roomLayout.placedItems, game.pet.species]);
 
   const placedCellMap = useMemo(() => {
     const map = new Map<string, PlacedRoomItem>();
@@ -469,6 +494,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
 
   const filteredShopItems = ROOM_ITEMS.filter((item) => {
     if (shopFilter === 'all') return true;
+    if (shopFilter === 'toy') return item.category === 'toy' || item.category === 'toyBall';
     if (shopFilter === 'craft') return Boolean(item.craftIngredients);
     if (shopFilter === 'sleep' || shopFilter === 'play' || shopFilter === 'dining' || shopFilter === 'decor') {
       return item.zone === shopFilter;
@@ -510,8 +536,8 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
               </h2>
             </div>
             <p className="text-[11px] font-bold text-[#7D635D] tabular-nums">
-              個人 {game.coins} 幣 · 共養金庫 {house.treasuryCoins} 幣
-              {sharedRoom ? ' · 兩人即時同步' : ''}
+              個人 {game.coins} 幣 · 金庫 {house.treasuryCoins} 幣 · 碎片 {game.furnitureShards}
+              {sharedRoom ? ' · 兩人同步' : ''}
             </p>
           </div>
 
@@ -750,6 +776,9 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                         ? house.furnitureNotes.filter((n) => n.itemId === occupant.itemId).length
                         : 0;
 
+                      const placingItemDef = placingItemId ? ROOM_ITEM_BY_ID[placingItemId] : null;
+                      const isTargetZoneHint = placingItemDef ? placingItemDef.zone === zone : false;
+
                       return (
                         <button
                           key={`${x}_${y}`}
@@ -765,6 +794,8 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                               ? 'bg-[#FFEAF0] border-2 border-[#FF5C8A] ring-2 ring-[#FF8AA8]/40'
                               : occupant
                               ? 'bg-white/80 border-[#E7CFC4] hover:bg-white'
+                              : isTargetZoneHint
+                              ? 'bg-[#E9FAF2]/80 border-2 border-dashed border-[#49B895] hover:bg-[#D7F4E8]'
                               : placingItemId || movingInstanceId
                               ? 'bg-white/60 border-dashed border-[#FF7A9E] hover:bg-[#FFF0F4]'
                               : `${zoneMeta.cellTintClass} border-white/60 hover:bg-white/75`
@@ -1127,6 +1158,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                 {(
                   [
                     { key: 'all', label: '全部家具' },
+                    { key: 'toy', label: '🧸 玩具專區' },
                     { key: 'sleep', label: '🌙 睡眠區' },
                     { key: 'play', label: '⚽ 遊玩區' },
                     { key: 'dining', label: '🍽️ 用餐區' },
@@ -1336,9 +1368,16 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
-                                {item.name}
-                              </h4>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
+                                  {item.name}
+                                </h4>
+                                {evaluateItemPreference(game.pet.species, item.id) === 'favorite' && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-[#FFEAF2] border border-[#F5B4CA] text-[10px] font-extrabold text-[#D64470] shrink-0">
+                                    ♥ 最愛
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[11px] font-extrabold text-[#9D5B12] tabular-nums shrink-0">
                                 {item.tier === 'advanced' ? '進階' : '普通'} · {item.price} 幣
                               </span>
@@ -1431,25 +1470,40 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
           {tab === 'coop' && (
             <>
               {/* Shared Room Status Banner */}
-              <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#E8F8F2] border-2 border-[#F2D5DF] p-3.5 flex items-center justify-between gap-2.5">
-                <div className="min-w-0">
-                  <div className="text-xs font-extrabold text-[#B83B64] flex items-center gap-1.5">
-                    <HeartHandshake className="w-4 h-4 shrink-0" />
-                    <span>{sharedRoom ? '兩人共養共同空間同步中' : '單人準備模式（隨時可邀夥伴）'}</span>
+              <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#E8F8F2] border-2 border-[#F2D5DF] p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-[#B83B64] flex items-center gap-1.5">
+                      <HeartHandshake className="w-4 h-4 shrink-0" />
+                      <span>{sharedRoom ? '兩人共養共同空間同步中' : '單人準備模式（隨時可邀夥伴）'}</span>
+                    </div>
+                    <p className="text-[11px] text-[#6E544E] mt-0.5">
+                      {sharedRoom
+                        ? '房間佈置、農場擴建與共同金庫會與夥伴即時同步！'
+                        : '存入的共同金庫與佈置會在建立共養後完整延續給兩人。'}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-[#6E544E] mt-0.5">
-                    {sharedRoom
-                      ? '房間佈置、農場擴建與共同金庫會與夥伴即時同步！'
-                      : '存入的共同金庫與佈置會在建立共養後完整延續給兩人。'}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={onOpenSharedPet}
+                    className="min-h-[44px] px-3 rounded-2xl bg-white border border-[#F2C3D2] text-xs font-extrabold text-[#B83B64] shrink-0"
+                  >
+                    {sharedRoom ? '共養管理' : '建立 / 加入'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={onOpenSharedPet}
-                  className="min-h-[44px] px-3 rounded-2xl bg-white border border-[#F2C3D2] text-xs font-extrabold text-[#B83B64] shrink-0"
-                >
-                  {sharedRoom ? '共養管理' : '建立 / 加入'}
-                </button>
+
+                {sharedRoom && onOpenCoopGames && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenCoopGames();
+                    }}
+                    className="w-full min-h-[44px] rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_2px_0_#D9577B] active:scale-[0.99] transition"
+                  >
+                    🎮 開啟共養「合作遊戲」（90 秒一起布置 / 農場接力）
+                  </button>
+                )}
               </section>
 
               {/* Shared Treasury Card */}

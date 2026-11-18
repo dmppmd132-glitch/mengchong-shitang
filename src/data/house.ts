@@ -14,6 +14,7 @@ import {
   TitleId,
   WallpaperId,
 } from '../types';
+import { TOYS, toyToRoomItem } from './toys';
 
 export const ROOM_GRID_COLS = 6;
 export const ROOM_GRID_ROWS = 4;
@@ -77,6 +78,7 @@ export const FURNITURE_CATEGORY_LABELS: Record<FurnitureCategory, string> = {
   blanket: '毯子',
   rug: '地毯',
   toyBall: '玩具球',
+  toy: '玩具',
   diningTable: '餐桌',
   placemat: '餐墊',
   snackRack: '點心架',
@@ -525,6 +527,7 @@ export const ROOM_ITEMS: RoomItem[] = [
     petReactionText: '沿著森林路標牌探險，發現好多好吃的！',
     petAction: 'walking',
   },
+  ...TOYS.map(toyToRoomItem),
 ];
 
 export const ROOM_ITEM_BY_ID: Record<string, RoomItem> = ROOM_ITEMS.reduce(

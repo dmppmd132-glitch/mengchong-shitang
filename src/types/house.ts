@@ -8,6 +8,7 @@ export type FurnitureCategory =
   | 'blanket'
   | 'rug'
   | 'toyBall'
+  | 'toy'
   | 'diningTable'
   | 'placemat'
   | 'snackRack'

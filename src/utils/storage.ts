@@ -19,10 +19,26 @@ import {
 } from '../data/kitchen';
 import { createInitialDailyTasks } from '../data/quests';
 import { isValidStickerId } from '../data/stickers';
+import { PERSONALITY_IDS } from '../data/personality';
+import { COOP_BADGES, COOP_FARM_DAILY_ORDERS } from '../data/coop';
+import { WEATHER_META } from '../data/dialogue';
 import {
   AccessorySlot,
+  CoopBadgeId,
+  CoopFarmOrderState,
+  CoopGameType,
+  CoopHubState,
+  CoopMessageCard,
+  CoopOfflineEvent,
+  CoopReward,
+  CoopRoomCandidate,
+  CoopSession,
   CropPlot,
   DailyTask,
+  DialogueCategory,
+  DialogueLine,
+  DialogueResponse,
+  DialogueState,
   EncyclopediaState,
   FarmDecorationId,
   FeedLog,
@@ -31,8 +47,12 @@ import {
   GameState,
   IngredientId,
   NoviceGrowthStats,
+  PersonalityId,
   Pet,
+  PetMemoryEvent,
+  PetMemoryEventType,
   PetMessage,
+  PetPersonality,
   PetSpecies,
   PlacedRoomItem,
   RoomPhotoPoseId,
@@ -42,9 +62,12 @@ import {
   SharedMilestoneId,
   StageBackgroundId,
   ThemeSetId,
+  TimePeriodId,
   TitleId,
   TreasuryContribution,
   WallpaperId,
+  WeatherCondition,
+  WeatherState,
   WeightLog,
 } from '../types';
 import {
@@ -53,6 +76,18 @@ import {
   MinigameId,
   MinigameWeeklyChallengeId,
 } from '../types/minigame';
+import {
+  createDailyFarmOrder,
+  createInitialCoopHubState,
+  createZeroWarehouse,
+  syncCoopHubState,
+} from './coop';
+import {
+  createInitialDialogueState,
+  createInitialWeatherState,
+  getRandomProactiveCooldownMs,
+  syncDialogueDaily,
+} from './dialogue';
 import { createInitialEncyclopediaState } from './encyclopedia';
 import { createInitialSharedHouse, syncHouseProgress } from './house';
 import {
@@ -70,6 +105,7 @@ import {
   createInitialNoviceGrowthStats,
   saveNoviceGrowthMirror,
 } from './noviceGrowth';
+import { createInitialPetPersonality } from './personality';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -130,6 +166,7 @@ export function createInitialGameState(): GameState {
     version: 2,
     pet: createInitialPet(),
     coins: 120,
+    furnitureShards: 0,
     foods: { ...INITIAL_FOOD_INVENTORY },
     ingredients: createInitialIngredients(),
     farmPlots: createInitialFarmPlots(4),
@@ -147,6 +184,9 @@ export function createInitialGameState(): GameState {
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(today),
     house: createInitialSharedHouse(),
+    personality: createInitialPetPersonality('pig'),
+    coop: createInitialCoopHubState(today),
+    dialogue: createInitialDialogueState(today),
   };
 }
 
@@ -452,7 +492,8 @@ function asTitleId(value: unknown): TitleId | null {
     value === 'fashion_stylist' ||
     value === 'strawberry_dreamer' ||
     value === 'forest_camper' ||
-    value === 'cloud_napper'
+    value === 'cloud_napper' ||
+    value === 'coop_partner'
   ) {
     return value;
   }
@@ -850,6 +891,563 @@ function parseSharedHouse(raw: unknown): SharedHouse {
   };
 }
 
+function asPersonalityId(value: unknown): PersonalityId | null {
+  if (typeof value === 'string' && PERSONALITY_IDS.includes(value as PersonalityId)) {
+    return value as PersonalityId;
+  }
+  return null;
+}
+
+function parsePetPersonality(raw: unknown, species: PetSpecies): PetPersonality {
+  const defaults = createInitialPetPersonality(species);
+  if (!isRecord(raw)) return defaults;
+
+  const scores: Record<PersonalityId, number> = { ...defaults.scores };
+  if (isRecord(raw.scores)) {
+    for (const id of PERSONALITY_IDS) {
+      const val = raw.scores[id];
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        scores[id] = clampStat(val, 0, 100);
+      }
+    }
+  }
+
+  const primary = asPersonalityId(raw.primary) ?? defaults.primary;
+  let secondary = asPersonalityId(raw.secondary) ?? defaults.secondary;
+  if (secondary === primary) {
+    secondary = PERSONALITY_IDS.find((id) => id !== primary) ?? defaults.secondary;
+  }
+
+  const careActionCounts: Record<string, number> = {};
+  if (isRecord(raw.careActionCounts)) {
+    for (const [k, v] of Object.entries(raw.careActionCounts)) {
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+        careActionCounts[k] = Math.floor(v);
+      }
+    }
+  }
+
+  return {
+    primary,
+    secondary,
+    scores,
+    careActionCounts,
+    lastUpdatedAt: asNumber(raw.lastUpdatedAt, defaults.lastUpdatedAt),
+  };
+}
+
+function asCoopBadgeId(value: unknown): CoopBadgeId | null {
+  if (typeof value === 'string' && value in COOP_BADGES) {
+    return value as CoopBadgeId;
+  }
+  return null;
+}
+
+function asCoopGameType(value: unknown): CoopGameType {
+  return value === 'farm_relay' ? 'farm_relay' : 'room_decor';
+}
+
+function parseCoopSession(raw: unknown): CoopSession | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  if (!id) return null;
+
+  const statusRaw = raw.status;
+  const status: CoopSession['status'] =
+    statusRaw === 'active' ||
+    statusRaw === 'completed' ||
+    statusRaw === 'expired'
+      ? statusRaw
+      : 'idle';
+
+  const themeId = asThemeSetId(raw.themeId) ?? 'strawberry_sweet';
+  const rawGoal = isRecord(raw.goal) ? raw.goal : {};
+  const rawProgress = isRecord(raw.progress) ? raw.progress : {};
+
+  const candidateQueue: CoopRoomCandidate[] = Array.isArray(raw.candidateQueue)
+    ? raw.candidateQueue
+        .filter((c): c is Record<string, unknown> => isRecord(c))
+        .map((c) => ({
+          queueId: asString(c.queueId, `q_${Date.now()}`),
+          itemId: asString(c.itemId, ''),
+          selectedByUserId: asString(c.selectedByUserId, 'local'),
+          selectedByName: asString(c.selectedByName, '夥伴'),
+          selectedAt: asNumber(c.selectedAt, Date.now()),
+          placed: typeof c.placed === 'boolean' ? c.placed : false,
+        }))
+        .filter((c) => c.itemId in ROOM_ITEM_BY_ID)
+    : [];
+
+  const placedInstanceIds = Array.isArray(raw.placedInstanceIds)
+    ? raw.placedInstanceIds.filter((x): x is string => typeof x === 'string')
+    : [];
+
+  return {
+    id,
+    gameType: 'room_decor',
+    status,
+    themeId,
+    goal: {
+      id: asString(rawGoal.id, `goal_${themeId}`),
+      gameType: 'room_decor',
+      title: asString(rawGoal.title, '合作房間佈置'),
+      description: asString(rawGoal.description, ''),
+      themeId,
+      targetItemCount: Math.max(1, Math.floor(asNumber(rawGoal.targetItemCount, 6))),
+    },
+    progress: {
+      completedCount: Math.max(0, Math.floor(asNumber(rawProgress.completedCount, 0))),
+      targetCount: Math.max(1, Math.floor(asNumber(rawProgress.targetCount, 6))),
+      harvestedCount: 0,
+      harvestTarget: 0,
+      craftedCount: 0,
+      craftTarget: 0,
+      foodsDone: {},
+    },
+    startedAt: asNumber(raw.startedAt, Date.now()),
+    expiresAt: asNumber(raw.expiresAt, Date.now()),
+    durationSeconds: Math.max(30, Math.floor(asNumber(raw.durationSeconds, 90))),
+    candidateQueue,
+    placedInstanceIds,
+    settled: typeof raw.settled === 'boolean' ? raw.settled : false,
+    rewardId: typeof raw.rewardId === 'string' ? raw.rewardId : null,
+  };
+}
+
+function parseCoopFarmOrder(raw: unknown, todayStr: string): CoopFarmOrderState {
+  const defaults = createDailyFarmOrder(todayStr);
+  if (!isRecord(raw)) return defaults;
+
+  const dateKey = asString(raw.dateKey, todayStr);
+  if (dateKey !== todayStr) return defaults;
+
+  const rawGoal = isRecord(raw.goal) ? raw.goal : {};
+  const goalTemplate =
+    COOP_FARM_DAILY_ORDERS.find((o) => o.id === rawGoal.id) ?? defaults.goal;
+  const rawProgress = isRecord(raw.progress) ? raw.progress : {};
+
+  const foodsDone: Record<string, number> = {};
+  if (isRecord(rawProgress.foodsDone)) {
+    for (const [k, v] of Object.entries(rawProgress.foodsDone)) {
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+        foodsDone[k] = Math.floor(v);
+      }
+    }
+  }
+
+  const craftTarget =
+    defaults.progress.craftTarget ||
+    Object.values(goalTemplate.requiredFoodCounts ?? {}).reduce((s, n) => s + n, 0);
+  const harvestTarget = defaults.progress.harvestTarget;
+
+  return {
+    dateKey,
+    goal: {
+      ...goalTemplate,
+      requiredHarvestTotal: harvestTarget,
+      requiredCraftTotal: craftTarget,
+    },
+    progress: {
+      completedCount: Math.max(0, Math.floor(asNumber(rawProgress.completedCount, 0))),
+      targetCount: craftTarget,
+      harvestedCount: Math.max(0, Math.floor(asNumber(rawProgress.harvestedCount, 0))),
+      harvestTarget,
+      craftedCount: Math.max(0, Math.floor(asNumber(rawProgress.craftedCount, 0))),
+      craftTarget,
+      foodsDone,
+    },
+    expiresAt: asNumber(raw.expiresAt, defaults.expiresAt),
+    completed: typeof raw.completed === 'boolean' ? raw.completed : false,
+    overdue: typeof raw.overdue === 'boolean' ? raw.overdue : false,
+    rewardClaimed: typeof raw.rewardClaimed === 'boolean' ? raw.rewardClaimed : false,
+    rewardId: typeof raw.rewardId === 'string' ? raw.rewardId : null,
+  };
+}
+
+function parseCoopHubState(raw: unknown): CoopHubState {
+  const todayStr = formatLocalDate();
+  const defaults = createInitialCoopHubState(todayStr);
+  if (!isRecord(raw)) return defaults;
+
+  const pendingRewards: CoopReward[] = Array.isArray(raw.pendingRewards)
+    ? raw.pendingRewards
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .map((r) => {
+          const rareIngredients: Partial<Record<IngredientId, number>> = {};
+          if (isRecord(r.rareIngredients)) {
+            for (const ingId of INGREDIENT_IDS) {
+              const v = r.rareIngredients[ingId];
+              if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+                rareIngredients[ingId] = Math.floor(v);
+              }
+            }
+          }
+          const badgeId = asCoopBadgeId(r.badgeId);
+          return {
+            id: asString(r.id, `rw_${Date.now()}`),
+            gameType: asCoopGameType(r.gameType),
+            title: asString(r.title, '合作遊戲獎勵'),
+            coins: Math.max(0, Math.floor(asNumber(r.coins, 0))),
+            furnitureShards: Math.max(0, Math.floor(asNumber(r.furnitureShards, 0))),
+            intimacy: Math.max(0, Math.floor(asNumber(r.intimacy, 0))),
+            rareIngredients,
+            badgeId: badgeId ?? undefined,
+            messageCardTitle:
+              typeof r.messageCardTitle === 'string' ? r.messageCardTitle : undefined,
+            messageCardBody:
+              typeof r.messageCardBody === 'string' ? r.messageCardBody : undefined,
+            claimedByUserIds: Array.isArray(r.claimedByUserIds)
+              ? r.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+              : [],
+            createdAt: asNumber(r.createdAt, Date.now()),
+          };
+        })
+        .slice(0, 12)
+    : [];
+
+  const unlockedBadges = Array.isArray(raw.unlockedBadges)
+    ? Array.from(
+        new Set(
+          raw.unlockedBadges
+            .map(asCoopBadgeId)
+            .filter((b): b is CoopBadgeId => b !== null)
+        )
+      )
+    : [];
+
+  const earnedCards: CoopMessageCard[] = Array.isArray(raw.earnedCards)
+    ? raw.earnedCards
+        .filter((c): c is Record<string, unknown> => isRecord(c))
+        .map((c) => ({
+          id: asString(c.id, `card_${Date.now()}`),
+          title: asString(c.title, '合作紀念卡'),
+          body: asString(c.body, ''),
+          emoji: asString(c.emoji, '💌'),
+          earnedDate: asString(c.earnedDate, todayStr),
+          createdAt: asNumber(c.createdAt, Date.now()),
+        }))
+        .filter((c) => Boolean(c.body))
+        .slice(0, 20)
+    : [];
+
+  const offlineEvents: CoopOfflineEvent[] = Array.isArray(raw.offlineEvents)
+    ? raw.offlineEvents
+        .filter((e): e is Record<string, unknown> => isRecord(e))
+        .map((e) => ({
+          id: asString(e.id, `coev_${Date.now()}`),
+          actorUserId: asString(e.actorUserId, 'partner'),
+          actorName: asString(e.actorName, '夥伴'),
+          gameType: asCoopGameType(e.gameType),
+          summary: asString(e.summary, ''),
+          createdAt: asNumber(e.createdAt, Date.now()),
+        }))
+        .filter((e) => Boolean(e.summary))
+        .slice(0, 20)
+    : [];
+
+  const lastSeenByUserId: Record<string, number> = {};
+  if (isRecord(raw.lastSeenByUserId)) {
+    for (const [k, v] of Object.entries(raw.lastSeenByUserId)) {
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        lastSeenByUserId[k] = v;
+      }
+    }
+  }
+
+  return syncCoopHubState(
+    {
+      activeRoomSession: parseCoopSession(raw.activeRoomSession),
+      dailyFarmOrder: parseCoopFarmOrder(raw.dailyFarmOrder, todayStr),
+      sharedWarehouse: parseIngredients(raw.sharedWarehouse, createZeroWarehouse()),
+      coopFarmPlots: parseFarmPlots(raw.coopFarmPlots, 4),
+      pendingRewards,
+      unlockedBadges,
+      earnedCards,
+      streakDays: Math.max(0, Math.floor(asNumber(raw.streakDays, 0))),
+      lastCoopCompletedDate:
+        typeof raw.lastCoopCompletedDate === 'string' ? raw.lastCoopCompletedDate : null,
+      offlineEvents,
+      lastSeenByUserId,
+    },
+    todayStr
+  );
+}
+
+function asWeatherCondition(value: unknown): WeatherCondition {
+  if (typeof value === 'string' && value in WEATHER_META) {
+    return value as WeatherCondition;
+  }
+  return 'clear';
+}
+
+function asDialogueCategory(value: unknown): DialogueCategory {
+  if (
+    value === 'urgent' ||
+    value === 'memory' ||
+    value === 'special' ||
+    value === 'personality' ||
+    value === 'time' ||
+    value === 'weather' ||
+    value === 'daily' ||
+    value === 'coop'
+  ) {
+    return value;
+  }
+  return 'daily';
+}
+
+function asTimePeriodId(value: unknown): TimePeriodId | null {
+  if (
+    value === 'dawn' ||
+    value === 'morning' ||
+    value === 'noon' ||
+    value === 'afternoon' ||
+    value === 'evening' ||
+    value === 'night' ||
+    value === 'late_night'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function asMemoryEventType(value: unknown): PetMemoryEventType | null {
+  if (
+    value === 'fedFavoriteFood' ||
+    value === 'fedDislikedFood' ||
+    value === 'petted' ||
+    value === 'bathed' ||
+    value === 'walked' ||
+    value === 'slept' ||
+    value === 'newAccessory' ||
+    value === 'newRoomItem' ||
+    value === 'partnerMessage' ||
+    value === 'partnerFed' ||
+    value === 'weightLogged' ||
+    value === 'stuffed' ||
+    value === 'milestone'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function parseDialogueResponses(raw: unknown): DialogueResponse[] {
+  if (!Array.isArray(raw)) return [];
+  const list: DialogueResponse[] = [];
+  for (const r of raw) {
+    if (!isRecord(r)) continue;
+    const id = asString(r.id, '');
+    const label = asString(r.label, '');
+    if (!id || !label) continue;
+    const act = r.actionType;
+    const actionType: DialogueResponse['actionType'] =
+      act === 'walk' ||
+      act === 'feed_pudding' ||
+      act === 'feed_meal' ||
+      act === 'hug' ||
+      act === 'sleep' ||
+      act === 'bath'
+        ? act
+        : 'ack';
+    const petAct = r.petAction;
+    const petAction: DialogueResponse['petAction'] =
+      petAct === 'petted' ||
+      petAct === 'opening' ||
+      petAct === 'eating' ||
+      petAct === 'sleeping' ||
+      petAct === 'bathing' ||
+      petAct === 'walking' ||
+      petAct === 'stuffed'
+        ? petAct
+        : 'idle';
+    const expr = r.expression;
+    const expression: DialogueResponse['expression'] =
+      expr === 'wink' ||
+      expr === 'sparkle' ||
+      expr === 'shy' ||
+      expr === 'happyTongue' ||
+      expr === 'ticklish'
+        ? expr
+        : 'normal';
+
+    list.push({
+      id,
+      label,
+      emoji: asString(r.emoji, '💬'),
+      actionType,
+      replyText: asString(r.replyText, ''),
+      intimacyGain: Math.max(0, Math.floor(asNumber(r.intimacyGain, 1))),
+      moodGain: Math.max(0, Math.floor(asNumber(r.moodGain, 2))),
+      petAction,
+      expression,
+    });
+  }
+  return list;
+}
+
+function parseDialogueLine(raw: unknown): DialogueLine | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  const text = asString(raw.text, '');
+  if (!id || !text) return null;
+
+  const memType = asMemoryEventType(raw.memoryEventType);
+  const tp = asTimePeriodId(raw.timePeriod);
+
+  return {
+    id,
+    category: asDialogueCategory(raw.category),
+    text,
+    priority: Math.max(1, Math.min(7, Math.floor(asNumber(raw.priority, 7)))),
+    createdAt: asNumber(raw.createdAt, Date.now()),
+    memoryEventId: typeof raw.memoryEventId === 'string' ? raw.memoryEventId : undefined,
+    memoryEventType: memType ?? undefined,
+    timePeriod: tp ?? undefined,
+    weatherCondition:
+      typeof raw.weatherCondition === 'string'
+        ? asWeatherCondition(raw.weatherCondition)
+        : undefined,
+    responses: parseDialogueResponses(raw.responses),
+    respondedId: typeof raw.respondedId === 'string' ? raw.respondedId : null,
+    respondedLabel:
+      typeof raw.respondedLabel === 'string' ? raw.respondedLabel : undefined,
+    isCoopHighlight:
+      typeof raw.isCoopHighlight === 'boolean' ? raw.isCoopHighlight : undefined,
+    actorId: typeof raw.actorId === 'string' ? raw.actorId : undefined,
+  };
+}
+
+function parseDialogueState(raw: unknown): DialogueState {
+  const todayStr = formatLocalDate();
+  const defaults = createInitialDialogueState(todayStr);
+  if (!isRecord(raw)) return defaults;
+
+  const rawSettings = isRecord(raw.settings) ? raw.settings : {};
+  const rawWeather = isRecord(raw.weather) ? raw.weather : {};
+  const weatherCond = asWeatherCondition(rawWeather.condition);
+  const weatherFallback = createInitialWeatherState(weatherCond);
+  const weather: WeatherState = {
+    condition: weatherCond,
+    temperatureC: asNumber(rawWeather.temperatureC, weatherFallback.temperatureC),
+    label: asString(rawWeather.label, weatherFallback.label),
+    emoji: asString(rawWeather.emoji, weatherFallback.emoji),
+    source: rawWeather.source === 'api_ready' ? 'api_ready' : 'fixed',
+    updatedAt: asNumber(rawWeather.updatedAt, weatherFallback.updatedAt),
+  };
+
+  const memoryEvents: PetMemoryEvent[] = Array.isArray(raw.memoryEvents)
+    ? raw.memoryEvents
+        .filter((ev): ev is Record<string, unknown> => isRecord(ev))
+        .map((ev) => {
+          const type = asMemoryEventType(ev.type);
+          if (!type) return null;
+          return {
+            id: asString(ev.id, `mem_${Date.now()}`),
+            type,
+            detail: asString(ev.detail, ''),
+            createdAt: asNumber(ev.createdAt, Date.now()),
+            dateKey: asString(ev.dateKey, todayStr),
+            actorId: typeof ev.actorId === 'string' ? ev.actorId : undefined,
+            actorName: typeof ev.actorName === 'string' ? ev.actorName : undefined,
+            foodId: typeof ev.foodId === 'string' ? ev.foodId : undefined,
+            itemId: typeof ev.itemId === 'string' ? ev.itemId : undefined,
+            mentionedAt: typeof ev.mentionedAt === 'number' ? ev.mentionedAt : null,
+            isCoopHighlight:
+              typeof ev.isCoopHighlight === 'boolean' ? ev.isCoopHighlight : undefined,
+          } as PetMemoryEvent;
+        })
+        .filter((ev): ev is PetMemoryEvent => ev !== null)
+        .slice(0, 20)
+    : [];
+
+  const history: DialogueLine[] = Array.isArray(raw.history)
+    ? raw.history
+        .map(parseDialogueLine)
+        .filter((line): line is DialogueLine => line !== null)
+        .slice(0, 60)
+    : [];
+
+  const greetedPeriodsToday = Array.isArray(raw.greetedPeriodsToday)
+    ? Array.from(
+        new Set(
+          raw.greetedPeriodsToday
+            .map(asTimePeriodId)
+            .filter((p): p is TimePeriodId => p !== null)
+        )
+      )
+    : [];
+
+  const lastUrgentAtByStat: DialogueState['lastUrgentAtByStat'] = {};
+  if (isRecord(raw.lastUrgentAtByStat)) {
+    const keys: Array<'hunger' | 'mood' | 'cleanliness' | 'energy'> = [
+      'hunger',
+      'mood',
+      'cleanliness',
+      'energy',
+    ];
+    for (const key of keys) {
+      const val = raw.lastUrgentAtByStat[key];
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        lastUrgentAtByStat[key] = val;
+      }
+    }
+  }
+
+  const announcedWeightMilestones = Array.isArray(raw.announcedWeightMilestones)
+    ? Array.from(
+        new Set(
+          raw.announcedWeightMilestones.filter(
+            (n): n is number => typeof n === 'number' && Number.isFinite(n)
+          )
+        )
+      )
+    : [];
+
+  return syncDialogueDaily(
+    {
+      activeBubble: parseDialogueLine(raw.activeBubble),
+      history,
+      memoryEvents,
+      settings: {
+        muteWeatherChat:
+          typeof rawSettings.muteWeatherChat === 'boolean'
+            ? rawSettings.muteWeatherChat
+            : false,
+        muteNightNotice:
+          typeof rawSettings.muteNightNotice === 'boolean'
+            ? rawSettings.muteNightNotice
+            : false,
+        muteAllProactive:
+          typeof rawSettings.muteAllProactive === 'boolean'
+            ? rawSettings.muteAllProactive
+            : false,
+      },
+      weather,
+      lastProactiveAt: Math.max(0, asNumber(raw.lastProactiveAt, 0)),
+      nextCooldownMs: Math.max(
+        60000,
+        asNumber(raw.nextCooldownMs, getRandomProactiveCooldownMs())
+      ),
+      dailyKey: asString(raw.dailyKey, todayStr),
+      urgentRemindersToday: Math.max(
+        0,
+        Math.floor(asNumber(raw.urgentRemindersToday, 0))
+      ),
+      lastUrgentAtByStat,
+      greetedPeriodsToday,
+      consecutiveCareDays: Math.max(
+        1,
+        Math.floor(asNumber(raw.consecutiveCareDays, 1))
+      ),
+      lastCareDate:
+        typeof raw.lastCareDate === 'string' ? raw.lastCareDate : todayStr,
+      announcedWeightMilestones,
+    },
+    todayStr
+  );
+}
+
 function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   const base = createInitialGameState();
   const now = Date.now();
@@ -906,6 +1504,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     version: 2,
     pet,
     coins: asNumber(raw.coins, base.coins),
+    furnitureShards: 0,
     foods: parseStringNumberRecord(raw.foodInventory, base.foods),
     ingredients: createInitialIngredients(),
     farmPlots: createInitialFarmPlots(4),
@@ -923,6 +1522,9 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(),
     house: createInitialSharedHouse(),
+    personality: createInitialPetPersonality('pig'),
+    coop: createInitialCoopHubState(formatLocalDate()),
+    dialogue: createInitialDialogueState(formatLocalDate()),
   };
 }
 
@@ -982,6 +1584,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     version: 2,
     pet,
     coins: asNumber(parsed.coins, base.coins),
+    furnitureShards: Math.max(0, Math.floor(asNumber(parsed.furnitureShards, 0))),
     foods: parseStringNumberRecord(parsed.foods, base.foods),
     ingredients: parseIngredients(parsed.ingredients, base.ingredients),
     farmPlots: parseFarmPlots(parsed.farmPlots, parsedHouse.unlockedFarmPlots),
@@ -1006,6 +1609,9 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     activeBackground,
     minigameHub: parseMinigameHub(parsed.minigameHub),
     house: parsedHouse,
+    personality: parsePetPersonality(parsed.personality, pet.species),
+    coop: parseCoopHubState(parsed.coop),
+    dialogue: parseDialogueState(parsed.dialogue),
   };
 
   return syncHouseProgress(draft).nextState;

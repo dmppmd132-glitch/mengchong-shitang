@@ -50,6 +50,14 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '完成「雲朵午睡」主題套裝',
     badgeClass: 'bg-[#EEF4FF] border-[#BFD4FA] text-[#355A9C]',
   },
+  coop_partner: {
+    id: 'coop_partner',
+    name: '默契搭檔',
+    emoji: '💞',
+    description: '連續 7 天攜手完成共養合作遊戲，兩人的默契已達滿分殿堂！',
+    unlockCondition: '連續 7 天完成合作遊戲',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4A6C2] text-[#B83B64]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

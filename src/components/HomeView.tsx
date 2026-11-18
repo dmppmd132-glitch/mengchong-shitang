@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
   Bath,
-  Camera,
   Footprints,
   Gamepad2,
   Heart,
-  Home,
+  HeartHandshake,
   MessageCircleHeart,
+  MessageSquareText,
   Moon,
   Sparkles,
   Sprout,
@@ -21,6 +21,7 @@ import { STAGE_BACKGROUNDS } from '../data/noviceGrowth';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
 import {
+  DialogueLine,
   FeedingVisualEffect,
   FloatingFeedback,
   Food,
@@ -28,13 +29,18 @@ import {
   Pet,
   PetExpression,
   PetMessage,
+  PetPersonality,
   PetTouchZone,
   PiggyActionState,
   SharedHouse,
   SharedPetRoom,
   StageBackgroundId,
   TitleId,
+  WeatherState,
 } from '../types';
+import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
+import { PetDialogueBubble } from './dialogue/PetDialogueBubble';
+import { HomeHousePreview } from './house/HomeHousePreview';
 import { HouseModalTab } from './house/HouseHubModal';
 import { PiggyCharacter } from './PiggyCharacter';
 
@@ -69,6 +75,16 @@ interface HomeViewProps {
   latestMessage?: PetMessage | null;
   unreadMessagesCount?: number;
   onOpenMessageBoard?: () => void;
+  personality?: PetPersonality;
+  onOpenPersonality?: () => void;
+  onOpenCoopGames?: () => void;
+  coopBadgeCount?: number;
+  activeDialogue?: DialogueLine | null;
+  weather?: WeatherState;
+  dialogueHistoryCount?: number;
+  onRespondDialogue?: (responseId: string) => void;
+  onDismissDialogue?: () => void;
+  onOpenDialogueHistory?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -116,6 +132,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
   latestMessage = null,
   unreadMessagesCount = 0,
   onOpenMessageBoard,
+  personality,
+  onOpenPersonality,
+  onOpenCoopGames,
+  coopBadgeCount = 0,
+  activeDialogue = null,
+  weather,
+  dialogueHistoryCount = 0,
+  onRespondDialogue,
+  onDismissDialogue,
+  onOpenDialogueHistory,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -161,6 +187,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <span aria-hidden="true">{activeTitleDef.emoji}</span>
                   <span>{activeTitleDef.name}</span>
                 </span>
+              )}
+              {personality && onOpenPersonality && (
+                <button
+                  type="button"
+                  onClick={onOpenPersonality}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#FFF3D8] border border-[#F2CE6D] text-[10px] font-extrabold text-[#8A5610] hover:bg-[#FFE9BE] active:scale-95 transition"
+                >
+                  <span>{getPersonalitySummaryLabel(personality)}</span>
+                  <span className="opacity-70">›</span>
+                </button>
               )}
             </div>
             <p className="text-xs text-[#826862] mt-0.5 tabular-nums">
@@ -269,7 +305,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         }}
         onDragLeave={() => setIsDropOver(false)}
         onDrop={handleDropOnPiggy}
-        className={`relative rounded-3xl ${stageBgConfig.stageClass} border-2 border-[#F5DFD7] px-4 pt-5 pb-4 flex flex-col items-center justify-center min-h-[270px] overflow-hidden`}
+        className={`relative rounded-3xl ${stageBgConfig.stageClass} border-2 border-[#F5DFD7] px-3.5 pt-12 pb-4 flex flex-col items-center justify-center min-h-[276px] overflow-hidden`}
       >
         {activeBackground === 'starlight_garden' && (
           <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
@@ -278,6 +314,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <span className="absolute left-10 bottom-10 text-xs">🌙</span>
             <span className="absolute right-6 bottom-12 text-sm">✨</span>
           </div>
+        )}
+
+        {onOpenDialogueHistory && (
+          <button
+            type="button"
+            onClick={onOpenDialogueHistory}
+            className="absolute left-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/88 border border-[#EAD4DC] text-[10px] font-extrabold text-[#6E544E] inline-flex items-center gap-1 hover:bg-white transition"
+          >
+            {weather && <span aria-hidden="true">{weather.emoji}</span>}
+            {weather && <span>{weather.label}</span>}
+            <span className="opacity-50">·</span>
+            <MessageSquareText className="w-3 h-3 text-[#D64470]" />
+            <span>對話紀錄 ({dialogueHistoryCount})</span>
+          </button>
         )}
 
         {unlockedBackgrounds.length > 1 && onSelectBackground && (
@@ -294,13 +344,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </button>
         )}
 
-        <div className="min-h-[34px] mb-1 flex items-center justify-center">
-          {speech && (
-            <div className="relative rounded-2xl bg-white/95 border border-[#F1D5DF] px-4 py-1.5 text-xs font-extrabold text-[#4A3531] shadow-xs text-center max-w-[260px]">
-              {speech}
-            </div>
-          )}
-        </div>
+        {activeDialogue && onRespondDialogue && onDismissDialogue ? (
+          <PetDialogueBubble
+            pet={pet}
+            line={activeDialogue}
+            onRespond={onRespondDialogue}
+            onClose={onDismissDialogue}
+            onOpenHistory={onOpenDialogueHistory}
+          />
+        ) : (
+          <div className="min-h-[34px] mb-1 flex items-center justify-center">
+            {speech && (
+              <div className="relative rounded-2xl bg-white/95 border border-[#F1D5DF] px-4 py-1.5 text-xs font-extrabold text-[#4A3531] shadow-xs text-center max-w-[260px]">
+                {speech}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="pointer-events-none absolute inset-x-0 top-14 flex flex-col items-center z-20">
           {feedbacks.map((fb) => (
@@ -374,48 +434,39 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {onOpenHouse && house && (
-        <div className="flex items-stretch gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenHouse('room')}
-            className="flex-1 min-w-0 min-h-[54px] rounded-2xl bg-gradient-to-r from-[#FFFDF8] to-[#FFF3F7] border-2 border-[#F3CBD9] px-3.5 py-2.5 flex items-center justify-between gap-2 hover:bg-[#FFF5F8] active:scale-[0.99] transition text-left"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-[#FFEAF0] text-[#D64470] flex items-center justify-center shrink-0">
-                <Home className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-extrabold text-[#4A3531] truncate">
-                    佈置小屋 · {house.houseName}
-                  </span>
-                  {house.achievedMilestones.some((id) => !house.claimedMilestones.includes(id)) && (
-                    <span className="px-1.5 py-0.5 rounded-lg bg-[#FF7A9E] text-white text-[10px] font-extrabold shrink-0">
-                      有獎勵
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-[#7D635D] truncate tabular-nums">
-                  已放 {house.roomLayout.placedItems.length} 件家具 · 共養金庫 {house.treasuryCoins} 幣
-                </p>
-              </div>
-            </div>
-            <span className="text-xs font-extrabold text-[#D64470] whitespace-nowrap shrink-0">
-              佈置 ›
-            </span>
-          </button>
+        <HomeHousePreview pet={pet} house={house} onOpenHouse={onOpenHouse} />
+      )}
 
-          <button
-            type="button"
-            onClick={() => onOpenHouse('photo')}
-            aria-label="小屋拍照模式"
-            title="小屋拍照模式"
-            className="min-h-[54px] min-w-[54px] rounded-2xl bg-[#FFF6DF] border-2 border-[#F2D59B] text-[#9D5B12] flex flex-col items-center justify-center gap-0.5 hover:bg-[#FFEDC6] active:scale-95 transition shrink-0"
-          >
-            <Camera className="w-4 h-4" />
-            <span className="text-[10px] font-extrabold">拍照</span>
-          </button>
-        </div>
+      {sharedRoom && onOpenCoopGames && (
+        <button
+          type="button"
+          onClick={onOpenCoopGames}
+          className="w-full min-h-[52px] rounded-2xl bg-gradient-to-r from-[#FFF0F5] via-[#FFF6DF] to-[#E8F8F2] border-2 border-[#F3C8D7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:brightness-[0.99] active:scale-[0.99] transition text-left"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FFE3EE] text-[#D64470] flex items-center justify-center shrink-0">
+              <HeartHandshake className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-extrabold text-[#4A3531]">
+                  合作遊戲 · 雙人佈置＆農場接力
+                </span>
+                {coopBadgeCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-lg bg-[#D64470] text-white text-[10px] font-extrabold tabular-nums">
+                    {coopBadgeCount} 待領/新動態
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-[#7D635D] truncate">
+                90 秒一起布置房間、接力完成每日農場訂單，領相同獎勵＆默契稱號！
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            玩合作 ›
+          </span>
+        </button>
       )}
 
       {onOpenMinigame && (
@@ -555,7 +606,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {filteredFoods.map((food) => {
               const count = inventory[food.id] ?? 0;
               const isFull = pet.hunger >= 100;
-              const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
+              const pref = evaluateFoodPreference(pet.species, food.id);
+              const isFavorite = pref === 'favorite';
+              const isDisliked = pref === 'disliked';
               return (
                 <div
                   key={food.id}
@@ -579,7 +632,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     {food.name}
                   </span>
                   <span className="text-[11px] font-bold text-[#826862] tabular-nums">
-                    {isFavorite ? '♥ 最愛 · ' : ''}庫存 {count}
+                    {isFavorite ? '♥ 最愛 · ' : isDisliked ? '💭 不太愛 · ' : ''}庫存 {count}
                   </span>
                   <button
                     type="button"

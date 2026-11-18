@@ -3,6 +3,8 @@ import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
+import { CoopHubModal } from './components/coop/CoopHubModal';
+import { DialogueHistoryModal } from './components/dialogue/DialogueHistoryModal';
 import { EncyclopediaSection } from './components/EncyclopediaView';
 import { HomeView } from './components/HomeView';
 import { HouseHubModal, HouseModalTab } from './components/house/HouseHubModal';
@@ -15,7 +17,9 @@ import { JournalView } from './components/JournalView';
 import { LevelUpModal } from './components/LevelUpModal';
 import { MessageBoardModal } from './components/MessageBoardModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { PersonalityProfileModal } from './components/PersonalityProfileView';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { QuestsView } from './components/QuestsView';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SharedPetModal } from './components/SharedPetModal';
@@ -23,6 +27,7 @@ import { WardrobeView } from './components/WardrobeView';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getTitleDefinition } from './data/encyclopedia';
 import { getGrowthStage } from './data/growth';
+import { ROOM_ITEM_BY_ID } from './data/house';
 import { INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
 import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
@@ -59,6 +64,7 @@ import {
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
+  DialogueSettings,
   FarmDecorationId,
   FarmUpgradeId,
   FeedLog,
@@ -79,10 +85,33 @@ import {
   SharedPetRoom,
   StageBackgroundId,
   TabKey,
+  ThemeSetId,
   TitleId,
   WeightLog,
 } from './types';
 import { MinigameResult, MinigameWeeklyChallengeId } from './types/minigame';
+import {
+  acknowledgeOfflinePartnerEvents,
+  claimCoopReward,
+  cookCoopOrderRecipe,
+  depositIngredientToCoopWarehouse,
+  getOfflinePartnerEvents,
+  harvestCoopCropToWarehouse,
+  mergeCoopRemoteState,
+  placeCoopCandidateInRoom,
+  plantCoopCrop,
+  selectCoopFurnitureForQueue,
+  settleRoomDecorSession,
+  startRoomDecorSession,
+  syncCoopHubState,
+} from './utils/coop';
+import {
+  appendMemoryEvent,
+  dismissActiveDialogue,
+  evaluateAndSelectDialogue,
+  respondToActiveDialogue,
+  updateDialogueSettings,
+} from './utils/dialogue';
 import { syncEncyclopediaRewards } from './utils/encyclopedia';
 import { resolveFeedingOutcome } from './utils/feeding';
 import {
@@ -100,6 +129,8 @@ import {
   settleMinigameOutcome,
 } from './utils/minigame';
 import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
+import { applyPersonalityDevelopment } from './utils/personality';
+import { usePWAUpdate } from './hooks/usePWAUpdate';
 import { soundFX } from './utils/sound';
 import {
   applyTimeDecay,
@@ -119,9 +150,9 @@ export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [questsInitialSection, setQuestsInitialSection] = useState<'daily' | 'growth'>('daily');
-  const [journalInitialSection, setJournalInitialSection] = useState<'journal' | 'encyclopedia'>(
-    'journal'
-  );
+  const [journalInitialSection, setJournalInitialSection] = useState<
+    'journal' | 'personality' | 'encyclopedia'
+  >('journal');
   const [journalEncyclopediaSection, setJournalEncyclopediaSection] =
     useState<EncyclopediaSection>('foods');
   const [houseModalOpen, setHouseModalOpen] = useState<boolean>(false);
@@ -143,12 +174,24 @@ export default function App() {
   const [sharedModalOpen, setSharedModalOpen] = useState<boolean>(false);
   const [messageModalOpen, setMessageModalOpen] = useState<boolean>(false);
   const [minigameOpen, setMinigameOpen] = useState<boolean>(false);
+  const [coopModalOpen, setCoopModalOpen] = useState<boolean>(false);
+  const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
+  const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
   const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
   const [sharedMessages, setSharedMessages] = useState<PetMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
+
+  const currentUserId = cloudUser?.id ?? 'local';
+  const actorName = cloudUser?.email ? cloudUser.email.split('@')[0] || '飼主' : '飼主';
+  const {
+    showUpdateBanner,
+    updating: updatingApp,
+    applyUpdate: handleApplyAppUpdate,
+    dismissUpdate: handleDismissAppUpdate,
+  } = usePWAUpdate();
 
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
@@ -358,7 +401,10 @@ export default function App() {
         lastSharedUpdatedAtRef.current = remoteRoom.updatedAt;
         setLastSyncedAt(remoteRoom.updatedAt);
         setSyncStatus('synced');
-        applyCloudStateLocally(remoteState, `夥伴剛剛照顧了${remoteState.pet.name}與小屋！`);
+        const mergedState = mergeCoopRemoteState(gameRef.current, remoteState);
+        const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
+        const nextMerged: GameState = { ...mergedState, dialogue: evaluatedDialogue };
+        applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMerged.pet.name}與小屋！`);
         const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了共養空間！', emoji: '💞' }]);
         window.setTimeout(() => {
@@ -383,7 +429,9 @@ export default function App() {
         ) {
           lastSharedUpdatedAtRef.current = res.room.updatedAt;
           setLastSyncedAt(res.room.updatedAt);
-          applyCloudStateLocally(res.state);
+          const mergedState = mergeCoopRemoteState(gameRef.current, res.state);
+          const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
+          applyCloudStateLocally({ ...mergedState, dialogue: evaluatedDialogue });
         }
       });
     };
@@ -446,6 +494,25 @@ export default function App() {
           window.setTimeout(() => {
             setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
           }, 1600);
+
+          setGame((prev) => {
+            const nextDialogue = appendMemoryEvent(prev.dialogue, {
+              type: 'partnerMessage',
+              detail: incoming.content || stickerInfo?.label || '貼圖留言',
+              actorId: incoming.authorId,
+              actorName: incoming.authorName,
+              isCoopHighlight: true,
+              createdAt: incoming.createdAt,
+            });
+            const evaluated = evaluateAndSelectDialogue(
+              { ...prev, dialogue: nextDialogue },
+              cloudUser.id
+            );
+            return {
+              ...prev,
+              dialogue: evaluated,
+            };
+          });
         }
       },
       onDelete: (deletedId) => {
@@ -474,7 +541,11 @@ export default function App() {
       return;
     }
 
-    const delayMs = sharedRoom ? 800 : 1500;
+    const delayMs = sharedRoom
+      ? game.coop.activeRoomSession?.status === 'active'
+        ? 250
+        : 800
+      : 1500;
     const timer = window.setTimeout(() => {
       setSyncStatus('syncing');
       setSyncError(null);
@@ -516,25 +587,60 @@ export default function App() {
     if (currentStage.level > prevStageLevelRef.current) {
       soundFX.levelUp(game.soundEnabled);
       setLevelUpStage(currentStage);
+      setGame((prev) => ({
+        ...prev,
+        dialogue: appendMemoryEvent(prev.dialogue, {
+          type: 'milestone',
+          detail: `升上 Lv.${currentStage.level} ${currentStage.name}`,
+        }),
+      }));
     }
     prevStageLevelRef.current = currentStage.level;
   }, [game.pet.growth, game.soundEnabled]);
+
+  // 啟動與回到頁面時評估一次對話氣泡（含昨日最愛食物回顧 / 急迫需求 / 時間問候）
+  useEffect(() => {
+    if (!game.pet.hatched) return;
+    const evaluateNow = () => {
+      setGame((prev) => {
+        if (!prev.pet.hatched) return prev;
+        const nextDialogue = evaluateAndSelectDialogue(prev, currentUserId);
+        return nextDialogue === prev.dialogue
+          ? prev
+          : { ...prev, dialogue: nextDialogue };
+      });
+    };
+    const initTimer = window.setTimeout(evaluateNow, 900);
+    window.addEventListener('focus', evaluateNow);
+    return () => {
+      window.clearTimeout(initTimer);
+      window.removeEventListener('focus', evaluateNow);
+    };
+  }, [game.pet.hatched, currentUserId]);
 
   useEffect(() => {
     if (!game.pet.hatched) return;
     const timer = window.setInterval(() => {
       setGame((prev) => {
         const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-        return {
+        const decayedPet = applyTimeDecay(prev.pet, 20000);
+        const syncedCoop = syncCoopHubState(prev.coop);
+        const draft: GameState = {
           ...prev,
           dailyTasks: synced.dailyTasks,
           dailyTasksDate: synced.dailyTasksDate,
-          pet: applyTimeDecay(prev.pet, 20000),
+          pet: decayedPet,
+          coop: syncedCoop,
+        };
+        const nextDialogue = evaluateAndSelectDialogue(draft, currentUserId);
+        return {
+          ...draft,
+          dialogue: nextDialogue,
         };
       });
     }, 20000);
     return () => window.clearInterval(timer);
-  }, [game.pet.hatched]);
+  }, [game.pet.hatched, currentUserId]);
 
   const clearAnimationTimers = () => {
     if (actionTimerRef.current) {
@@ -636,23 +742,42 @@ export default function App() {
     lastSpeechRef.current = nextSpeech;
     lastExpressionRef.current = nextExpression;
 
+    const isStormWeather = game.dialogue.weather.condition === 'storm';
     soundFX.petVoice(game.soundEnabled, game.pet.species);
     setTemporaryAction('petted', 1100, nextExpression);
-    pushFeedback(nextFeedback.text, nextFeedback.emoji);
+    pushFeedback(
+      isStormWeather ? `${nextFeedback.text} (雷雨安慰加成)` : nextFeedback.text,
+      nextFeedback.emoji
+    );
     setSpeech(nextSpeech);
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
+      const stormMoodBonus = prev.dialogue.weather.condition === 'storm' ? 2 : 0;
+      const stormIntimacyBonus = prev.dialogue.weather.condition === 'storm' ? 1 : 0;
       const nextGrowth = prev.pet.growth + 5;
+      const dev = applyPersonalityDevelopment(prev.personality, 'pet_or_message');
+      const zoneLabels: Record<PetTouchZone, string> = {
+        head: '摸摸頭',
+        cheek: '捏捏臉頰',
+        belly: '揉揉肚肚',
+        paw: '牽牽小手',
+      };
+      const nextDialogue = appendMemoryEvent(prev.dialogue, {
+        type: 'petted',
+        detail: zoneLabels[zone],
+      });
       return {
         ...prev,
         pet: {
           ...prev.pet,
-          mood: clampStat(prev.pet.mood + 6, 0, 100),
-          intimacy: prev.pet.intimacy + 2,
+          mood: clampStat(prev.pet.mood + 6 + stormMoodBonus, 0, 100),
+          intimacy: prev.pet.intimacy + 2 + stormIntimacyBonus,
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        personality: dev.nextPersonality,
+        dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'pet_3', 1),
         dailyTasksDate: synced.dailyTasksDate,
         noviceGrowth: {
@@ -724,15 +849,22 @@ export default function App() {
     const now = new Date();
     const dateStr = formatLocalDate(now);
     const timeStr = formatLocalTime(now);
-    const bonusMood = isFavorite ? 6 : 0;
-    const bonusGrowth = isFavorite ? 4 : 0;
-    const bonusIntimacy = isFavorite ? 1 : 0;
+    const effectiveFavorite = outcome.isFavorite;
+    const bonusMood = effectiveFavorite ? 6 : 0;
+    const bonusGrowth = effectiveFavorite ? 4 : 0;
+    const bonusIntimacy = effectiveFavorite ? 1 : 0;
+    const isDessertOrFastFood =
+      food.category === 'snack' || food.category === 'fastFood';
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const newWeight = clampWeight(prev.pet.weight + food.weightGain);
       const actualDelta = roundWeight(newWeight - prev.pet.weight);
       const nextGrowth = prev.pet.growth + food.growthGain + bonusGrowth;
+      const nextPersonality = isDessertOrFastFood
+        ? applyPersonalityDevelopment(prev.personality, 'feed_dessert_fastfood')
+            .nextPersonality
+        : prev.personality;
 
       const newWeightLog: WeightLog = {
         id: `wlog_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
@@ -742,8 +874,10 @@ export default function App() {
         note:
           nextFastFoodStreak >= 3
             ? '連吃三次速食，肚子圓鼓鼓建議散步'
-            : isFavorite
+            : effectiveFavorite
             ? `吃到${speciesInfo.shortName}最愛料理！心情與成長額外加成`
+            : outcome.isDisliked
+            ? `雖然不太合胃口，還是乖乖吃完了（零懲罰）`
             : `享用美味${FOOD_CATEGORY_LABELS[food.category]}，心情超好！`,
         weightDelta: actualDelta,
         timeStr,
@@ -760,6 +894,37 @@ export default function App() {
       const nextCollectedFoods = prev.encyclopedia.collectedFoodIds.includes(food.id)
         ? prev.encyclopedia.collectedFoodIds
         : [...prev.encyclopedia.collectedFoodIds, food.id];
+
+      let nextDialogue = prev.dialogue;
+      if (outcome.isStuffed) {
+        nextDialogue = appendMemoryEvent(nextDialogue, {
+          type: 'stuffed',
+          detail: food.name,
+          foodId: food.id,
+        });
+      } else if (effectiveFavorite) {
+        nextDialogue = appendMemoryEvent(nextDialogue, {
+          type: 'fedFavoriteFood',
+          detail: food.name,
+          foodId: food.id,
+        });
+      } else if (outcome.isDisliked) {
+        nextDialogue = appendMemoryEvent(nextDialogue, {
+          type: 'fedDislikedFood',
+          detail: food.name,
+          foodId: food.id,
+        });
+      }
+      if (sharedRoom) {
+        nextDialogue = appendMemoryEvent(nextDialogue, {
+          type: 'partnerFed',
+          detail: food.name,
+          foodId: food.id,
+          actorId: currentUserId,
+          actorName,
+          isCoopHighlight: true,
+        });
+      }
 
       const draftState: GameState = {
         ...prev,
@@ -778,6 +943,8 @@ export default function App() {
           intimacy: prev.pet.intimacy + 2 + bonusIntimacy,
           consecutiveFastFood: nextFastFoodStreak,
         },
+        personality: nextPersonality,
+        dialogue: nextDialogue,
         weightLogs: [newWeightLog, ...prev.weightLogs],
         feedLogs: [newFeedLog, ...prev.feedLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'feed_1', 1),
@@ -785,7 +952,7 @@ export default function App() {
         noviceGrowth: {
           ...prev.noviceGrowth,
           feedCount: prev.noviceGrowth.feedCount + 1,
-          fedFavoriteCount: prev.noviceGrowth.fedFavoriteCount + (isFavorite ? 1 : 0),
+          fedFavoriteCount: prev.noviceGrowth.fedFavoriteCount + (effectiveFavorite ? 1 : 0),
         },
         encyclopedia: {
           ...prev.encyclopedia,
@@ -805,6 +972,11 @@ export default function App() {
 
     setGame((prev) => {
       const nextGrowth = prev.pet.growth + 4;
+      const dev = applyPersonalityDevelopment(prev.personality, 'sleep');
+      const nextDialogue = appendMemoryEvent(prev.dialogue, {
+        type: 'slept',
+        detail: '安心午睡',
+      });
       return {
         ...prev,
         pet: {
@@ -813,6 +985,8 @@ export default function App() {
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        personality: dev.nextPersonality,
+        dialogue: nextDialogue,
       };
     });
   };
@@ -826,6 +1000,11 @@ export default function App() {
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const nextGrowth = prev.pet.growth + 6;
+      const dev = applyPersonalityDevelopment(prev.personality, 'clean_or_bath');
+      const nextDialogue = appendMemoryEvent(prev.dialogue, {
+        type: 'bathed',
+        detail: '香噴噴泡泡浴',
+      });
       return {
         ...prev,
         pet: {
@@ -835,6 +1014,8 @@ export default function App() {
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        personality: dev.nextPersonality,
+        dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'clean_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
       };
@@ -842,19 +1023,30 @@ export default function App() {
   };
 
   const handleWalk = () => {
+    const isSunny = game.dialogue.weather.condition === 'clear';
     soundFX.heart(game.soundEnabled);
     setTemporaryAction('walking', 1800, 'wink');
-    setSpeech('出來散步吹吹風，身體好輕鬆！');
-    pushFeedback('活力滿滿！', '🌿');
+    setSpeech(
+      isSunny
+        ? '大晴天出來散步曬太陽，心情好到飛起來！'
+        : '出來散步吹吹風，身體好輕鬆！'
+    );
+    pushFeedback(isSunny ? '晴天散步加成 +3 心情！' : '活力滿滿！', isSunny ? '☀️' : '🌿');
 
     setGame((prev) => {
       const nextGrowth = prev.pet.growth + 8;
       const newWeight = clampWeight(prev.pet.weight - 0.1);
+      const sunnyMoodBonus = prev.dialogue.weather.condition === 'clear' ? 3 : 0;
+      const sunnyIntimacyBonus = prev.dialogue.weather.condition === 'clear' ? 1 : 0;
+      const nextDialogue = appendMemoryEvent(prev.dialogue, {
+        type: 'walked',
+        detail: prev.dialogue.weather.condition === 'clear' ? '晴天外出散步' : '外出散步',
+      });
       return {
         ...prev,
         pet: {
           ...prev.pet,
-          mood: clampStat(prev.pet.mood + 12, 0, 100),
+          mood: clampStat(prev.pet.mood + 12 + sunnyMoodBonus, 0, 100),
           energy: clampStat(prev.pet.energy + 10, 0, 100),
           hunger: clampStat(prev.pet.hunger - 6, 0, 100),
           weight: newWeight,
@@ -862,8 +1054,9 @@ export default function App() {
           consecutiveFastFood: 0,
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
-          intimacy: prev.pet.intimacy + 1,
+          intimacy: prev.pet.intimacy + 1 + sunnyIntimacyBonus,
         },
+        dialogue: nextDialogue,
         noviceGrowth: {
           ...prev.noviceGrowth,
           walkCount: prev.noviceGrowth.walkCount + 1,
@@ -1070,7 +1263,29 @@ export default function App() {
     const preview = settleMinigameOutcome(game, result);
     const cfg = MINIGAME_BY_ID[result.gameId];
 
-    setGame((prev) => settleMinigameOutcome(prev, result).nextState);
+    setGame((prev) => {
+      const settled = settleMinigameOutcome(prev, result).nextState;
+      let nextPersonality = applyPersonalityDevelopment(
+        settled.personality,
+        'minigame'
+      ).nextPersonality;
+      let nextDialogue = settled.dialogue;
+      if (result.gameId === 'mudBath') {
+        nextPersonality = applyPersonalityDevelopment(
+          nextPersonality,
+          'clean_or_bath'
+        ).nextPersonality;
+        nextDialogue = appendMemoryEvent(nextDialogue, {
+          type: 'bathed',
+          detail: '泥巴澡小遊戲',
+        });
+      }
+      return {
+        ...settled,
+        personality: nextPersonality,
+        dialogue: nextDialogue,
+      };
+    });
 
     pushFeedback(`獲得 +${preview.reward.coins} 金幣`, '🪙');
     if (preview.reward.ingredientReward) {
@@ -1135,6 +1350,11 @@ export default function App() {
             ? { ...prev.pet.accessories, [item.slot]: item.id }
             : prev.pet.accessories,
         },
+        dialogue: appendMemoryEvent(prev.dialogue, {
+          type: 'newAccessory',
+          detail: item.name,
+          itemId: item.id,
+        }),
         noviceGrowth: {
           ...prev.noviceGrowth,
           boughtAccessoryCount: prev.noviceGrowth.boughtAccessoryCount + 1,
@@ -1172,6 +1392,10 @@ export default function App() {
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        dialogue: appendMemoryEvent(prev.dialogue, {
+          type: 'weightLogged',
+          detail: `${boundedWeight.toFixed(1)} kg`,
+        }),
         weightLogs: [newWeightLog, ...prev.weightLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'weigh_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
@@ -1556,6 +1780,18 @@ export default function App() {
         if (prev.some((m) => m.id === created.id)) return prev;
         return [...prev, created].slice(-80);
       });
+      setGame((prev) => ({
+        ...prev,
+        personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
+          .nextPersonality,
+        dialogue: appendMemoryEvent(prev.dialogue, {
+          type: 'partnerMessage',
+          detail: cleanText || stickerInfo?.label || '貼圖留言',
+          actorId: cloudUser.id,
+          actorName,
+          isCoopHighlight: true,
+        }),
+      }));
       soundFX.heart(game.soundEnabled);
       if (stickerInfo) {
         setSpeech(stickerInfo.caption);
@@ -1580,6 +1816,8 @@ export default function App() {
     setGame((prev) => ({
       ...prev,
       messages: [...prev.messages, localMsg].slice(-80),
+      personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
+        .nextPersonality,
     }));
     soundFX.heart(game.soundEnabled);
     if (stickerInfo) {
@@ -1605,6 +1843,240 @@ export default function App() {
       ...prev,
       messages: prev.messages.filter((m) => m.id !== messageId),
     }));
+  };
+
+  const handleUpdateHouseGame = (updater: (prev: GameState) => GameState) => {
+    setGame((prev) => {
+      const next = updater(prev);
+      const prevPlacedIds = new Set(prev.house.roomLayout.placedItems.map((p) => p.instanceId));
+      const newPlaced = next.house.roomLayout.placedItems.find((p) => !prevPlacedIds.has(p.instanceId));
+      const newCollectedId = next.house.collectedFurnitureIds.find(
+        (id) => !prev.house.collectedFurnitureIds.includes(id)
+      );
+      const changedItemId = newPlaced?.itemId ?? newCollectedId ?? null;
+      if (!changedItemId) {
+        return next;
+      }
+      const itemName = ROOM_ITEM_BY_ID[changedItemId]?.name ?? '新家具';
+      return {
+        ...next,
+        dialogue: appendMemoryEvent(next.dialogue, {
+          type: 'newRoomItem',
+          detail: itemName,
+          itemId: changedItemId,
+          actorId: currentUserId,
+          actorName,
+          isCoopHighlight: Boolean(sharedRoom),
+        }),
+      };
+    });
+  };
+
+  const handleRespondDialogue = (responseId: string) => {
+    const res = respondToActiveDialogue(gameRef.current, responseId);
+    if (!res.response) return;
+    soundFX.heart(game.soundEnabled);
+    setTemporaryAction(res.response.petAction, 1500, res.response.expression);
+    setSpeech(res.response.replyText);
+    pushFeedback(
+      `心情 +${res.response.moodGain} · 親密 +${res.response.intimacyGain}`,
+      '💬'
+    );
+    setGame(res.nextState);
+  };
+
+  const handleDismissDialogue = () => {
+    setGame((prev) => ({
+      ...prev,
+      dialogue: dismissActiveDialogue(prev.dialogue),
+    }));
+  };
+
+  const handleUpdateDialogueSettings = (patch: Partial<DialogueSettings>) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => ({
+      ...prev,
+      dialogue: updateDialogueSettings(prev.dialogue, patch),
+    }));
+  };
+
+  const handleStartCoopRoomSession = (themeId?: ThemeSetId) => {
+    const res = startRoomDecorSession(gameRef.current, themeId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🏡');
+        setSpeech(res.notice);
+      }
+    }
+  };
+
+  const handleSelectCoopFurniture = (itemId: string) => {
+    const res = selectCoopFurnitureForQueue(
+      gameRef.current,
+      itemId,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.pop(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) pushFeedback(res.notice, '🪑');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handlePlaceCoopCandidate = (queueId: string, x: number, y: number) => {
+    const prevCount = gameRef.current.house.roomLayout.placedItems.length;
+    const res = placeCoopCandidateInRoom(
+      gameRef.current,
+      queueId,
+      x,
+      y,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      let nextState = res.nextState;
+      if (nextState.house.roomLayout.placedItems.length > prevCount) {
+        const added =
+          nextState.house.roomLayout.placedItems[
+            nextState.house.roomLayout.placedItems.length - 1
+          ];
+        const itemName = added
+          ? ROOM_ITEM_BY_ID[added.itemId]?.name ?? '新家具'
+          : '新家具';
+        nextState = {
+          ...nextState,
+          dialogue: appendMemoryEvent(nextState.dialogue, {
+            type: 'newRoomItem',
+            detail: itemName,
+            itemId: added?.itemId,
+            actorId: currentUserId,
+            actorName,
+            isCoopHighlight: Boolean(sharedRoom),
+          }),
+        };
+      }
+      setGame(nextState);
+      if (res.notice) pushFeedback(res.notice, '✨');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleSettleCoopRoomSession = () => {
+    const res = settleRoomDecorSession(gameRef.current);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback('佈置挑戰結算！', '🎁');
+        setSpeech(res.notice);
+      }
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handlePlantCoopCrop = (plotId: number, ingredientId: IngredientId) => {
+    const res = plantCoopCrop(
+      gameRef.current,
+      plotId,
+      ingredientId,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.pop(game.soundEnabled);
+      setGame(res.nextState);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleHarvestCoopCrop = (plotId: number) => {
+    const res = harvestCoopCropToWarehouse(
+      gameRef.current,
+      plotId,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) pushFeedback(res.notice, '🧺');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleDepositCoopIngredient = (ingredientId: IngredientId) => {
+    const res = depositIngredientToCoopWarehouse(
+      gameRef.current,
+      ingredientId,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.pop(game.soundEnabled);
+      setGame(res.nextState);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleCookCoopRecipe = (recipe: KitchenRecipe) => {
+    const res = cookCoopOrderRecipe(
+      gameRef.current,
+      recipe,
+      currentUserId,
+      actorName
+    );
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(`完成「${recipe.name}」`, recipe.emoji);
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleClaimCoopReward = (rewardId: string) => {
+    const res = claimCoopReward(gameRef.current, rewardId, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback('領取合作獎勵！', '🎁');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleAcknowledgeOfflineEvents = () => {
+    setGame((prev) => acknowledgeOfflinePartnerEvents(prev, currentUserId));
+  };
+
+  const handleShareCoopCardToBoard = async (
+    title: string,
+    body: string
+  ): Promise<string | null> => {
+    return handleSendMessage(`💌 ${title}：${body}`, 'heart');
   };
 
   const handleConfirmReset = () => {
@@ -1642,8 +2114,6 @@ export default function App() {
     return handleSendMessage(`${cleanCaption} [photo:${photo.id}]`, null);
   };
 
-  const actorName = cloudUser?.email ? cloudUser.email.split('@')[0] || '飼主' : '飼主';
-
   const activeMessages = sharedRoom ? sharedMessages : game.messages;
   const latestMessage =
     activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
@@ -1652,6 +2122,15 @@ export default function App() {
   const claimableQuestsCount =
     game.dailyTasks.filter((t) => t.completed && !t.claimed).length +
     noviceEval.claimableCount;
+
+  const unclaimedCoopRewardsCount = game.coop.pendingRewards.filter(
+    (r) => !r.claimedByUserIds.includes(currentUserId)
+  ).length;
+  const offlinePartnerEventsCount = getOfflinePartnerEvents(
+    game.coop,
+    currentUserId
+  ).length;
+  const coopBadgeCount = unclaimedCoopRewardsCount + offlinePartnerEventsCount;
 
   const cloudDotColor =
     syncStatus === 'synced'
@@ -1666,15 +2145,24 @@ export default function App() {
     <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-hidden">
       <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-hidden">
         {!game.pet.hatched ? (
-          <IntroHatching
-            defaultName={game.pet.name}
-            defaultSpecies={game.pet.species}
-            onComplete={handleHatchComplete}
-            onEggTapSound={() => soundFX.pop(game.soundEnabled)}
-            onHatchSound={() => soundFX.hatch(game.soundEnabled)}
-            onOpenCloudAuth={() => setAuthModalOpen(true)}
-            onOpenSharedPet={() => setSharedModalOpen(true)}
-          />
+          <>
+            <PWAUpdateBanner
+              show={showUpdateBanner}
+              updating={updatingApp}
+              onUpdate={() => void handleApplyAppUpdate()}
+              onDismiss={handleDismissAppUpdate}
+              stickyClassName="sticky top-2 z-40"
+            />
+            <IntroHatching
+              defaultName={game.pet.name}
+              defaultSpecies={game.pet.species}
+              onComplete={handleHatchComplete}
+              onEggTapSound={() => soundFX.pop(game.soundEnabled)}
+              onHatchSound={() => soundFX.hatch(game.soundEnabled)}
+              onOpenCloudAuth={() => setAuthModalOpen(true)}
+              onOpenSharedPet={() => setSharedModalOpen(true)}
+            />
+          </>
         ) : (
           <>
             <header className="sticky top-0 z-30 h-14 px-3.5 bg-[#FFFDF8]/92 backdrop-blur-md border-b-2 border-[#F4DFD8] flex items-center justify-between gap-2">
@@ -1736,6 +2224,13 @@ export default function App() {
 
             <OfflineIndicator />
 
+            <PWAUpdateBanner
+              show={showUpdateBanner}
+              updating={updatingApp}
+              onUpdate={() => void handleApplyAppUpdate()}
+              onDismiss={handleDismissAppUpdate}
+            />
+
             <main className="flex-1 overflow-y-auto overflow-x-hidden">
               {activeTab === 'home' && (
                 <HomeView
@@ -1775,6 +2270,16 @@ export default function App() {
                   latestMessage={latestMessage}
                   unreadMessagesCount={unreadMessagesCount}
                   onOpenMessageBoard={handleOpenMessageBoard}
+                  personality={game.personality}
+                  onOpenPersonality={() => setPersonalityModalOpen(true)}
+                  onOpenCoopGames={() => setCoopModalOpen(true)}
+                  coopBadgeCount={coopBadgeCount}
+                  activeDialogue={game.dialogue.activeBubble}
+                  weather={game.dialogue.weather}
+                  dialogueHistoryCount={game.dialogue.history.length}
+                  onRespondDialogue={handleRespondDialogue}
+                  onDismissDialogue={handleDismissDialogue}
+                  onOpenDialogueHistory={() => setDialogueHistoryOpen(true)}
                 />
               )}
 
@@ -1819,6 +2324,7 @@ export default function App() {
               {activeTab === 'journal' && (
                 <JournalView
                   pet={game.pet}
+                  personality={game.personality}
                   weightLogs={game.weightLogs}
                   onRecordWeight={handleRecordWeight}
                   onRequestReset={() => setResetModalOpen(true)}
@@ -1840,6 +2346,8 @@ export default function App() {
                   }}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
                   onSelectTitle={handleSelectTitle}
+                  dialogueCount={game.dialogue.history.length}
+                  onOpenDialogueHistory={() => setDialogueHistoryOpen(true)}
                 />
               )}
 
@@ -1931,6 +2439,7 @@ export default function App() {
           onRegenerateInviteCode={handleRegenerateInviteCode}
           onLeaveSharedRoom={handleLeaveSharedRoom}
           onRefreshSharedRoom={handleRefreshSharedRoom}
+          onOpenCoopGames={() => setCoopModalOpen(true)}
         />
 
         <MessageBoardModal
@@ -1966,14 +2475,50 @@ export default function App() {
           game={game}
           sharedRoom={sharedRoom}
           actorName={actorName}
-          onUpdateGame={(updater) => setGame(updater)}
+          onUpdateGame={handleUpdateHouseGame}
           onOpenSharedPet={() => setSharedModalOpen(true)}
+          onOpenCoopGames={() => setCoopModalOpen(true)}
           onOpenHouseEncyclopedia={() => {
             setJournalInitialSection('encyclopedia');
             setJournalEncyclopediaSection('house');
             setActiveTab('journal');
           }}
           onSharePhotoToBoard={handleSharePhotoToBoard}
+        />
+
+        <PersonalityProfileModal
+          open={personalityModalOpen}
+          onClose={() => setPersonalityModalOpen(false)}
+          pet={game.pet}
+          personality={game.personality}
+        />
+
+        <DialogueHistoryModal
+          open={dialogueHistoryOpen}
+          onClose={() => setDialogueHistoryOpen(false)}
+          pet={game.pet}
+          dialogue={game.dialogue}
+          onUpdateSettings={handleUpdateDialogueSettings}
+        />
+
+        <CoopHubModal
+          open={coopModalOpen}
+          onClose={() => setCoopModalOpen(false)}
+          game={game}
+          sharedRoom={sharedRoom}
+          currentUserId={currentUserId}
+          actorName={actorName}
+          onStartRoomSession={handleStartCoopRoomSession}
+          onSelectFurniture={handleSelectCoopFurniture}
+          onPlaceCandidate={handlePlaceCoopCandidate}
+          onSettleRoomSession={handleSettleCoopRoomSession}
+          onPlantCoopCrop={handlePlantCoopCrop}
+          onHarvestCoopCrop={handleHarvestCoopCrop}
+          onDepositIngredient={handleDepositCoopIngredient}
+          onCookCoopRecipe={handleCookCoopRecipe}
+          onClaimReward={handleClaimCoopReward}
+          onAcknowledgeOfflineEvents={handleAcknowledgeOfflineEvents}
+          onShareCardToBoard={handleShareCoopCardToBoard}
         />
       </div>
     </div>

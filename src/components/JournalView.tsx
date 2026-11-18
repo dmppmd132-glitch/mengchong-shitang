@@ -4,12 +4,14 @@ import {
   Camera,
   Cloud,
   MessageCircleHeart,
+  MessageSquareText,
   Minus,
   NotebookPen,
   Plus,
   RotateCcw,
   Scale,
   Send,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
@@ -18,6 +20,7 @@ import {
   CloudUser,
   EncyclopediaState,
   Pet,
+  PetPersonality,
   RoomPhotoRecord,
   SharedHouse,
   SharedPetRoom,
@@ -27,9 +30,11 @@ import {
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 import { EncyclopediaSection, EncyclopediaView } from './EncyclopediaView';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
+import { PersonalityProfileView } from './PersonalityProfileView';
 
 interface JournalViewProps {
   pet: Pet;
+  personality: PetPersonality;
   weightLogs: WeightLog[];
   onRecordWeight: (newWeight: number, note?: string) => void;
   onRequestReset: () => void;
@@ -43,11 +48,13 @@ interface JournalViewProps {
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
   house: SharedHouse;
-  initialSection?: 'journal' | 'encyclopedia';
+  initialSection?: 'journal' | 'personality' | 'encyclopedia';
   initialEncyclopediaSection?: EncyclopediaSection;
   onOpenHousePhotoMode?: () => void;
   onSharePhotoToBoard?: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
   onSelectTitle?: (titleId: TitleId | null) => void;
+  dialogueCount?: number;
+  onOpenDialogueHistory?: () => void;
 }
 
 interface ChartPoint {
@@ -58,6 +65,7 @@ interface ChartPoint {
 
 export const JournalView: React.FC<JournalViewProps> = ({
   pet,
+  personality,
   weightLogs,
   onRecordWeight,
   onRequestReset,
@@ -76,8 +84,12 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onOpenHousePhotoMode,
   onSharePhotoToBoard,
   onSelectTitle,
+  dialogueCount = 0,
+  onOpenDialogueHistory,
 }) => {
-  const [section, setSection] = useState<'journal' | 'encyclopedia'>(initialSection);
+  const [section, setSection] = useState<'journal' | 'personality' | 'encyclopedia'>(
+    initialSection
+  );
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
   const [customNote, setCustomNote] = useState<string>('');
@@ -211,29 +223,41 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
-      <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-3 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('journal')}
-          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
             section === 'journal'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <NotebookPen className="w-4 h-4" />
+          <NotebookPen className="w-3.5 h-3.5 shrink-0" />
           <span>成長手帳</span>
         </button>
         <button
           type="button"
+          onClick={() => setSection('personality')}
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
+            section === 'personality'
+              ? 'bg-white text-[#9D5B12] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+          <span>個性檔案</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setSection('encyclopedia')}
-          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+          className={`min-h-[42px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition ${
             section === 'encyclopedia'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
+          <BookOpen className="w-3.5 h-3.5 shrink-0" />
           <span>收集圖鑑</span>
         </button>
       </div>
@@ -246,6 +270,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
         />
+      ) : section === 'personality' ? (
+        <PersonalityProfileView pet={pet} personality={personality} />
       ) : (
         <>
       <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#FFF6DA] border-2 border-[#F5DFD7] p-4">
@@ -573,6 +599,25 @@ export const JournalView: React.FC<JournalViewProps> = ({
           </div>
         )}
       </section>
+
+      {onOpenDialogueHistory && (
+        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-extrabold text-[#4A3531]">寵物對話紀錄與設定</h2>
+            <p className="text-xs text-[#7D635D] mt-0.5 truncate">
+              已保存 {dialogueCount} 則主動對話，可關閉天氣與夜間通知
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenDialogueHistory}
+            className="min-h-[44px] px-4 rounded-2xl bg-[#EAF3FF] border border-[#B6D1FA] text-xs font-extrabold text-[#2F5B9E] inline-flex items-center gap-1.5 hover:bg-[#DCEBFF] active:scale-95 transition whitespace-nowrap shrink-0"
+          >
+            <MessageSquareText className="w-3.5 h-3.5" />
+            <span>對話紀錄</span>
+          </button>
+        </section>
+      )}
 
       {onOpenMessageBoard && (
         <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">

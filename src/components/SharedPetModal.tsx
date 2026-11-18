@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Check,
   Copy,
+  Gamepad2,
   HeartHandshake,
   Loader2,
   LogOut,
@@ -27,6 +28,7 @@ interface SharedPetModalProps {
   onRegenerateInviteCode: () => Promise<string | null>;
   onLeaveSharedRoom: () => Promise<string | null>;
   onRefreshSharedRoom: () => Promise<string | null>;
+  onOpenCoopGames?: () => void;
 }
 
 function formatUpdatedTime(isoStr: string | null): string {
@@ -56,6 +58,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
   onRegenerateInviteCode,
   onLeaveSharedRoom,
   onRefreshSharedRoom,
+  onOpenCoopGames,
 }) => {
   const [inviteInput, setInviteInput] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -325,6 +328,20 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
               <p className="text-xs font-bold text-[#256D57] bg-[#E3F7F0] rounded-xl px-3 py-2">
                 {infoMsg}
               </p>
+            )}
+
+            {onOpenCoopGames && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenCoopGames();
+                }}
+                className="w-full min-h-[46px] rounded-2xl bg-gradient-to-r from-[#FF7A9E] to-[#FF9B7A] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] hover:brightness-105 active:translate-y-0.5 transition flex items-center justify-center gap-1.5"
+              >
+                <Gamepad2 className="w-4 h-4" />
+                <span>進入「合作遊戲」（雙人佈置＆農場接力）</span>
+              </button>
             )}
 
             {!confirmLeave ? (

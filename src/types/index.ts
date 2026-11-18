@@ -199,7 +199,289 @@ export type TitleId =
   | 'fashion_stylist'
   | 'strawberry_dreamer'
   | 'forest_camper'
-  | 'cloud_napper';
+  | 'cloud_napper'
+  | 'coop_partner';
+
+export type PersonalityId =
+  | 'greedy'
+  | 'sleepy'
+  | 'mischievous'
+  | 'clingy'
+  | 'elegant'
+  | 'curious'
+  | 'lively'
+  | 'shy';
+
+export interface PetPersonality {
+  primary: PersonalityId;
+  secondary: PersonalityId;
+  scores: Record<PersonalityId, number>;
+  careActionCounts: Record<string, number>;
+  lastUpdatedAt: number;
+}
+
+export interface PetPreference {
+  species: PetSpecies;
+  favoriteFoodIds: string[];
+  favoriteToyIds: string[];
+  favoriteFurnitureIds: string[];
+  dislikedFoodIds: string[];
+  dislikedToyIds: string[];
+  dislikedFurnitureIds: string[];
+}
+
+export interface Toy {
+  id: string;
+  name: string;
+  emoji: string;
+  category: 'toy';
+  zone: 'play';
+  price: number;
+  sellPrice: number;
+  description: string;
+  petReactionText: string;
+  petAction: PiggyActionState;
+}
+
+export type CoopGameType = 'room_decor' | 'farm_relay';
+
+export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
+
+export type CoopBadgeId = 'best_partner' | 'room_stylist' | 'farm_relay_master';
+
+export interface CoopGoal {
+  id: string;
+  gameType: CoopGameType;
+  title: string;
+  description: string;
+  themeId?: ThemeSetId;
+  targetItemCount?: number;
+  requiredFoodCounts?: Record<string, number>;
+  requiredHarvestTotal?: number;
+  requiredCraftTotal?: number;
+}
+
+export interface CoopProgress {
+  completedCount: number;
+  targetCount: number;
+  harvestedCount: number;
+  harvestTarget: number;
+  craftedCount: number;
+  craftTarget: number;
+  foodsDone: Record<string, number>;
+}
+
+export interface CoopReward {
+  id: string;
+  gameType: CoopGameType;
+  title: string;
+  coins: number;
+  furnitureShards: number;
+  intimacy: number;
+  rareIngredients: Partial<Record<IngredientId, number>>;
+  badgeId?: CoopBadgeId;
+  messageCardTitle?: string;
+  messageCardBody?: string;
+  claimedByUserIds: string[];
+  createdAt: number;
+}
+
+export interface CoopRoomCandidate {
+  queueId: string;
+  itemId: string;
+  selectedByUserId: string;
+  selectedByName: string;
+  selectedAt: number;
+  placed: boolean;
+}
+
+export interface CoopOfflineEvent {
+  id: string;
+  actorUserId: string;
+  actorName: string;
+  gameType: CoopGameType;
+  summary: string;
+  createdAt: number;
+}
+
+export interface CoopMessageCard {
+  id: string;
+  title: string;
+  body: string;
+  emoji: string;
+  earnedDate: string;
+  createdAt: number;
+}
+
+export interface CoopSession {
+  id: string;
+  gameType: CoopGameType;
+  status: 'idle' | 'active' | 'completed' | 'expired';
+  themeId: ThemeSetId;
+  goal: CoopGoal;
+  progress: CoopProgress;
+  startedAt: number;
+  expiresAt: number;
+  durationSeconds: number;
+  candidateQueue: CoopRoomCandidate[];
+  placedInstanceIds: string[];
+  settled: boolean;
+  rewardId: string | null;
+}
+
+export interface CoopFarmOrderState {
+  dateKey: string;
+  goal: CoopGoal;
+  progress: CoopProgress;
+  expiresAt: number;
+  completed: boolean;
+  overdue: boolean;
+  rewardClaimed: boolean;
+  rewardId: string | null;
+}
+
+export interface CoopHubState {
+  activeRoomSession: CoopSession | null;
+  dailyFarmOrder: CoopFarmOrderState;
+  sharedWarehouse: Record<IngredientId, number>;
+  coopFarmPlots: CropPlot[];
+  pendingRewards: CoopReward[];
+  unlockedBadges: CoopBadgeId[];
+  earnedCards: CoopMessageCard[];
+  streakDays: number;
+  lastCoopCompletedDate: string | null;
+  offlineEvents: CoopOfflineEvent[];
+  lastSeenByUserId: Record<string, number>;
+}
+
+export type DialogueId = string;
+
+export type DialogueCategory =
+  | 'urgent'
+  | 'memory'
+  | 'special'
+  | 'personality'
+  | 'time'
+  | 'weather'
+  | 'daily'
+  | 'coop';
+
+export type WeatherCondition =
+  | 'clear'
+  | 'cloudy'
+  | 'rain'
+  | 'snow'
+  | 'storm'
+  | 'hot'
+  | 'windy';
+
+export interface WeatherState {
+  condition: WeatherCondition;
+  temperatureC: number;
+  label: string;
+  emoji: string;
+  source: 'fixed' | 'api_ready';
+  updatedAt: number;
+}
+
+export type TimePeriodId =
+  | 'dawn'
+  | 'morning'
+  | 'noon'
+  | 'afternoon'
+  | 'evening'
+  | 'night'
+  | 'late_night';
+
+export type PetMemoryEventType =
+  | 'fedFavoriteFood'
+  | 'fedDislikedFood'
+  | 'petted'
+  | 'bathed'
+  | 'walked'
+  | 'slept'
+  | 'newAccessory'
+  | 'newRoomItem'
+  | 'partnerMessage'
+  | 'partnerFed'
+  | 'weightLogged'
+  | 'stuffed'
+  | 'milestone';
+
+export interface PetMemoryEvent {
+  id: string;
+  type: PetMemoryEventType;
+  detail: string;
+  createdAt: number;
+  dateKey: string;
+  actorId?: string;
+  actorName?: string;
+  foodId?: string;
+  itemId?: string;
+  mentionedAt?: number | null;
+  isCoopHighlight?: boolean;
+}
+
+export type DialogueActionType =
+  | 'walk'
+  | 'feed_pudding'
+  | 'feed_meal'
+  | 'hug'
+  | 'sleep'
+  | 'bath'
+  | 'ack';
+
+export interface DialogueResponse {
+  id: string;
+  label: string;
+  emoji: string;
+  actionType: DialogueActionType;
+  replyText: string;
+  intimacyGain: number;
+  moodGain: number;
+  petAction: PiggyActionState;
+  expression: PetExpression;
+}
+
+export interface DialogueLine {
+  id: DialogueId;
+  category: DialogueCategory;
+  text: string;
+  priority: number;
+  createdAt: number;
+  memoryEventId?: string;
+  memoryEventType?: PetMemoryEventType;
+  timePeriod?: TimePeriodId;
+  weatherCondition?: WeatherCondition;
+  responses: DialogueResponse[];
+  respondedId?: string | null;
+  respondedLabel?: string;
+  isCoopHighlight?: boolean;
+  actorId?: string;
+}
+
+export interface DialogueSettings {
+  muteWeatherChat: boolean;
+  muteNightNotice: boolean;
+  muteAllProactive: boolean;
+}
+
+export interface DialogueState {
+  activeBubble: DialogueLine | null;
+  history: DialogueLine[];
+  memoryEvents: PetMemoryEvent[];
+  settings: DialogueSettings;
+  weather: WeatherState;
+  lastProactiveAt: number;
+  nextCooldownMs: number;
+  dailyKey: string;
+  urgentRemindersToday: number;
+  lastUrgentAtByStat: Partial<Record<'hunger' | 'mood' | 'cleanliness' | 'energy', number>>;
+  greetedPeriodsToday: TimePeriodId[];
+  consecutiveCareDays: number;
+  lastCareDate: string | null;
+  announcedWeightMilestones: number[];
+}
 
 export type StageBackgroundId = 'default' | 'starlight_garden';
 
@@ -239,7 +521,7 @@ export interface FeedingReactionRule {
   particleEmojis: string[];
 }
 
-import type { SharedHouse } from './house';
+import type { SharedHouse, ThemeSetId } from './house';
 
 export type {
   RoomZone,
@@ -270,6 +552,7 @@ export interface GameState {
   version: number;
   pet: Pet;
   coins: number;
+  furnitureShards: number;
   foods: Record<string, number>;
   ingredients: Record<IngredientId, number>;
   farmPlots: CropPlot[];
@@ -287,6 +570,9 @@ export interface GameState {
   activeBackground: StageBackgroundId;
   minigameHub: MinigameHubState;
   house: SharedHouse;
+  personality: PetPersonality;
+  coop: CoopHubState;
+  dialogue: DialogueState;
 }
 
 export interface FloatingFeedback {

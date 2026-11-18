@@ -81,11 +81,92 @@ function getPalette(themeId: ThemeSetId | null, itemId: string) {
   };
 }
 
+function renderToySvg(itemId: string) {
+  switch (itemId) {
+    case 'toy_rainbow_ball':
+      return (
+        <g>
+          <circle cx="32" cy="34" r="17" fill="#FF7A9E" stroke="#5C3E31" strokeWidth="1.8" />
+          <path d="M18 24 Q32 16 46 24" stroke="#FFD166" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+          <path d="M16 34 Q32 27 48 34" stroke="#5CC9A7" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+          <path d="M19 43 Q32 37 45 43" stroke="#74A7F2" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+          <circle cx="25" cy="24" r="2.8" fill="#FFFFFF" opacity="0.85" />
+        </g>
+      );
+    case 'toy_mini_tent':
+      return (
+        <g>
+          <path d="M32 14 L12 49 H52 Z" fill="#59B487" stroke="#2D4D3B" strokeWidth="1.8" strokeLinejoin="round" />
+          <path d="M32 14 L23 49 H41 Z" fill="#FFF3D8" />
+          <path d="M32 24 L26 49 H38 Z" fill="#4A3531" opacity="0.85" />
+          <path d="M32 14 V10" stroke="#D48A45" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M32 10 L40 12 L32 14 Z" fill="#FF7A9E" />
+        </g>
+      );
+    case 'toy_throw_pillow':
+      return (
+        <g>
+          <path
+            d="M15 22 Q32 17 49 22 Q53 34 49 46 Q32 51 15 46 Q11 34 15 22 Z"
+            fill="#FF9EB8"
+            stroke="#6D2C43"
+            strokeWidth="1.8"
+          />
+          <circle cx="22" cy="27" r="2.5" fill="#FFF6FA" />
+          <circle cx="42" cy="27" r="2.5" fill="#FFF6FA" />
+          <circle cx="22" cy="41" r="2.5" fill="#FFF6FA" />
+          <circle cx="42" cy="41" r="2.5" fill="#FFF6FA" />
+          <path d="M27 33 Q32 38 37 33" stroke="#6D2C43" strokeWidth="2" strokeLinecap="round" fill="none" />
+          <circle cx="32" cy="34" r="5" fill="#FFEAF0" opacity="0.7" />
+        </g>
+      );
+    case 'toy_puzzle_cube':
+      return (
+        <g>
+          <rect x="16" y="18" width="16" height="16" rx="3" fill="#FF8AA8" stroke="#5C3E31" strokeWidth="1.5" />
+          <rect x="32" y="18" width="16" height="16" rx="3" fill="#FFD166" stroke="#5C3E31" strokeWidth="1.5" />
+          <rect x="16" y="34" width="16" height="16" rx="3" fill="#74A7F2" stroke="#5C3E31" strokeWidth="1.5" />
+          <rect x="32" y="34" width="16" height="16" rx="3" fill="#5CC9A7" stroke="#5C3E31" strokeWidth="1.5" />
+          <circle cx="24" cy="26" r="2.5" fill="#FFFFFF" />
+          <circle cx="40" cy="42" r="2.5" fill="#FFFFFF" />
+        </g>
+      );
+    case 'toy_mirror':
+      return (
+        <g>
+          <rect x="29" y="42" width="6" height="8" rx="2" fill="#C78E5D" />
+          <ellipse cx="32" cy="51" rx="13" ry="3.5" fill="#E59F6C" stroke="#5C3E31" strokeWidth="1.4" />
+          <ellipse cx="32" cy="28" rx="14" ry="17" fill="#FFE8B6" stroke="#5C3E31" strokeWidth="1.8" />
+          <ellipse cx="32" cy="28" rx="10" ry="13" fill="#DFF3FF" stroke="#B6D9EE" strokeWidth="1.2" />
+          <path d="M26 22 L30 18 M25 29 L33 21" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
+        </g>
+      );
+    case 'toy_frisbee':
+      return (
+        <g>
+          <ellipse cx="32" cy="35" rx="22" ry="11" fill="#6BB6F5" stroke="#2F5B9E" strokeWidth="1.8" />
+          <ellipse cx="32" cy="33" rx="16" ry="7" fill="#B8E0FF" />
+          <ellipse cx="32" cy="32" rx="9" ry="3.5" fill="#FFD166" />
+        </g>
+      );
+    default:
+      return (
+        <g>
+          <circle cx="32" cy="34" r="15" fill="#FF8AA8" stroke="#5C3E31" strokeWidth="1.8" />
+          <circle cx="28" cy="29" r="3" fill="#FFFFFF" opacity="0.8" />
+        </g>
+      );
+  }
+}
+
 function renderCategorySvg(
   category: FurnitureCategory,
-  p: ReturnType<typeof getPalette>
+  p: ReturnType<typeof getPalette>,
+  itemId: string
 ) {
   switch (category) {
+    case 'toy':
+      return renderToySvg(itemId);
     case 'bed':
       return (
         <g>
@@ -238,7 +319,7 @@ export const FurnitureGraphic: React.FC<FurnitureGraphicProps> = ({
       className={className}
       aria-hidden="true"
     >
-      {renderCategorySvg(item.category, palette)}
+      {renderCategorySvg(item.category, palette, item.id)}
     </svg>
   );
 };

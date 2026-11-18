@@ -22,6 +22,7 @@ import {
   getZoneForCell,
 } from '../data/house';
 import { INGREDIENTS } from '../data/kitchen';
+import { FAVORITE_ITEM_BUBBLE_SPEECHES } from '../data/personality';
 import {
   CropPlot,
   FarmDecorationId,
@@ -30,7 +31,11 @@ import {
   FurnitureNote,
   GameState,
   IngredientId,
+  PetExpression,
+  PetSpecies,
+  PiggyActionState,
   PlacedRoomItem,
+  RoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
   RoomZone,
@@ -41,6 +46,11 @@ import {
   TitleId,
   WallpaperId,
 } from '../types';
+import {
+  PreferenceMatch,
+  applyPersonalityDevelopment,
+  evaluateItemPreference,
+} from './personality';
 
 export type PaymentSource = 'personal' | 'treasury';
 
@@ -327,8 +337,14 @@ export function buyFurnitureItem(
     ? curHouse.collectedFurnitureIds
     : [...curHouse.collectedFurnitureIds, item.id];
 
+  const nextPersonality = applyPersonalityDevelopment(
+    paid.nextState.personality,
+    'buy_furniture'
+  ).nextPersonality;
+
   const draft: GameState = {
     ...paid.nextState,
+    personality: nextPersonality,
     house: {
       ...curHouse,
       ownedFurnitureCounts: {
@@ -1132,3 +1148,247 @@ export function saveRoomSnapshotPhoto(
   const synced = syncHouseProgress(draft);
   return { nextState: synced.nextState, photo };
 }
+
+export type HousePetReactionType = 'sleep' | 'play';
+
+export interface HousePetCoordinates {
+  cellX: number;
+  cellY: number;
+  xPercent: number;
+  yPercent: number;
+}
+
+export interface HousePetInteractionTarget {
+  placedItem: PlacedRoomItem;
+  item: RoomItem;
+  reactionType: HousePetReactionType;
+  preferenceMatch: PreferenceMatch;
+  petAction: PiggyActionState;
+  expression: PetExpression;
+  reactionText: string;
+  approachText: string;
+  furnitureCoordinates: HousePetCoordinates;
+  targetCoordinates: HousePetCoordinates;
+  entryCoordinates: HousePetCoordinates;
+}
+
+export function getHouseFurnitureReactionType(
+  item: RoomItem,
+  species?: PetSpecies
+): HousePetReactionType | null {
+  if (item.category === 'bed' || item.category === 'pillow' || item.category === 'blanket') {
+    return 'sleep';
+  }
+  if (item.category === 'toyBall' || item.category === 'toy' || item.category === 'rug') {
+    return 'play';
+  }
+  if (
+    species &&
+    (item.category === 'snackRack' || item.category === 'plant') &&
+    evaluateItemPreference(species, item.id) === 'favorite'
+  ) {
+    return 'play';
+  }
+  return null;
+}
+
+export function calculateRoomCellCoordinates(
+  cellX: number,
+  cellY: number,
+  cols = ROOM_GRID_COLS,
+  rows = ROOM_GRID_ROWS
+): HousePetCoordinates {
+  const safeCols = Math.max(1, cols);
+  const safeRows = Math.max(1, rows);
+  const clampedX = Math.max(0, Math.min(safeCols - 1, cellX));
+  const clampedY = Math.max(0, Math.min(safeRows - 1, cellY));
+
+  return {
+    cellX: clampedX,
+    cellY: clampedY,
+    xPercent: Number((((clampedX + 0.5) / safeCols) * 100).toFixed(2)),
+    yPercent: Number((((clampedY + 0.5) / safeRows) * 100).toFixed(2)),
+  };
+}
+
+export function calculatePetInteractionCoordinates(
+  placedItem: PlacedRoomItem,
+  reactionType: HousePetReactionType,
+  cols = ROOM_GRID_COLS,
+  rows = ROOM_GRID_ROWS
+): HousePetCoordinates {
+  const safeCols = Math.max(1, cols);
+  const safeRows = Math.max(1, rows);
+
+  if (reactionType === 'sleep') {
+    // 睡覺時貼近／窩在床鋪正上方一點的位置
+    const targetCellX = placedItem.x;
+    const targetCellY = Math.max(0, placedItem.y - 0.14);
+    return {
+      cellX: targetCellX,
+      cellY: targetCellY,
+      xPercent: Number((((targetCellX + 0.5) / safeCols) * 100).toFixed(2)),
+      yPercent: Number(
+        Math.max(14, Math.min(86, ((targetCellY + 0.45) / safeRows) * 100)).toFixed(2)
+      ),
+    };
+  }
+
+  // 玩耍時站在玩具旁側邊互動，避免完全遮住玩具
+  const offsetDirection = placedItem.x >= safeCols / 2 ? -0.36 : 0.36;
+  const targetCellX = Math.max(0.1, Math.min(safeCols - 1.1, placedItem.x + offsetDirection));
+  const targetCellY = placedItem.y;
+
+  return {
+    cellX: targetCellX,
+    cellY: targetCellY,
+    xPercent: Number(
+      Math.max(10, Math.min(90, ((targetCellX + 0.5) / safeCols) * 100)).toFixed(2)
+    ),
+    yPercent: Number(
+      Math.max(14, Math.min(86, ((targetCellY + 0.52) / safeRows) * 100)).toFixed(2)
+    ),
+  };
+}
+
+export function getHouseEntryCoordinates(
+  cols = ROOM_GRID_COLS,
+  rows = ROOM_GRID_ROWS
+): HousePetCoordinates {
+  const safeCols = Math.max(1, cols);
+  const safeRows = Math.max(1, rows);
+  const entryCellX = (safeCols - 1) / 2;
+  const entryCellY = safeRows - 0.25;
+  return {
+    cellX: entryCellX,
+    cellY: entryCellY,
+    xPercent: 50,
+    yPercent: 90,
+  };
+}
+
+export function selectRandomHouseInteraction(
+  house: SharedHouse,
+  options?: {
+    excludeInstanceId?: string;
+    preferredInstanceId?: string;
+    species?: PetSpecies;
+  }
+): HousePetInteractionTarget | null {
+  const cols = house.roomLayout.cols || ROOM_GRID_COLS;
+  const rows = house.roomLayout.rows || ROOM_GRID_ROWS;
+  const placedItems = house.roomLayout.placedItems;
+  const species = options?.species;
+
+  if (placedItems.length === 0) return null;
+
+  const entryCoordinates = getHouseEntryCoordinates(cols, rows);
+
+  const buildTarget = (placedItem: PlacedRoomItem): HousePetInteractionTarget | null => {
+    const item = ROOM_ITEM_BY_ID[placedItem.itemId];
+    if (!item) return null;
+    const reactionType = getHouseFurnitureReactionType(item, species);
+    if (!reactionType) return null;
+
+    const preferenceMatch: PreferenceMatch = species
+      ? evaluateItemPreference(species, item.id)
+      : 'neutral';
+
+    const furnitureCoordinates = calculateRoomCellCoordinates(
+      placedItem.x,
+      placedItem.y,
+      cols,
+      rows
+    );
+    const targetCoordinates = calculatePetInteractionCoordinates(
+      placedItem,
+      reactionType,
+      cols,
+      rows
+    );
+
+    const petAction: PiggyActionState =
+      reactionType === 'sleep' ? 'sleeping' : 'walking';
+    const expression: PetExpression =
+      preferenceMatch === 'favorite'
+        ? 'sparkle'
+        : reactionType === 'sleep'
+        ? 'shy'
+        : item.category === 'toyBall' || item.category === 'toy'
+        ? 'sparkle'
+        : 'happyTongue';
+
+    const favPool = species ? FAVORITE_ITEM_BUBBLE_SPEECHES[species] : [];
+    const favoriteReaction =
+      preferenceMatch === 'favorite' && favPool.length > 0
+        ? `${item.petReactionText}（${favPool[Math.floor(Math.random() * favPool.length)]}）`
+        : preferenceMatch === 'disliked'
+        ? `雖然「${item.name}」普通，還是散步經過看一眼～`
+        : item.petReactionText;
+
+    const approachText =
+      preferenceMatch === 'favorite'
+        ? `眼睛發亮！發現最愛的「${item.name}」跑過去囉！`
+        : `正走向「${item.name}」…`;
+
+    return {
+      placedItem,
+      item,
+      reactionType,
+      preferenceMatch,
+      petAction,
+      expression,
+      reactionText: favoriteReaction,
+      approachText,
+      furnitureCoordinates,
+      targetCoordinates,
+      entryCoordinates,
+    };
+  };
+
+  if (options?.preferredInstanceId) {
+    const preferred = placedItems.find((p) => p.instanceId === options.preferredInstanceId);
+    if (preferred) {
+      const built = buildTarget(preferred);
+      if (built) return built;
+    }
+  }
+
+  // 優先從已放置的「床 (bed)」、「玩具 (toy / toyBall)」或偏好家具中選取
+  const allTargets = placedItems
+    .map(buildTarget)
+    .filter((t): t is HousePetInteractionTarget => t !== null);
+
+  if (allTargets.length === 0) return null;
+
+  // 若有最愛家具或玩具，優先提高寵物主動走向偏好物品的機率 (約 72%)
+  const favoriteTargets = allTargets.filter((t) => t.preferenceMatch === 'favorite');
+  const nonDislikedTargets = allTargets.filter((t) => t.preferenceMatch !== 'disliked');
+  const primaryInteractiveTargets = nonDislikedTargets.filter(
+    (t) =>
+      t.item.category === 'bed' ||
+      t.item.category === 'toy' ||
+      t.item.category === 'toyBall'
+  );
+
+  let chosenPool: HousePetInteractionTarget[];
+  if (favoriteTargets.length > 0 && Math.random() < 0.72) {
+    chosenPool = favoriteTargets;
+  } else if (primaryInteractiveTargets.length > 0) {
+    chosenPool = primaryInteractiveTargets;
+  } else if (nonDislikedTargets.length > 0) {
+    chosenPool = nonDislikedTargets;
+  } else {
+    chosenPool = allTargets;
+  }
+
+  const filteredPool =
+    options?.excludeInstanceId && chosenPool.length > 1
+      ? chosenPool.filter((t) => t.placedItem.instanceId !== options.excludeInstanceId)
+      : chosenPool;
+
+  const pool = filteredPool.length > 0 ? filteredPool : chosenPool;
+  const chosenIndex = Math.floor(Math.random() * pool.length);
+  return pool[chosenIndex] ?? null;
+}
+
