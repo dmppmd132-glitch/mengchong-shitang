@@ -168,7 +168,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <Gamepad2 className="w-4 h-4 text-[#9D5B12] shrink-0" />
                 <span className="text-xs font-extrabold text-[#7A540E] truncate">
-                  金幣不夠買美食？玩蘋果 / 薯條接接樂賺金幣！
+                  金幣不夠買美食？去小遊戲中心挑戰 5 種玩法賺金幣與稀有食材！
                 </span>
               </div>
               <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">

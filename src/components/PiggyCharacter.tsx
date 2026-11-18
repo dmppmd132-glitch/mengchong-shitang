@@ -24,6 +24,7 @@ interface PiggyCharacterProps {
   size?: number;
   interactive?: boolean;
   isDropTarget?: boolean;
+  customAnimClass?: string;
 }
 
 export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
@@ -40,6 +41,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   size = 216,
   interactive = true,
   isDropTarget = false,
+  customAnimClass = '',
 }) => {
   const [isBlinking, setIsBlinking] = useState(false);
   const [chewTick, setChewTick] = useState(false);
@@ -99,7 +101,9 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
   };
 
   const animClass =
-    feedEffect === 'favoriteJump'
+    customAnimClass
+      ? customAnimClass
+      : feedEffect === 'favoriteJump'
       ? 'animate-piggy-jump'
       : action === 'stuffed' || feedEffect === 'stuffed'
       ? 'animate-piggy-stuffed'

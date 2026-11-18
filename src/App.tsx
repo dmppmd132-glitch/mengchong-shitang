@@ -3,8 +3,11 @@ import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenView } from './components/CanteenView';
-import { CatchMinigameModal } from './components/CatchMinigameModal';
 import { HomeView } from './components/HomeView';
+import {
+  MinigameHubModal,
+  MinigameSettlementSummary,
+} from './components/minigames/MinigameHubModal';
 import { IntroHatching } from './components/IntroHatching';
 import { JournalView } from './components/JournalView';
 import { LevelUpModal } from './components/LevelUpModal';
@@ -19,6 +22,7 @@ import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getTitleDefinition } from './data/encyclopedia';
 import { getGrowthStage } from './data/growth';
 import { INGREDIENTS } from './data/kitchen';
+import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
 import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
 import {
   TOUCH_ZONE_META,
@@ -50,7 +54,6 @@ import {
 } from './services/sharedPet';
 import {
   Accessory,
-  CatchGameMode,
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
@@ -74,8 +77,13 @@ import {
   TitleId,
   WeightLog,
 } from './types';
+import { MinigameResult, MinigameWeeklyChallengeId } from './types/minigame';
 import { syncEncyclopediaRewards } from './utils/encyclopedia';
 import { resolveFeedingOutcome } from './utils/feeding';
+import {
+  claimWeeklyMinigameChallenge,
+  settleMinigameOutcome,
+} from './utils/minigame';
 import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
 import { soundFX } from './utils/sound';
 import {
@@ -945,27 +953,51 @@ export default function App() {
     setSpeech(`香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`);
   };
 
-  const handleFinishMinigame = (mode: CatchGameMode, earnedCoins: number, score: number) => {
-    const gameLabel = mode === 'apple' ? '蘋果接接樂' : '薯條接接樂';
+  const handleSpendReplayCoins = (cost: number): boolean => {
+    if (game.coins < cost) return false;
     setGame((prev) => {
-      const nextGrowth = prev.pet.growth + 4;
+      if (prev.coins < cost) return prev;
       return {
         ...prev,
-        coins: prev.coins + earnedCoins,
-        pet: {
-          ...prev.pet,
-          mood: clampStat(prev.pet.mood + 5, 0, 100),
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
-        },
-        noviceGrowth: {
-          ...prev.noviceGrowth,
-          minigameCount: prev.noviceGrowth.minigameCount + 1,
-        },
+        coins: prev.coins - cost,
       };
     });
-    pushFeedback(`獲得 +${earnedCoins} 金幣`, '🪙');
-    setSpeech(`玩「${gameLabel}」拿了 ${score} 分，賺到 ${earnedCoins} 金幣好開心！`);
+    return true;
+  };
+
+  const handleFinishMinigame = (result: MinigameResult): MinigameSettlementSummary => {
+    const preview = settleMinigameOutcome(game, result);
+    const cfg = MINIGAME_BY_ID[result.gameId];
+
+    setGame((prev) => settleMinigameOutcome(prev, result).nextState);
+
+    pushFeedback(`獲得 +${preview.reward.coins} 金幣`, '🪙');
+    if (preview.reward.ingredientReward) {
+      const ingInfo = INGREDIENTS[preview.reward.ingredientReward.id];
+      pushFeedback(
+        `${ingInfo.name} +${preview.reward.ingredientReward.qty}`,
+        ingInfo.emoji
+      );
+    }
+    setSpeech(
+      `玩「${cfg.name}」拿了 ${result.score} 分，賺到 ${preview.reward.coins} 金幣好開心！`
+    );
+
+    return {
+      result,
+      reward: preview.reward,
+      isNewHighScore: preview.isNewHighScore,
+      newlyUnlockedBadges: preview.newlyUnlockedBadges,
+    };
+  };
+
+  const handleClaimWeeklyChallenge = (challengeId: MinigameWeeklyChallengeId) => {
+    const challenge = MINIGAME_WEEKLY_CHALLENGES.find((c) => c.id === challengeId);
+    if (!challenge) return;
+    soundFX.levelUp(game.soundEnabled);
+    setGame((prev) => claimWeeklyMinigameChallenge(prev, challengeId).nextState);
+    pushFeedback(`週挑戰 +${challenge.rewardCoins} 金幣`, '🏆');
+    setSpeech(`完成每週挑戰「${challenge.title}」，領到 ${challenge.rewardCoins} 金幣！`);
   };
 
   const handleToggleEquip = (item: Accessory) => {
@@ -1780,12 +1812,16 @@ export default function App() {
           onDeleteMessage={handleDeleteMessage}
         />
 
-        <CatchMinigameModal
+        <MinigameHubModal
           open={minigameOpen}
           onClose={() => setMinigameOpen(false)}
           pet={game.pet}
+          coins={game.coins}
           soundEnabled={game.soundEnabled}
+          hubState={game.minigameHub}
+          onSpendReplayCoins={handleSpendReplayCoins}
           onFinishMinigame={handleFinishMinigame}
+          onClaimWeeklyChallenge={handleClaimWeeklyChallenge}
         />
       </div>
     </div>

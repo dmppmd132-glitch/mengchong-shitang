@@ -12,6 +12,7 @@ interface QuestsViewProps {
   game: GameState;
   hasSharedRoom: boolean;
   onClaimNoviceDay: (day: number) => void;
+  handleClaimNoviceDay?: (day: number) => void;
   onSelectBackground?: (bg: StageBackgroundId) => void;
   initialSection?: 'daily' | 'growth';
 }
@@ -23,6 +24,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
   game,
   hasSharedRoom,
   onClaimNoviceDay,
+  handleClaimNoviceDay,
   onSelectBackground,
   initialSection = 'daily',
 }) => {
@@ -35,6 +37,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
   const claimedCount = dailyTasks.filter((t) => t.claimed).length;
   const dailyReadyCount = dailyTasks.filter((t) => t.completed && !t.claimed).length;
   const noviceEval = evaluateAllNoviceDays(game, hasSharedRoom);
+  const triggerClaimNoviceDay = handleClaimNoviceDay ?? onClaimNoviceDay;
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
@@ -66,7 +69,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>7天成長之路</span>
+          <span>新手7天之路</span>
           {noviceEval.claimableCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full bg-[#3BA886] text-white text-[10px] tabular-nums">
               {noviceEval.claimableCount}
@@ -79,7 +82,8 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
         <NoviceGrowthView
           game={game}
           hasSharedRoom={hasSharedRoom}
-          onClaimDay={onClaimNoviceDay}
+          evaluation={noviceEval}
+          onClaimDay={triggerClaimNoviceDay}
           onSelectBackground={onSelectBackground}
         />
       ) : (

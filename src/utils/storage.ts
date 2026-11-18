@@ -24,7 +24,23 @@ import {
   TitleId,
   WeightLog,
 } from '../types';
+import {
+  MinigameBadgeId,
+  MinigameHubState,
+  MinigameId,
+  MinigameWeeklyChallengeId,
+} from '../types/minigame';
 import { createInitialEncyclopediaState } from './encyclopedia';
+import {
+  createInitialMinigameHubState,
+  createZeroRecord,
+  getLocalDateKey,
+  getLocalWeekKey,
+  isMinigameBadgeId,
+  isMinigameId,
+  isWeeklyChallengeId,
+  syncMinigameHubState,
+} from './minigame';
 import {
   clearNoviceGrowthMirror,
   createInitialNoviceGrowthStats,
@@ -105,6 +121,7 @@ export function createInitialGameState(): GameState {
     encyclopedia: createInitialEncyclopediaState(),
     unlockedBackgrounds: ['default'],
     activeBackground: 'default',
+    minigameHub: createInitialMinigameHubState(today),
   };
 }
 
@@ -444,6 +461,56 @@ function asStageBackgroundId(value: unknown): StageBackgroundId {
   return 'default';
 }
 
+function parseMinigameRecord(raw: unknown): Record<MinigameId, number> {
+  const base = createZeroRecord();
+  if (!isRecord(raw)) return base;
+  (Object.keys(base) as MinigameId[]).forEach((key) => {
+    const val = raw[key];
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+      base[key] = Math.floor(val);
+    }
+  });
+  return base;
+}
+
+function parseMinigameHub(raw: unknown): MinigameHubState {
+  const todayStr = getLocalDateKey();
+  const weekKey = getLocalWeekKey();
+  const defaults = createInitialMinigameHubState(todayStr, weekKey);
+  if (!isRecord(raw)) return defaults;
+
+  const weeklyPlayedGameIds = Array.isArray(raw.weeklyPlayedGameIds)
+    ? Array.from(new Set(raw.weeklyPlayedGameIds.filter(isMinigameId)))
+    : [];
+
+  const weeklyClaimedIds = Array.isArray(raw.weeklyClaimedIds)
+    ? Array.from(new Set(raw.weeklyClaimedIds.filter(isWeeklyChallengeId)))
+    : [];
+
+  const unlockedBadges = Array.from(
+    new Set(
+      (Array.isArray(raw.unlockedBadges) ? raw.unlockedBadges : []).filter(
+        (b): b is MinigameBadgeId => isMinigameBadgeId(b)
+      )
+    )
+  );
+
+  const parsed: MinigameHubState = {
+    highScores: parseMinigameRecord(raw.highScores),
+    playCounts: parseMinigameRecord(raw.playCounts),
+    dailyDate: asString(raw.dailyDate, todayStr),
+    dailyPlays: parseMinigameRecord(raw.dailyPlays),
+    weekKey: asString(raw.weekKey, weekKey),
+    weeklyPlayedGameIds,
+    weeklyTotalScore: Math.max(0, Math.floor(asNumber(raw.weeklyTotalScore, 0))),
+    weeklyRewardCount: Math.max(0, Math.floor(asNumber(raw.weeklyRewardCount, 0))),
+    weeklyClaimedIds,
+    unlockedBadges,
+  };
+
+  return syncMinigameHubState(parsed, todayStr, weekKey);
+}
+
 function parseStageBackgrounds(raw: unknown): StageBackgroundId[] {
   const result = new Set<StageBackgroundId>(['default']);
   if (Array.isArray(raw)) {
@@ -525,6 +592,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     encyclopedia: createInitialEncyclopediaState(),
     unlockedBackgrounds: ['default'],
     activeBackground: 'default',
+    minigameHub: createInitialMinigameHubState(),
   };
 }
 
@@ -605,6 +673,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     encyclopedia: parseEncyclopedia(parsed.encyclopedia, seedFoodIds),
     unlockedBackgrounds,
     activeBackground,
+    minigameHub: parseMinigameHub(parsed.minigameHub),
   };
 }
 

@@ -7,6 +7,7 @@ import { evaluateAllNoviceDays } from '../utils/noviceGrowth';
 interface NoviceGrowthViewProps {
   game: GameState;
   hasSharedRoom: boolean;
+  evaluation?: ReturnType<typeof evaluateAllNoviceDays>;
   onClaimDay: (day: number) => void;
   onSelectBackground?: (bg: StageBackgroundId) => void;
 }
@@ -14,13 +15,12 @@ interface NoviceGrowthViewProps {
 export const NoviceGrowthView: React.FC<NoviceGrowthViewProps> = ({
   game,
   hasSharedRoom,
+  evaluation,
   onClaimDay,
   onSelectBackground,
 }) => {
-  const { currentDayIndex, claimedToday, days } = evaluateAllNoviceDays(
-    game,
-    hasSharedRoom
-  );
+  const { currentDayIndex, claimedToday, days } =
+    evaluation ?? evaluateAllNoviceDays(game, hasSharedRoom);
   const claimedCount = game.noviceGrowth.claimedDays.length;
 
   return (

@@ -377,10 +377,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <div className="min-w-0">
               <span className="block text-xs font-extrabold text-[#4A3531]">
-                接接樂小遊戲 · 賺金幣
+                小遊戲中心 · 每日輪替賺金幣
               </span>
               <p className="text-[11px] text-[#7D635D] truncate">
-                蘋果接接樂 🍎 / 薯條接接樂 🍟，輕鬆賺金幣買點心
+                蘋果 / 薯條接接樂、泥巴澡、藏食偵探、節奏跳跳，每日開放 3 款！
               </p>
             </div>
           </div>

@@ -1,3 +1,5 @@
+import type { MinigameHubState } from './minigame';
+
 export type TabKey = 'home' | 'canteen' | 'wardrobe' | 'journal' | 'quests';
 
 export type PetSpecies = 'pig' | 'rabbit' | 'dog';
@@ -244,6 +246,7 @@ export interface GameState {
   encyclopedia: EncyclopediaState;
   unlockedBackgrounds: StageBackgroundId[];
   activeBackground: StageBackgroundId;
+  minigameHub: MinigameHubState;
 }
 
 export interface FloatingFeedback {

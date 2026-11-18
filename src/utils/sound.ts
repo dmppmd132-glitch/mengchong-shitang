@@ -106,4 +106,52 @@ export const soundFX = {
     playTone(659, 0.12, 'sine', 0.08, 0.2);
     playTone(880, 0.24, 'triangle', 0.09, 0.32);
   },
+  scrub(enabled: boolean) {
+    if (!enabled) return;
+    playTone(340, 0.05, 'sine', 0.05, 0);
+    playTone(460, 0.06, 'sine', 0.04, 0.03);
+  },
+  splash(enabled: boolean) {
+    if (!enabled) return;
+    playTone(580, 0.06, 'triangle', 0.06, 0);
+    playTone(760, 0.07, 'sine', 0.05, 0.04);
+    playTone(920, 0.08, 'sine', 0.04, 0.08);
+  },
+  rhythmBeat(enabled: boolean, pitchStep = 0) {
+    if (!enabled) return;
+    const scale = [392.0, 440.0, 493.88, 523.25, 587.33, 659.25];
+    const freq = scale[Math.abs(pitchStep) % scale.length];
+    playTone(freq, 0.09, 'sine', 0.045, 0);
+  },
+  rhythmPerfect(enabled: boolean) {
+    if (!enabled) return;
+    playTone(659.25, 0.08, 'triangle', 0.08, 0);
+    playTone(880.0, 0.12, 'triangle', 0.08, 0.05);
+  },
+  rhythmGood(enabled: boolean) {
+    if (!enabled) return;
+    playTone(523.25, 0.09, 'sine', 0.07, 0);
+    playTone(659.25, 0.09, 'sine', 0.06, 0.05);
+  },
+  dash(enabled: boolean) {
+    if (!enabled) return;
+    playTone(480, 0.06, 'triangle', 0.07, 0);
+    playTone(760, 0.08, 'triangle', 0.07, 0.03);
+  },
+  combo(enabled: boolean, streak: number) {
+    if (!enabled) return;
+    const base = 523.25 + Math.min(6, Math.max(0, streak - 1)) * 55;
+    playTone(base, 0.08, 'triangle', 0.075, 0);
+    playTone(base * 1.25, 0.11, 'triangle', 0.08, 0.05);
+  },
 };
+
+export function triggerHaptic(durationMs = 15): void {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(durationMs);
+    }
+  } catch {
+    // Gracefully ignore on unsupported mobile browsers
+  }
+}

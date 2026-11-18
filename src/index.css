@@ -203,6 +203,195 @@
   animation: bubbleRise 1.4s ease-out infinite;
 }
 
+@keyframes petRoll {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(-14deg) translateY(3px);
+  }
+  50% {
+    transform: rotate(0deg) translateY(-4px);
+  }
+  75% {
+    transform: rotate(14deg) translateY(3px);
+  }
+}
+
+@keyframes petEarShake {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-4px) rotate(-6deg) scale(1.03, 0.97);
+  }
+  50% {
+    transform: translateY(-2px) rotate(6deg) scale(0.98, 1.03);
+  }
+  75% {
+    transform: translateY(-5px) rotate(-4deg) scale(1.02, 0.98);
+  }
+}
+
+@keyframes petWaterShake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  20% {
+    transform: translateX(-5px) rotate(-7deg);
+  }
+  40% {
+    transform: translateX(5px) rotate(7deg);
+  }
+  60% {
+    transform: translateX(-4px) rotate(-5deg);
+  }
+  80% {
+    transform: translateX(4px) rotate(5deg);
+  }
+}
+
+@keyframes petWiggle {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg) scale(1, 1);
+  }
+  25% {
+    transform: translateX(-6px) rotate(-6deg) scale(1.05, 0.95);
+  }
+  75% {
+    transform: translateX(6px) rotate(6deg) scale(1.05, 0.95);
+  }
+}
+
+@keyframes petHop {
+  0%, 100% {
+    transform: translateY(0) scale(1.04, 0.96);
+  }
+  45% {
+    transform: translateY(-16px) scale(0.96, 1.06);
+  }
+}
+
+@keyframes petTailWag {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(7deg) translateY(-3px);
+  }
+  75% {
+    transform: rotate(-7deg) translateY(-3px);
+  }
+}
+
+.animate-pet-roll {
+  animation: petRoll 0.95s ease-in-out infinite;
+}
+
+.animate-pet-earshake {
+  animation: petEarShake 0.65s ease-in-out infinite;
+}
+
+.animate-pet-watershake {
+  animation: petWaterShake 0.48s ease-in-out infinite;
+}
+
+.animate-pet-wiggle {
+  animation: petWiggle 0.55s ease-in-out infinite;
+}
+
+.animate-pet-hop {
+  animation: petHop 0.55s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.animate-pet-tailwag {
+  animation: petTailWag 0.5s ease-in-out infinite;
+}
+
+@keyframes cardReveal {
+  0% {
+    transform: scale(0.86) rotateY(70deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1) rotateY(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes cardMatchPop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(0.96);
+  }
+}
+
+@keyframes cleanSpark {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(1.25);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -105%) scale(0.95);
+  }
+}
+
+@keyframes comboPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.75) translateY(6px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.12) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes summaryPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-card-reveal {
+  animation: cardReveal 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-card-match {
+  animation: cardMatchPop 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-clean-spark {
+  animation: cleanSpark 0.52s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-combo-pop {
+  animation: comboPop 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-summary-pop {
+  animation: summaryPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .pb-safe {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
@@ -212,7 +401,18 @@
   .animate-piggy-chew,
   .animate-piggy-jump,
   .animate-piggy-stuffed,
-  .animate-bubble-rise {
+  .animate-bubble-rise,
+  .animate-pet-roll,
+  .animate-pet-earshake,
+  .animate-pet-watershake,
+  .animate-pet-wiggle,
+  .animate-pet-hop,
+  .animate-pet-tailwag,
+  .animate-card-reveal,
+  .animate-card-match,
+  .animate-clean-spark,
+  .animate-combo-pop,
+  .animate-summary-pop {
     animation: none;
   }
 }
