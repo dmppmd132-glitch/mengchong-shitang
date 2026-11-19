@@ -6,6 +6,7 @@ import { CanteenSection, CanteenView } from './components/CanteenView';
 import { CoopHubModal } from './components/coop/CoopHubModal';
 import { DialogueHistoryModal } from './components/dialogue/DialogueHistoryModal';
 import { EncyclopediaSection } from './components/EncyclopediaView';
+import { GrowthRoadmapModal } from './components/GrowthRoadmapModal';
 import { HomeView } from './components/HomeView';
 import { HouseSubTab, HouseView } from './components/house/HouseView';
 import {
@@ -30,7 +31,14 @@ import { WardrobeView } from './components/WardrobeView';
 import { ACCESSORY_THEME_BY_ID } from './data/accessories';
 import { FOOD_CATEGORY_LABELS } from './data/foods';
 import { getTitleDefinition } from './data/encyclopedia';
-import { getGrowthStage, getRoundnessTier } from './data/growth';
+import {
+  PRESTIGE_STAR_REWARD_COINS,
+  STAGE_LEVEL_REWARDS,
+  computeGrowthGain,
+  getGrowthStage,
+  getPrestigeStarInfo,
+  getRoundnessTier,
+} from './data/growth';
 import { ROOM_ITEM_BY_ID } from './data/house';
 import { INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
@@ -198,6 +206,9 @@ export default function App() {
   const [speech, setSpeech] = useState<string>('今天也想吃好吃的！');
   const [feedbacks, setFeedbacks] = useState<FloatingFeedback[]>([]);
   const [levelUpStage, setLevelUpStage] = useState<GrowthStageInfo | null>(null);
+  const [levelUpPrestigeStar, setLevelUpPrestigeStar] = useState<number | null>(null);
+  const [levelUpRewardText, setLevelUpRewardText] = useState<string | null>(null);
+  const [growthRoadmapOpen, setGrowthRoadmapOpen] = useState<boolean>(false);
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
   const [cloudUser, setCloudUser] = useState<CloudUser | null>(null);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('local');
@@ -233,7 +244,12 @@ export default function App() {
 
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
-  const prevStageLevelRef = useRef<number>(getGrowthStage(game.pet.growth).level);
+  const prevStageLevelRef = useRef<number>(
+    getGrowthStage(game.pet.growth, game.pet.species).level
+  );
+  const prevPrestigeStarsRef = useRef<number>(
+    getPrestigeStarInfo(game.pet.growth).stars
+  );
   const gameRef = useRef<GameState>(game);
   const skipNextCloudUploadRef = useRef<boolean>(false);
   const lastHandledUserIdRef = useRef<string | null>(null);
@@ -280,7 +296,11 @@ export default function App() {
 
   const applyCloudStateLocally = useCallback((cloudState: GameState, customSpeech?: string) => {
     skipNextCloudUploadRef.current = true;
-    prevStageLevelRef.current = getGrowthStage(cloudState.pet.growth).level;
+    prevStageLevelRef.current = getGrowthStage(
+      cloudState.pet.growth,
+      cloudState.pet.species
+    ).level;
+    prevPrestigeStarsRef.current = getPrestigeStarInfo(cloudState.pet.growth).stars;
     setGame(cloudState);
     setSpeech(customSpeech ?? `歡迎回來，${cloudState.pet.name}！`);
   }, []);
@@ -648,13 +668,29 @@ export default function App() {
   }, [game, cloudUser, pendingCloudSave, sharedRoom]);
 
   useEffect(() => {
-    const currentStage = getGrowthStage(game.pet.growth);
+    const currentStage = getGrowthStage(game.pet.growth, game.pet.species);
+    const currentStars = getPrestigeStarInfo(game.pet.growth).stars;
+
     if (currentStage.level > prevStageLevelRef.current) {
+      const reward = STAGE_LEVEL_REWARDS[currentStage.level];
       soundFX.levelUp(game.soundEnabled);
       setLevelUpStage(currentStage);
+      setLevelUpPrestigeStar(null);
+      setLevelUpRewardText(reward?.rewardText ?? null);
+
       setGame((prev) => {
+        const nextFoods =
+          reward?.foodId && reward.foodQty
+            ? {
+                ...prev.foods,
+                [reward.foodId]: (prev.foods[reward.foodId] ?? 0) + reward.foodQty,
+              }
+            : prev.foods;
+
         let next: GameState = {
           ...prev,
+          coins: prev.coins + (reward?.coins ?? 0),
+          foods: nextFoods,
           dialogue: appendMemoryEvent(prev.dialogue, {
             type: 'milestone',
             detail: `升上 Lv.${currentStage.level} ${currentStage.name}`,
@@ -665,7 +701,7 @@ export default function App() {
             uniqueKey: `growth_lv_${currentStage.level}`,
             type: 'growth',
             title: `成長至 Lv.${currentStage.level}「${currentStage.name}」！`,
-            description: `${prev.pet.name}邁入全新成長階段，解鎖更多可愛互動與穿搭！`,
+            description: `${prev.pet.name}邁入全新成長階段，獲得祝賀禮 ${reward?.rewardText ?? ''}！`,
             emoji: '✨',
             level: currentStage.level,
             weight: prev.pet.weight,
@@ -673,9 +709,36 @@ export default function App() {
         }
         return next;
       });
+    } else if (currentStars > prevPrestigeStarsRef.current) {
+      soundFX.levelUp(game.soundEnabled);
+      setLevelUpStage(null);
+      setLevelUpPrestigeStar(currentStars);
+      setLevelUpRewardText(`+${PRESTIGE_STAR_REWARD_COINS} 金幣`);
+
+      setGame((prev) => {
+        const next: GameState = {
+          ...prev,
+          coins: prev.coins + PRESTIGE_STAR_REWARD_COINS,
+          dialogue: appendMemoryEvent(prev.dialogue, {
+            type: 'milestone',
+            detail: `達成閃耀星等 ★${currentStars}`,
+          }),
+        };
+        return recordMemoryEntry(next, {
+          uniqueKey: `growth_prestige_star_${currentStars}`,
+          type: 'growth',
+          title: `達成 Lv.4 閃耀星等 ★${currentStars}！`,
+          description: `細心陪伴讓 ${prev.pet.name} 獲得閃耀 ★${currentStars} 榮譽，獲贈 +${PRESTIGE_STAR_REWARD_COINS} 金幣！`,
+          emoji: '🌟',
+          level: 4,
+          weight: prev.pet.weight,
+        });
+      });
     }
+
     prevStageLevelRef.current = currentStage.level;
-  }, [game.pet.growth, game.soundEnabled]);
+    prevPrestigeStarsRef.current = currentStars;
+  }, [game.pet.growth, game.pet.species, game.soundEnabled]);
 
   // 自動評估 12 項里程碑、8 項共養共同回憶（支援離線後恢復同步雙端通知）與月末/月初月度回顧卡
   useEffect(() => {
@@ -890,7 +953,8 @@ export default function App() {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const stormMoodBonus = prev.dialogue.weather.condition === 'storm' ? 2 : 0;
       const stormIntimacyBonus = prev.dialogue.weather.condition === 'storm' ? 1 : 0;
-      const nextGrowth = prev.pet.growth + 5;
+      const gainInfo = computeGrowthGain(5, prev.pet);
+      const nextGrowth = prev.pet.growth + gainInfo.total;
       const dev = applyPersonalityDevelopment(prev.personality, 'pet_or_message');
       const zoneLabels: Record<PetTouchZone, string> = {
         head: '摸摸頭',
@@ -909,7 +973,7 @@ export default function App() {
           mood: clampStat(prev.pet.mood + 6 + stormMoodBonus, 0, 100),
           intimacy: prev.pet.intimacy + 2 + stormIntimacyBonus,
           growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
+          level: getGrowthStage(nextGrowth, prev.pet.species).level,
         },
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
@@ -922,7 +986,7 @@ export default function App() {
       };
       return recordMonthlyActivity(draftState, {
         interactionLabel: '撫摸互動',
-        growthDelta: 5,
+        growthDelta: gainInfo.total,
       });
     });
   };
@@ -999,7 +1063,8 @@ export default function App() {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const newWeight = clampWeight(prev.pet.weight + food.weightGain);
       const actualDelta = roundWeight(newWeight - prev.pet.weight);
-      const nextGrowth = prev.pet.growth + food.growthGain + bonusGrowth;
+      const feedGainInfo = computeGrowthGain(food.growthGain + bonusGrowth, prev.pet);
+      const nextGrowth = prev.pet.growth + feedGainInfo.total;
       const nextPersonality = isDessertOrFastFood
         ? applyPersonalityDevelopment(prev.personality, 'feed_dessert_fastfood')
             .nextPersonality
@@ -1104,7 +1169,7 @@ export default function App() {
         foodId: food.id,
         interactionLabel: '餵食料理',
         weight: newWeight,
-        growthDelta: food.growthGain + bonusGrowth,
+        growthDelta: feedGainInfo.total,
       });
 
       nextMem = recordMemoryEntry(nextMem, {
@@ -1196,7 +1261,8 @@ export default function App() {
     pushFeedback('精力恢復中', '💤');
 
     setGame((prev) => {
-      const nextGrowth = prev.pet.growth + 4;
+      const gainInfo = computeGrowthGain(4, prev.pet);
+      const nextGrowth = prev.pet.growth + gainInfo.total;
       const dev = applyPersonalityDevelopment(prev.personality, 'sleep');
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'slept',
@@ -1208,7 +1274,7 @@ export default function App() {
           ...prev.pet,
           energy: clampStat(prev.pet.energy + 28, 0, 100),
           growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
+          level: getGrowthStage(nextGrowth, prev.pet.species).level,
         },
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
@@ -1224,7 +1290,8 @@ export default function App() {
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const nextGrowth = prev.pet.growth + 6;
+      const gainInfo = computeGrowthGain(6, prev.pet);
+      const nextGrowth = prev.pet.growth + gainInfo.total;
       const dev = applyPersonalityDevelopment(prev.personality, 'clean_or_bath');
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'bathed',
@@ -1237,7 +1304,7 @@ export default function App() {
           cleanliness: clampStat(prev.pet.cleanliness + 35, 0, 100),
           mood: clampStat(prev.pet.mood + 6, 0, 100),
           growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
+          level: getGrowthStage(nextGrowth, prev.pet.species).level,
         },
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
@@ -1259,7 +1326,8 @@ export default function App() {
     pushFeedback(isSunny ? '晴天散步加成 +3 心情！' : '活力滿滿！', isSunny ? '☀️' : '🌿');
 
     setGame((prev) => {
-      const nextGrowth = prev.pet.growth + 8;
+      const gainInfo = computeGrowthGain(8, prev.pet);
+      const nextGrowth = prev.pet.growth + gainInfo.total;
       const newWeight = clampWeight(prev.pet.weight - 0.1);
       const sunnyMoodBonus = prev.dialogue.weather.condition === 'clear' ? 3 : 0;
       const sunnyIntimacyBonus = prev.dialogue.weather.condition === 'clear' ? 1 : 0;
@@ -1278,7 +1346,7 @@ export default function App() {
           roundness: clampStat(prev.pet.roundness - 8, 0, 100),
           consecutiveFastFood: 0,
           growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
+          level: getGrowthStage(nextGrowth, prev.pet.species).level,
           intimacy: prev.pet.intimacy + 1 + sunnyIntimacyBonus,
         },
         dialogue: nextDialogue,
@@ -2637,7 +2705,8 @@ export default function App() {
       void leaveSharedPetRoom(leavingRoomId);
     }
     const fresh = resetGameState();
-    prevStageLevelRef.current = getGrowthStage(fresh.pet.growth).level;
+    prevStageLevelRef.current = getGrowthStage(fresh.pet.growth, fresh.pet.species).level;
+    prevPrestigeStarsRef.current = getPrestigeStarInfo(fresh.pet.growth).stars;
     prevMilestonesCountRef.current = fresh.encyclopedia.claimedAccessoryMilestones.length;
     prevTitlesCountRef.current = fresh.encyclopedia.unlockedTitles.length;
     setGame(fresh);
@@ -2651,6 +2720,9 @@ export default function App() {
     setFeedbacks([]);
     setUnreadMessagesCount(0);
     setLevelUpStage(null);
+    setLevelUpPrestigeStar(null);
+    setLevelUpRewardText(null);
+    setGrowthRoadmapOpen(false);
     setResetModalOpen(false);
   };
 
@@ -2939,6 +3011,7 @@ export default function App() {
                     setJournalInitialSection('memories');
                     setActiveTab('journal');
                   }}
+                  onOpenGrowthRoadmap={() => setGrowthRoadmapOpen(true)}
                 />
               )}
 
@@ -3094,8 +3167,24 @@ export default function App() {
 
             <LevelUpModal
               stage={levelUpStage}
-              petName={game.pet.name}
-              onClose={() => setLevelUpStage(null)}
+              prestigeStar={levelUpPrestigeStar}
+              rewardText={levelUpRewardText}
+              pet={game.pet}
+              onClose={() => {
+                setLevelUpStage(null);
+                setLevelUpPrestigeStar(null);
+                setLevelUpRewardText(null);
+              }}
+              onTakeGrowthPhoto={() => {
+                setWardrobePhotoScene('album');
+                setWardrobePhotoOpen(true);
+              }}
+            />
+
+            <GrowthRoadmapModal
+              open={growthRoadmapOpen}
+              pet={game.pet}
+              onClose={() => setGrowthRoadmapOpen(false)}
             />
 
             <ResetConfirmModal

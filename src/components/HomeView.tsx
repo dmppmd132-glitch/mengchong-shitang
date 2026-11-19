@@ -17,7 +17,11 @@ import {
 } from 'lucide-react';
 import { getTitleDefinition } from '../data/encyclopedia';
 import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
-import { getGrowthRemaining, getRoundnessTier } from '../data/growth';
+import {
+  getGrowthRemaining,
+  getRoundnessTier,
+  isCareBalanced,
+} from '../data/growth';
 import { STAGE_BACKGROUNDS } from '../data/noviceGrowth';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
@@ -89,6 +93,7 @@ interface HomeViewProps {
   savedDialogueIds?: string[];
   onSaveDialogueToMemory?: (line: DialogueLine) => void;
   onOpenMemories?: () => void;
+  onOpenGrowthRoadmap?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -149,13 +154,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
   savedDialogueIds = [],
   onSaveDialogueToMemory,
   onOpenMemories,
+  onOpenGrowthRoadmap,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
   const [draggingFoodId, setDraggingFoodId] = useState<string | null>(null);
   const [isDropOver, setIsDropOver] = useState(false);
 
-  const growthInfo = getGrowthRemaining(pet.growth);
+  const growthInfo = getGrowthRemaining(pet.growth, pet.species);
+  const careBalanced = isCareBalanced(pet);
   const roundnessTier = getRoundnessTier(pet.roundness);
   const speciesInfo = getPetSpeciesInfo(pet.species);
   const stageBgConfig = STAGE_BACKGROUNDS[activeBackground] ?? STAGE_BACKGROUNDS.default;
@@ -186,6 +193,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </h2>
               <span className="text-xs font-bold text-[#B84A6F]">
                 Lv.{growthInfo.currentStage.level} {growthInfo.currentStage.name}
+                {growthInfo.prestigeStars > 0 ? ` ★${growthInfo.prestigeStars}` : ''}
               </span>
               {activeTitleDef && (
                 <span
@@ -249,22 +257,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </p>
         )}
 
-        <div className="mt-2.5">
-          <div className="flex items-center justify-between text-[11px] font-bold text-[#7D635D] mb-1">
-            <span>成長進度</span>
-            <span className="tabular-nums">
+        <button
+          type="button"
+          onClick={onOpenGrowthRoadmap}
+          className="mt-2.5 w-full text-left rounded-2xl bg-[#FFF8F4] hover:bg-[#FFF2EC] border border-[#F2DFD6] px-3 py-2 transition active:scale-[0.99]"
+        >
+          <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-[#7D635D] mb-1">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span>成長進度</span>
+              {careBalanced && (
+                <span className="text-[10px] font-extrabold text-[#1F6B54]">
+                  · ✨ 元氣滿分 +25%
+                </span>
+              )}
+            </span>
+            <span className="tabular-nums text-right truncate">
               {growthInfo.nextStage
-                ? `距離「${growthInfo.nextStage.name}」還需 ${growthInfo.remaining} 成長值`
-                : '已達最高階時尚大豬'}
+                ? `距「${growthInfo.nextStage.name}」還需 ${growthInfo.remaining} · 路線圖 ›`
+                : `★${growthInfo.prestigeStars} 距下一星還需 ${growthInfo.remaining} · 路線圖 ›`}
             </span>
           </div>
-          <div className="w-full h-2.5 rounded-full bg-[#F5E9E2] overflow-hidden">
+          <div className="w-full h-2.5 rounded-full bg-[#F2E2DA] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#FF8AA8] to-[#5CC9A7] transition-all duration-300"
+              className={`h-full rounded-full transition-all duration-300 ${
+                growthInfo.isPrestigeActive
+                  ? 'bg-gradient-to-r from-[#FFD166] to-[#FF7A9E]'
+                  : 'bg-gradient-to-r from-[#FF8AA8] to-[#5CC9A7]'
+              }`}
               style={{ width: `${growthInfo.progressPercent}%` }}
             />
           </div>
-        </div>
+        </button>
       </section>
 
       <section className="grid grid-cols-2 gap-2.5" aria-label="小豬狀態數值">

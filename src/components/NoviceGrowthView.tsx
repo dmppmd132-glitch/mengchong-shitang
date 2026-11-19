@@ -145,7 +145,12 @@ export const NoviceGrowthView: React.FC<NoviceGrowthViewProps> = ({
                           g.done ? 'text-[#3BA886]' : 'text-[#D6C5BE]'
                         }`}
                       />
-                      <span>{g.label}</span>
+                      <span>
+                        {g.label}
+                        {g.id === 'reach_lv2' && !g.done
+                          ? `（目前成長值 ${Math.min(100, game.pet.growth)} / 100）`
+                          : ''}
+                      </span>
                     </span>
                     <span
                       className={`tabular-nums shrink-0 ${
