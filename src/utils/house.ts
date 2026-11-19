@@ -1410,3 +1410,302 @@ export function selectRandomHouseInteraction(
   return pool[chosenIndex] ?? null;
 }
 
+export function swapOrMoveFurnitureItem(
+  state: GameState,
+  instanceId: string,
+  targetX: number,
+  targetY: number
+): HouseActionOutcome {
+  if (targetX < 0 || targetX >= ROOM_GRID_COLS || targetY < 0 || targetY >= ROOM_GRID_ROWS) {
+    return { nextState: state, ok: false, error: '超出房間範圍' };
+  }
+  const moving = state.house.roomLayout.placedItems.find((p) => p.instanceId === instanceId);
+  if (!moving) return { nextState: state, ok: false, error: '找不到要移動的家具' };
+
+  if (moving.x === targetX && moving.y === targetY) {
+    return { nextState: state, ok: true };
+  }
+
+  const targetOccupant = state.house.roomLayout.placedItems.find(
+    (p) => p.instanceId !== instanceId && p.x === targetX && p.y === targetY
+  );
+
+  const now = Date.now();
+  const nextPlaced = state.house.roomLayout.placedItems.map((p) => {
+    if (p.instanceId === instanceId) {
+      return {
+        ...p,
+        x: targetX,
+        y: targetY,
+        zone: getZoneForCell(targetX, targetY),
+        updatedAt: now,
+      };
+    }
+    if (targetOccupant && p.instanceId === targetOccupant.instanceId) {
+      return {
+        ...p,
+        x: moving.x,
+        y: moving.y,
+        zone: getZoneForCell(moving.x, moving.y),
+        updatedAt: now,
+      };
+    }
+    return p;
+  });
+
+  const draft: GameState = {
+    ...state,
+    house: {
+      ...state.house,
+      roomLayout: {
+        ...state.house.roomLayout,
+        placedItems: nextPlaced,
+      },
+    },
+  };
+
+  const synced = syncHouseProgress(draft);
+  const movingName = ROOM_ITEM_BY_ID[moving.itemId]?.name ?? '家具';
+  const targetName = targetOccupant ? ROOM_ITEM_BY_ID[targetOccupant.itemId]?.name ?? '家具' : null;
+  return {
+    nextState: synced.nextState,
+    ok: true,
+    notice:
+      synced.notices[0] ??
+      (targetName ? `已互換「${movingName}」與「${targetName}」位置！` : `已移動「${movingName}」位置！`),
+  };
+}
+
+export function autoArrangeStowedFurniture(
+  state: GameState,
+  placedBy = '飼主'
+): HouseActionOutcome {
+  const house = state.house;
+  const cols = house.roomLayout.cols || ROOM_GRID_COLS;
+  const rows = house.roomLayout.rows || ROOM_GRID_ROWS;
+
+  const occupiedKeys = new Set(
+    house.roomLayout.placedItems.map((p) => `${p.x}_${p.y}`)
+  );
+
+  const emptyCells: { x: number; y: number; zone: RoomZone }[] = [];
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      if (!occupiedKeys.has(`${x}_${y}`)) {
+        emptyCells.push({ x, y, zone: getZoneForCell(x, y) });
+      }
+    }
+  }
+
+  if (emptyCells.length === 0) {
+    return { nextState: state, ok: false, error: '房間 24 個格子已經全部擺滿囉！' };
+  }
+
+  const toPlace: RoomItem[] = [];
+  for (const item of ROOM_ITEMS) {
+    const stowed = getStowedCountByItem(house, item.id);
+    for (let i = 0; i < stowed; i += 1) {
+      toPlace.push(item);
+    }
+  }
+
+  if (toPlace.length === 0) {
+    return {
+      nextState: state,
+      ok: false,
+      error: '收納袋裡沒有待擺放的家具，可以到「工坊」選購更多家具！',
+    };
+  }
+
+  const remainingCells = [...emptyCells];
+  const newlyPlaced: PlacedRoomItem[] = [];
+  const now = Date.now();
+
+  for (const item of toPlace) {
+    if (remainingCells.length === 0) break;
+    let cellIdx = remainingCells.findIndex((c) => c.zone === item.zone);
+    if (cellIdx < 0) {
+      cellIdx = 0;
+    }
+    const [chosen] = remainingCells.splice(cellIdx, 1);
+    newlyPlaced.push({
+      instanceId: `rm_${now}_${newlyPlaced.length}_${Math.random().toString(36).slice(2, 6)}`,
+      itemId: item.id,
+      x: chosen.x,
+      y: chosen.y,
+      zone: chosen.zone,
+      placedBy,
+      updatedAt: now,
+    });
+  }
+
+  const draft: GameState = {
+    ...state,
+    house: {
+      ...house,
+      roomLayout: {
+        ...house.roomLayout,
+        placedItems: [...house.roomLayout.placedItems, ...newlyPlaced],
+      },
+    },
+  };
+
+  const synced = syncHouseProgress(draft);
+  return {
+    nextState: synced.nextState,
+    ok: true,
+    notice:
+      synced.notices[0] ?? `已智慧擺放 ${newlyPlaced.length} 件家具到對應生活分區！`,
+  };
+}
+
+export function stowAllFurniture(state: GameState): HouseActionOutcome {
+  if (state.house.roomLayout.placedItems.length === 0) {
+    return { nextState: state, ok: false, error: '房間裡目前沒有已擺放的家具' };
+  }
+
+  const count = state.house.roomLayout.placedItems.length;
+  return {
+    nextState: {
+      ...state,
+      house: {
+        ...state.house,
+        roomLayout: {
+          ...state.house.roomLayout,
+          placedItems: [],
+        },
+      },
+    },
+    ok: true,
+    notice: `已將 ${count} 件家具全部收進收納袋，可以自由重新規劃！`,
+  };
+}
+
+export function applyThemeRoomLayout(
+  state: GameState,
+  themeId: ThemeSetId,
+  placedBy = '飼主'
+): HouseActionOutcome {
+  const theme = THEME_SETS.find((t) => t.id === themeId);
+  if (!theme) {
+    return { nextState: state, ok: false, error: '找不到此主題套裝' };
+  }
+
+  let house = state.house;
+  const hasWall = house.unlockedWallpapers.includes(theme.wallpaperId);
+  const hasFloor = house.unlockedFloorings.includes(theme.flooringId);
+
+  const nextWall = hasWall ? theme.wallpaperId : house.roomLayout.wallpaperId;
+  const nextFloor = hasFloor ? theme.flooringId : house.roomLayout.flooringId;
+
+  const cols = house.roomLayout.cols || ROOM_GRID_COLS;
+  const rows = house.roomLayout.rows || ROOM_GRID_ROWS;
+  const occupied = new Set(house.roomLayout.placedItems.map((p) => `${p.x}_${p.y}`));
+  const openCells: { x: number; y: number; zone: RoomZone }[] = [];
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      if (!occupied.has(`${x}_${y}`)) {
+        openCells.push({ x, y, zone: getZoneForCell(x, y) });
+      }
+    }
+  }
+
+  const addedItems: PlacedRoomItem[] = [];
+  const now = Date.now();
+  for (const itemId of theme.itemIds) {
+    const alreadyPlaced = house.roomLayout.placedItems.some((p) => p.itemId === itemId);
+    if (alreadyPlaced) continue;
+    const stowed = getStowedCountByItem(house, itemId);
+    if (stowed <= 0 || openCells.length === 0) continue;
+    const def = ROOM_ITEM_BY_ID[itemId];
+    if (!def) continue;
+    let idx = openCells.findIndex((c) => c.zone === def.zone);
+    if (idx < 0) idx = 0;
+    const [cell] = openCells.splice(idx, 1);
+    addedItems.push({
+      instanceId: `rm_${now}_${addedItems.length}_${Math.random().toString(36).slice(2, 6)}`,
+      itemId,
+      x: cell.x,
+      y: cell.y,
+      zone: cell.zone,
+      placedBy,
+      updatedAt: now,
+    });
+  }
+
+  const draft: GameState = {
+    ...state,
+    house: {
+      ...house,
+      roomLayout: {
+        ...house.roomLayout,
+        wallpaperId: nextWall,
+        flooringId: nextFloor,
+        placedItems: [...house.roomLayout.placedItems, ...addedItems],
+      },
+    },
+  };
+
+  const synced = syncHouseProgress(draft);
+  return {
+    nextState: synced.nextState,
+    ok: true,
+    notice:
+      addedItems.length > 0
+        ? `已套用「${theme.name}」風格並擺放 ${addedItems.length} 件主題家具！`
+        : `已將房間換上「${theme.name}」壁紙與地板！`,
+  };
+}
+
+export interface HouseSummaryStats {
+  placedCount: number;
+  maxCells: number;
+  zoneCounts: Record<RoomZone, number>;
+  filledZoneCount: number;
+  favoritePlacedCount: number;
+  totalOwnedFurniture: number;
+  completedThemesCount: number;
+  activeFarmDecorCount: number;
+}
+
+export function getHouseSummaryStats(
+  house: SharedHouse,
+  species: PetSpecies
+): HouseSummaryStats {
+  const zoneCounts: Record<RoomZone, number> = {
+    sleep: 0,
+    decor: 0,
+    play: 0,
+    dining: 0,
+  };
+  let favoritePlacedCount = 0;
+  for (const placed of house.roomLayout.placedItems) {
+    const z = getZoneForCell(placed.x, placed.y);
+    zoneCounts[z] += 1;
+    if (evaluateItemPreference(species, placed.itemId) === 'favorite') {
+      favoritePlacedCount += 1;
+    }
+  }
+  const filledZoneCount = (Object.values(zoneCounts) as number[]).filter((n) => n > 0).length;
+  const totalOwnedFurniture = Object.values(house.ownedFurnitureCounts).reduce(
+    (sum, n) => sum + (n || 0),
+    0
+  );
+  const activeFarmDecorCount =
+    (house.activeFarmDecor.fenceId ? 1 : 0) +
+    (house.activeFarmDecor.flowerbedId ? 1 : 0) +
+    (house.activeFarmDecor.signId ? 1 : 0);
+
+  return {
+    placedCount: house.roomLayout.placedItems.length,
+    maxCells: (house.roomLayout.cols || ROOM_GRID_COLS) * (house.roomLayout.rows || ROOM_GRID_ROWS),
+    zoneCounts,
+    filledZoneCount,
+    favoritePlacedCount,
+    totalOwnedFurniture,
+    completedThemesCount: house.completedThemeSets.length,
+    activeFarmDecorCount,
+  };
+}
+
+

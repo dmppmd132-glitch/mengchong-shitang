@@ -2,12 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
-import { CanteenView } from './components/CanteenView';
+import { CanteenSection, CanteenView } from './components/CanteenView';
 import { CoopHubModal } from './components/coop/CoopHubModal';
 import { DialogueHistoryModal } from './components/dialogue/DialogueHistoryModal';
 import { EncyclopediaSection } from './components/EncyclopediaView';
 import { HomeView } from './components/HomeView';
-import { HouseHubModal, HouseModalTab } from './components/house/HouseHubModal';
+import { HouseSubTab, HouseView } from './components/house/HouseView';
 import {
   MinigameHubModal,
   MinigameSettlementSummary,
@@ -187,8 +187,9 @@ export default function App() {
   >('journal');
   const [journalEncyclopediaSection, setJournalEncyclopediaSection] =
     useState<EncyclopediaSection>('foods');
-  const [houseModalOpen, setHouseModalOpen] = useState<boolean>(false);
-  const [houseModalTab, setHouseModalTab] = useState<HouseModalTab>('room');
+  const [canteenInitialSection, setCanteenInitialSection] =
+    useState<CanteenSection>('shop');
+  const [houseInitialTab, setHouseInitialTab] = useState<HouseSubTab>('room');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
   const [expressionState, setExpressionState] = useState<PetExpression>('normal');
   const [flyingFoodEmoji, setFlyingFoodEmoji] = useState<string | null>(null);
@@ -2777,6 +2778,9 @@ export default function App() {
     currentUserId
   ).length;
   const coopBadgeCount = unclaimedCoopRewardsCount + offlinePartnerEventsCount;
+  const claimableHouseCount = game.house.achievedMilestones.filter(
+    (id) => !game.house.claimedMilestones.includes(id)
+  ).length;
 
   const cloudDotColor =
     syncStatus === 'synced'
@@ -2894,11 +2898,14 @@ export default function App() {
                   onSleep={handleSleep}
                   onBath={handleBath}
                   onWalk={handleWalk}
-                  onGoToCanteen={() => setActiveTab('canteen')}
+                  onGoToCanteen={() => {
+                    setCanteenInitialSection('shop');
+                    setActiveTab('canteen');
+                  }}
                   onOpenMinigame={() => setMinigameOpen(true)}
                   onOpenHouse={(tab = 'room') => {
-                    setHouseModalTab(tab);
-                    setHouseModalOpen(true);
+                    setHouseInitialTab(tab);
+                    setActiveTab('house');
                   }}
                   house={game.house}
                   onOpenNoviceGrowth={() => {
@@ -2957,6 +2964,7 @@ export default function App() {
                   onUpgradeFarmFacility={handleUpgradeFarmFacility}
                   onToggleFarmDecoration={handleToggleFarmDecoration}
                   onUpdateHouseName={handleUpdateHouseName}
+                  initialSection={canteenInitialSection}
                 />
               )}
 
@@ -2974,6 +2982,36 @@ export default function App() {
                   onSelectTitle={handleSelectTitle}
                   onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe')}
                   lastReactionText={wardrobeReactionText}
+                />
+              )}
+
+              {activeTab === 'house' && (
+                <HouseView
+                  game={game}
+                  farmPlots={game.farmPlots}
+                  sharedRoom={sharedRoom}
+                  currentUserId={currentUserId}
+                  actorName={actorName}
+                  initialTab={houseInitialTab}
+                  onUpdateGame={handleUpdateHouseGame}
+                  onExpandFarmPlot={handleExpandFarmPlot}
+                  onUpgradeFarmFacility={handleUpgradeFarmFacility}
+                  onToggleFarmDecoration={handleToggleFarmDecoration}
+                  onOpenSharedPet={() => setSharedModalOpen(true)}
+                  onOpenCoopGames={() => setCoopModalOpen(true)}
+                  onOpenHouseEncyclopedia={() => {
+                    setJournalInitialSection('encyclopedia');
+                    setJournalEncyclopediaSection('house');
+                    setActiveTab('journal');
+                  }}
+                  onGoToFarm={() => {
+                    setCanteenInitialSection('farm');
+                    setActiveTab('canteen');
+                  }}
+                  onSharePhotoToBoard={handleSharePhotoToBoard}
+                  onTogglePhotoLike={handleTogglePhotoLike}
+                  onAddPhotoComment={handleAddPhotoComment}
+                  onOpenShareCard={(payload) => setShareCardPayload(payload)}
                 />
               )}
 
@@ -2997,8 +3035,8 @@ export default function App() {
                   initialSection={journalInitialSection}
                   initialEncyclopediaSection={journalEncyclopediaSection}
                   onOpenHousePhotoMode={() => {
-                    setHouseModalTab('photo');
-                    setHouseModalOpen(true);
+                    setHouseInitialTab('photo');
+                    setActiveTab('house');
                   }}
                   onOpenWardrobePhotoMode={(sc) => handleOpenScenePhoto(sc ?? 'wardrobe')}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
@@ -3035,6 +3073,12 @@ export default function App() {
             <BottomTabBar
               activeTab={activeTab}
               onChange={(tab) => {
+                if (tab === 'canteen') {
+                  setCanteenInitialSection('shop');
+                }
+                if (tab === 'house') {
+                  setHouseInitialTab('room');
+                }
                 if (tab === 'quests') {
                   setQuestsInitialSection('daily');
                 }
@@ -3045,6 +3089,7 @@ export default function App() {
                 setActiveTab(tab);
               }}
               claimableQuestsCount={claimableQuestsCount}
+              claimableHouseCount={claimableHouseCount}
             />
 
             <LevelUpModal
@@ -3135,24 +3180,6 @@ export default function App() {
           onSpendReplayCoins={handleSpendReplayCoins}
           onFinishMinigame={handleFinishMinigame}
           onClaimWeeklyChallenge={handleClaimWeeklyChallenge}
-        />
-
-        <HouseHubModal
-          open={houseModalOpen}
-          initialTab={houseModalTab}
-          onClose={() => setHouseModalOpen(false)}
-          game={game}
-          sharedRoom={sharedRoom}
-          actorName={actorName}
-          onUpdateGame={handleUpdateHouseGame}
-          onOpenSharedPet={() => setSharedModalOpen(true)}
-          onOpenCoopGames={() => setCoopModalOpen(true)}
-          onOpenHouseEncyclopedia={() => {
-            setJournalInitialSection('encyclopedia');
-            setJournalEncyclopediaSection('house');
-            setActiveTab('journal');
-          }}
-          onSharePhotoToBoard={handleSharePhotoToBoard}
         />
 
         <PersonalityProfileModal

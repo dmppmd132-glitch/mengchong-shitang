@@ -559,6 +559,43 @@
   }
 }
 
+@keyframes housePetBreathe {
+  0%, 100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.045, 0.962);
+  }
+}
+
+@keyframes houseMoodPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.65);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.08);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -12px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.9);
+  }
+}
+
+.animate-house-pet-breathe {
+  animation: housePetBreathe 2.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.animate-house-mood-pop {
+  animation: houseMoodPop 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .animate-house-pet-favorite {
   animation: housePetFavorite 0.72s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
@@ -595,6 +632,8 @@
   .animate-house-pet-walk,
   .animate-house-pet-sleep,
   .animate-house-pet-play,
+  .animate-house-pet-breathe,
+  .animate-house-mood-pop,
   .animate-house-pet-favorite,
   .animate-house-furniture-play,
   .animate-house-furniture-sleep,

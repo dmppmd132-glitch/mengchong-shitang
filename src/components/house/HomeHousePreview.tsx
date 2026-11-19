@@ -19,12 +19,12 @@ import {
 } from '../../utils/house';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { FurnitureGraphic } from './FurnitureGraphic';
-import { HouseModalTab } from './HouseHubModal';
+import { HouseSubTab } from './HouseView';
 
 interface HomeHousePreviewProps {
   pet: Pet;
   house: SharedHouse;
-  onOpenHouse: (tab?: HouseModalTab) => void;
+  onOpenHouse: (tab?: HouseSubTab) => void;
 }
 
 type InteractionPhase = 'idle' | 'entering' | 'approaching' | 'interacting';
@@ -179,7 +179,7 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
       : target.reactionType === 'sleep'
       ? 'animate-house-pet-sleep'
       : 'animate-house-pet-play'
-    : '';
+    : 'animate-house-pet-breathe';
 
   const statusText = customHint
     ? customHint
@@ -280,11 +280,11 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
         </div>
       </div>
 
-      {/* Interactive Room Stage */}
+      {/* Interactive Cozy 2D Room Stage */}
       <div className="rounded-2xl border border-[#EAD4CB] overflow-hidden bg-[#FFF9F2]">
-        {/* Wallpaper & Pet Reaction Bubble */}
+        {/* Wallpaper + Wooden Baseboard + Pet Reaction Bubble */}
         <div
-          className="px-2.5 py-2 border-b border-[#EAD2C5] flex items-center justify-between gap-2"
+          className="relative px-2.5 pt-2 pb-3 border-b-2 border-[#9C6F45] flex items-center justify-between gap-2"
           style={{ background: wallDef.wallBgStyle }}
         >
           <p className="flex-1 min-w-0 rounded-xl bg-white/90 border border-[#F1D5DF] px-2.5 py-1 text-[11px] font-extrabold text-[#4A3531] leading-snug truncate">
@@ -308,14 +308,61 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
               </span>
             </div>
           )}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-2"
+            style={{
+              background: 'linear-gradient(180deg, #E2BD95 0%, #CFA275 65%, #BA8B5E 100%)',
+            }}
+          />
         </div>
 
-        {/* 6x4 Floor Grid + CSS-animated Pet */}
+        {/* 6x4 Cozy Floor + Plush Rug + CSS-animated Pet */}
         <div
           className="relative p-1.5 overflow-hidden"
           style={{ background: floorDef.floorBgStyle }}
         >
-          <div className="grid grid-cols-6 gap-1">
+          {/* Subtle Oak Plank Lines */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(180deg, rgba(130,86,48,0) 0px, rgba(130,86,48,0) 18px, rgba(130,86,48,0.28) 19px, rgba(130,86,48,0) 20px)',
+            }}
+          />
+
+          {/* Centered Round Plush Rug */}
+          <div
+            className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 w-[54%] max-w-[180px] h-[56%]"
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 220 120" className="w-full h-full opacity-90">
+              <ellipse cx="110" cy="62" rx="100" ry="48" fill="#FFE9F0" stroke="#F4C7D6" strokeWidth="3" strokeDasharray="6 4" />
+              <ellipse cx="110" cy="60" rx="84" ry="39" fill="#FFF7EE" />
+            </svg>
+          </div>
+
+          {/* Starter Ambient Corner Plant & Box if Empty */}
+          {house.roomLayout.placedItems.length === 0 && (
+            <>
+              <div className="pointer-events-none absolute left-2 top-1.5 opacity-95" aria-hidden="true">
+                <svg width="32" height="34" viewBox="0 0 52 56" fill="none">
+                  <path d="M16 33H36L33 50H19L16 33Z" fill="#DF8E66" stroke="#B66843" strokeWidth="2" />
+                  <rect x="14" y="29" width="24" height="5" rx="2.5" fill="#EA9F78" stroke="#B66843" strokeWidth="1.8" />
+                  <path d="M26 29C26 21 20 14 14 14C14 21 18 26 26 29Z" fill="#77C88E" stroke="#4D9B64" strokeWidth="1.8" />
+                  <path d="M26 29C26 20 32 13 38 14C38 21 33 26 26 29Z" fill="#63B87B" stroke="#4D9B64" strokeWidth="1.8" />
+                </svg>
+              </div>
+              <div className="pointer-events-none absolute right-2 top-1.5 opacity-95" aria-hidden="true">
+                <svg width="34" height="32" viewBox="0 0 56 52" fill="none">
+                  <rect x="10" y="20" width="36" height="26" rx="3" fill="#E3BA8D" stroke="#AD7E52" strokeWidth="2" />
+                  <path d="M10 20L17 12H40L46 20H10Z" fill="#EECCA3" stroke="#AD7E52" strokeWidth="1.8" />
+                  <path d="M28 38C25.5 36.2 24 34.4 24 32.8C24 31.6 25 30.8 26.2 30.8C27 30.8 27.6 31.2 28 31.9C28.4 31.2 29 30.8 29.8 30.8C31 30.8 32 31.6 32 32.8C32 34.4 30.5 36.2 28 38Z" fill="#FF7A9E" />
+                </svg>
+              </div>
+            </>
+          )}
+
+          <div className="relative z-10 grid grid-cols-6 gap-1">
             {Array.from({ length: ROOM_GRID_ROWS * ROOM_GRID_COLS }, (_, idx) => {
               const x = idx % ROOM_GRID_COLS;
               const y = Math.floor(idx / ROOM_GRID_COLS);
@@ -329,13 +376,13 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
               const cellReactionClass =
                 isTargetCell && isInteracting
                   ? target.reactionType === 'sleep'
-                    ? 'animate-house-furniture-sleep bg-[#F3EEFF]/85 border-[#B3A4E8]'
-                    : 'bg-[#E9FAF2]/85 border-[#5CC9A7]'
+                    ? 'animate-house-furniture-sleep bg-[#F3EEFF]/80 border-[#B3A4E8]'
+                    : 'bg-[#E9FAF2]/80 border-[#5CC9A7]'
                   : isTargetCell && isApproaching
-                  ? 'border-[#FF8AA8] bg-white/75'
+                  ? 'border-[#FF8AA8] bg-white/60'
                   : occupant
-                  ? 'bg-white/55 border-white/70 hover:bg-white/80'
-                  : `${zoneMeta.cellTintClass} border-white/35 opacity-80 hover:opacity-100`;
+                  ? 'border-transparent hover:bg-white/30'
+                  : 'border-transparent bg-transparent';
 
               return (
                 <button
@@ -350,21 +397,17 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
                 >
                   {occupant && itemDef ? (
                     <div
-                      className={
+                      className={`drop-shadow-[0_2px_2px_rgba(74,53,49,0.2)] ${
                         isTargetCell && isInteracting && target.reactionType === 'play'
                           ? target.preferenceMatch === 'favorite' || itemDef.category === 'toy'
                             ? 'animate-house-toy-bounce'
                             : 'animate-house-furniture-play'
                           : ''
-                      }
+                      }`}
                     >
                       <FurnitureGraphic itemId={itemDef.id} size={26} />
                     </div>
-                  ) : (
-                    <span className="text-[9px] opacity-40" aria-hidden="true">
-                      {zoneMeta.emoji}
-                    </span>
-                  )}
+                  ) : null}
                 </button>
               );
             })}
@@ -372,7 +415,7 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
 
           {/* Moving & Interacting Pet Layer */}
           <div
-            className="pointer-events-none absolute inset-1.5"
+            className="pointer-events-none absolute inset-1.5 z-20"
             aria-hidden="true"
           >
             <div
@@ -387,7 +430,7 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
               {isInteracting && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none">
                   <span className="text-xs animate-house-zzz">
-                    {target.reactionType === 'sleep' ? '💤' : '✨'}
+                    {target.reactionType === 'sleep' ? '💤' : '🩷'}
                   </span>
                   <span
                     className="text-[11px] animate-house-zzz"

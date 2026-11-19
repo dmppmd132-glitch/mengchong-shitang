@@ -60,9 +60,10 @@ interface CanteenViewProps {
   onUpgradeFarmFacility: (upgradeId: FarmUpgradeId, paySource: PaymentSource) => void;
   onToggleFarmDecoration: (decorId: FarmDecorationId, paySource: PaymentSource) => void;
   onUpdateHouseName: (newName: string) => void;
+  initialSection?: CanteenSection;
 }
 
-type CanteenSection = 'shop' | 'farm' | 'kitchen';
+export type CanteenSection = 'shop' | 'farm' | 'kitchen';
 type CategoryFilter = 'all' | FoodCategory;
 
 const FILTER_OPTIONS: { key: CategoryFilter; label: string }[] = [
@@ -94,14 +95,19 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onUpgradeFarmFacility,
   onToggleFarmDecoration,
   onUpdateHouseName,
+  initialSection = 'shop',
 }) => {
-  const [section, setSection] = useState<CanteenSection>('shop');
+  const [section, setSection] = useState<CanteenSection>(initialSection);
   const [filter, setFilter] = useState<CategoryFilter>('all');
   const [selectedSeed, setSelectedSeed] = useState<IngredientId>('carrot');
   const [farmPaySource, setFarmPaySource] = useState<PaymentSource>('personal');
   const [editingSignName, setEditingSignName] = useState<boolean>(false);
   const [signNameDraft, setSignNameDraft] = useState<string>(house.houseName);
   const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
 
   const hasGrowingCrops = farmPlots.some((p) => p.cropId !== null);
 

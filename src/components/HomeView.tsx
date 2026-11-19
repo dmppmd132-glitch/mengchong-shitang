@@ -42,7 +42,7 @@ import {
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
 import { PetDialogueBubble } from './dialogue/PetDialogueBubble';
 import { HomeHousePreview } from './house/HomeHousePreview';
-import { HouseModalTab } from './house/HouseHubModal';
+import { HouseSubTab } from './house/HouseView';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface HomeViewProps {
@@ -62,7 +62,7 @@ interface HomeViewProps {
   onWalk: () => void;
   onGoToCanteen: () => void;
   onOpenMinigame?: () => void;
-  onOpenHouse?: (tab?: HouseModalTab) => void;
+  onOpenHouse?: (tab?: HouseSubTab) => void;
   house?: SharedHouse;
   onOpenNoviceGrowth?: () => void;
   noviceClaimableCount?: number;
