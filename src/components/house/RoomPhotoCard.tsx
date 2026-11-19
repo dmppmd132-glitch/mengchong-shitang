@@ -185,6 +185,7 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
                 equipped={photo.equipped}
                 interactive={false}
                 customAnimClass={pose.animClass}
+                viewDirection={photo.facing ?? 'front'}
                 size={compact ? 86 : 118}
               />
             </div>

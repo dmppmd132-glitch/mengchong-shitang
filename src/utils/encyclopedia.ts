@@ -105,6 +105,19 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     newlyUnlockedTitles.push('fashion_stylist');
   }
 
+  const stageTitleRules: Array<{ titleId: TitleId; condition: boolean }> = [
+    { titleId: 'growth_sprout', condition: state.pet.hatched || state.pet.level >= 1 },
+    { titleId: 'growth_chubby', condition: state.pet.level >= 2 },
+    { titleId: 'growth_radiant', condition: state.pet.level >= 3 },
+    { titleId: 'growth_superstar', condition: state.pet.level >= 4 },
+  ];
+  for (const rule of stageTitleRules) {
+    if (rule.condition && !unlockedTitles.includes(rule.titleId)) {
+      unlockedTitles.push(rule.titleId);
+      newlyUnlockedTitles.push(rule.titleId);
+    }
+  }
+
   if (
     newlyAwardedMilestones.length === 0 &&
     newlyCompletedThemes.length === 0 &&

@@ -18,6 +18,7 @@ import {
   MonthlyActivityTracker,
   MonthlyRecap,
   PetMessage,
+  PetViewDirection,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -583,6 +584,7 @@ export function saveScenePhoto(
     caption: string;
     scene: PhotoScene;
     poseId: PhotoPose;
+    facing?: PetViewDirection;
     filterId: PhotoFilter;
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
@@ -614,6 +616,7 @@ export function saveScenePhoto(
     photoKind: params.scene,
     scene: params.scene,
     wardrobePoseId: params.poseId,
+    facing: params.facing ?? 'front',
     filterId: params.filterId,
     frameId: params.frameId,
     stickers: params.stickers.slice(0, 6),

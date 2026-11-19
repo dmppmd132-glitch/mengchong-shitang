@@ -62,6 +62,8 @@ export type PetExpression =
   | 'happyTongue'
   | 'ticklish';
 
+export type PetViewDirection = 'front' | 'left' | 'back' | 'right';
+
 export interface Pet {
   id: string;
   name: string;
@@ -244,7 +246,11 @@ export type TitleId =
   | 'cloud_dreamer'
   | 'little_master_chef'
   | 'starlight_voyager'
-  | 'party_superstar';
+  | 'party_superstar'
+  | 'growth_sprout'
+  | 'growth_chubby'
+  | 'growth_radiant'
+  | 'growth_superstar';
 
 export type PersonalityId =
   | 'greedy'

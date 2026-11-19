@@ -106,6 +106,38 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '完成「節日派對」穿搭套裝 (4/4)',
     badgeClass: 'bg-[#FFF0F6] border-[#F4B4CB] text-[#B83B64]',
   },
+  growth_sprout: {
+    id: 'growth_sprout',
+    name: '破殼萌芽星',
+    emoji: '🐣',
+    description: '破殼來到萌寵食堂報到，邁開軟萌可愛的成長第一步！',
+    unlockCondition: '完成破殼孵化並進入 Lv.1',
+    badgeClass: 'bg-[#FFF6DA] border-[#EED387] text-[#8A5610]',
+  },
+  growth_chubby: {
+    id: 'growth_chubby',
+    name: '圓滾幸福團',
+    emoji: '🍡',
+    description: '進化至 Lv.2 圓潤階段，臉頰鼓鼓、解鎖身體穿搭的幸福時光！',
+    unlockCondition: '寵物成長達 Lv.2（100 成長值）',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
+  growth_radiant: {
+    id: 'growth_radiant',
+    name: '元氣閃亮星',
+    emoji: '✨',
+    description: '進化至 Lv.3 元氣階段，雙眼閃閃發光、每天精力滿滿！',
+    unlockCondition: '寵物成長達 Lv.3（250 成長值）',
+    badgeClass: 'bg-[#E6F8F1] border-[#9ADBC2] text-[#1F6B54]',
+  },
+  growth_superstar: {
+    id: 'growth_superstar',
+    name: '食堂超級巨星',
+    emoji: '🌟',
+    description: '進化至 Lv.4 巔峰階段，擁有專屬金星光環與閃耀星等認證！',
+    unlockCondition: '寵物成長達 Lv.4（500 成長值）',
+    badgeClass: 'bg-[#F3EBFF] border-[#C9BDF2] text-[#5B449C]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

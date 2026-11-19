@@ -13,6 +13,7 @@ import {
   Scale,
   Send,
   Sparkles,
+  TrendingUp,
   Users,
 } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
@@ -36,9 +37,17 @@ import {
 import { ShareCardPayload } from '../utils/shareCardCanvas';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 import { EncyclopediaSection, EncyclopediaView } from './EncyclopediaView';
+import { EvolutionAtlasView } from './EvolutionAtlasView';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
 import { MemoriesView } from './memories/MemoriesView';
 import { PersonalityProfileView } from './PersonalityProfileView';
+
+export type JournalSection =
+  | 'journal'
+  | 'evolution'
+  | 'memories'
+  | 'personality'
+  | 'encyclopedia';
 
 interface JournalViewProps {
   pet: Pet;
@@ -56,7 +65,7 @@ interface JournalViewProps {
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
   house: SharedHouse;
-  initialSection?: 'journal' | 'memories' | 'personality' | 'encyclopedia';
+  initialSection?: JournalSection;
   initialEncyclopediaSection?: EncyclopediaSection;
   onOpenHousePhotoMode?: () => void;
   onOpenWardrobePhotoMode?: (scene?: PhotoScene) => void;
@@ -117,9 +126,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onShareRecapToBoard,
   onShareTextToBoard,
 }) => {
-  const [section, setSection] = useState<'journal' | 'memories' | 'personality' | 'encyclopedia'>(
-    initialSection
-  );
+  const [section, setSection] = useState<JournalSection>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [inputWeight, setInputWeight] = useState<string>(pet.weight.toFixed(1));
   const [customNote, setCustomNote] = useState<string>('');
@@ -253,11 +260,11 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
-      <div className="grid grid-cols-4 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('journal')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'journal'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -268,8 +275,20 @@ export const JournalView: React.FC<JournalViewProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => setSection('evolution')}
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'evolution'
+              ? 'bg-white text-[#C44569] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+          <span>進化</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setSection('memories')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'memories'
               ? 'bg-white text-[#B83B64] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -281,7 +300,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('personality')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'personality'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -293,7 +312,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('encyclopedia')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'encyclopedia'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -310,6 +329,14 @@ export const JournalView: React.FC<JournalViewProps> = ({
           unlockedAccessories={unlockedAccessories}
           house={house}
           initialSection={initialEncyclopediaSection}
+          onSelectTitle={onSelectTitle}
+        />
+      ) : section === 'evolution' ? (
+        <EvolutionAtlasView
+          pet={pet}
+          encyclopedia={encyclopedia}
+          unlockedAccessories={unlockedAccessories}
+          memories={game?.memoryAlbum.memories}
           onSelectTitle={onSelectTitle}
         />
       ) : section === 'memories' && game ? (

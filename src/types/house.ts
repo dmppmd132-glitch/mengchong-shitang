@@ -1,6 +1,7 @@
 import type {
   AccessorySlot,
   PetSpecies,
+  PetViewDirection,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -174,6 +175,7 @@ export interface RoomPhotoRecord {
   photoKind?: 'room' | 'wardrobe' | 'farm' | 'album';
   scene?: PhotoScene;
   wardrobePoseId?: PhotoPose;
+  facing?: PetViewDirection;
   filterId?: PhotoFilter;
   frameId?: PhotoFrame;
   stickers?: PhotoStickerId[];

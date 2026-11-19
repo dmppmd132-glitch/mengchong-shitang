@@ -78,6 +78,10 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
   );
 
   const titleIds: TitleId[] = [
+    'growth_sprout',
+    'growth_chubby',
+    'growth_radiant',
+    'growth_superstar',
     'gourmet_owner',
     'fashion_stylist',
     'strawberry_dreamer',

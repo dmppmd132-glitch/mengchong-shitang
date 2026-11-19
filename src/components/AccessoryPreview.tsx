@@ -301,6 +301,27 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="8" cy="6" r="2" fill="#6CD4B5" />
         </g>
       )}
+      {accessoryId === 'starlight_spark_pin' && (
+        <g transform="translate(32, 34)">
+          <path d="M -20 4 L 20 4" stroke="#F4B43E" strokeWidth="4.5" strokeLinecap="round" />
+          <path d="M -20 4 L 20 4" stroke="#FFF2A8" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M -6 -13 L -2.5 -4 L 7 -3 L -0.5 3 L 1.5 12 L -6 7.5 L -13.5 12 L -11.5 3 L -19 -3 L -9.5 -4 Z"
+            fill="#FFE066"
+            stroke="#5A3E36"
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M 11 -9 L 13.2 -3 L 19.5 -2.2 L 14.8 1.8 L 16 8 L 11 4.8 L 6 8 L 7.2 1.8 L 2.5 -2.2 L 8.8 -3 Z"
+            fill="#FF8EB0"
+            stroke="#5A3E36"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+          />
+          <circle cx="-6" cy="0" r="2" fill="#FFFDF7" />
+        </g>
+      )}
       {accessoryId === 'strawberry_blush_sticker' && (
         <g transform="translate(32, 34)">
           <path d="M -14 -7 C -8 -7 -7 4 -14 9 C -21 4 -20 -7 -14 -7 Z" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="2.4" />
@@ -491,6 +512,22 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <line x1="0" y1="18" x2="0" y2="23" stroke="#FF5E5B" strokeWidth="2.6" strokeLinecap="round" />
         </g>
       )}
+      {accessoryId === 'superstar_star_wand' && (
+        <g transform="translate(32, 34) rotate(12)">
+          <line x1="0" y1="-2" x2="0" y2="21" stroke="#B67628" strokeWidth="4.2" strokeLinecap="round" />
+          <line x1="0" y1="2" x2="0" y2="18" stroke="#FFE066" strokeWidth="1.6" strokeLinecap="round" />
+          <path
+            d="M -9 -3 L -11 -13 L -4 -8 L 0 -17 L 4 -8 L 11 -13 L 9 -3 Z"
+            fill="#FFD447"
+            stroke="#5A3E36"
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+          />
+          <circle cx="0" cy="-7" r="3" fill="#FF6B9A" stroke="#5A3E36" strokeWidth="1.5" />
+          <circle cx="-13" cy="-16" r="2" fill="#FFE066" />
+          <circle cx="13" cy="-15" r="2" fill="#85D7FF" />
+        </g>
+      )}
       {accessoryId === 'camping_backpack' && (
         <g transform="translate(32, 34)">
           <path d="M -10 -14 Q 0 -22 10 -14" fill="none" stroke="#5A3E36" strokeWidth="3.2" strokeLinecap="round" />
@@ -507,6 +544,40 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="8" cy="4" r="3.2" fill="#FFE066" />
           <circle cx="-6" cy="11" r="2" fill="#FFFDF7" />
           <circle cx="11" cy="-3" r="1.8" fill="#FFFDF7" />
+        </g>
+      )}
+      {accessoryId === 'angel_feather_wings' && (
+        <g transform="translate(32, 33)">
+          <path d="M -3 0 C -11 -14 -27 -16 -26 -2 C -26 4 -22 7 -22 7 C -25 11 -18 17 -12 13 C -9 16 -4 14 -3 7 Z" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M 3 0 C 11 -14 27 -16 26 -2 C 26 4 22 7 22 7 C 25 11 18 17 12 13 C 9 16 4 14 3 7 Z" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M -8 2 C -14 -4 -20 -4 -19 2" fill="none" stroke="#E9D8C8" strokeWidth="2" strokeLinecap="round" />
+          <path d="M 8 2 C 14 -4 20 -4 19 2" fill="none" stroke="#E9D8C8" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="0" cy="3" r="4" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'butterfly_dream_wings' && (
+        <g transform="translate(32, 33)">
+          <path d="M -2 -2 C -11 -18 -27 -14 -25 -1 C -24 5 -16 7 -6 5 C -19 8 -22 17 -13 18 C -7 19 -3 11 -2 4 Z" fill="#FF9AC2" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M 2 -2 C 11 -18 27 -14 25 -1 C 24 5 16 7 6 5 C 19 8 22 17 13 18 C 7 19 3 11 2 4 Z" fill="#8BE0CE" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <circle cx="-15" cy="-4" r="3" fill="#FFF5B8" />
+          <circle cx="15" cy="-4" r="3" fill="#FFF5B8" />
+          <rect x="-2.5" y="-6" width="5" height="16" rx="2.5" fill="#FFF3C4" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
+      {accessoryId === 'devil_bat_wings' && (
+        <g transform="translate(32, 34)">
+          <path d="M -3 0 C -11 -13 -24 -12 -26 -2 Q -21 1 -19 7 Q -14 4 -11 10 Q -6 7 -3 5 Z" fill="#8A63B8" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M 3 0 C 11 -13 24 -12 26 -2 Q 21 1 19 7 Q 14 4 11 10 Q 6 7 3 5 Z" fill="#8A63B8" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <circle cx="0" cy="2" r="3.5" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
+      {accessoryId === 'bee_honey_wings' && (
+        <g transform="translate(32, 34)">
+          <ellipse cx="-14" cy="4" rx="9" ry="6" transform="rotate(-14 -14 4)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="2.2" />
+          <ellipse cx="14" cy="4" rx="9" ry="6" transform="rotate(14 14 4)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="2.2" />
+          <ellipse cx="-14" cy="-5" rx="11.5" ry="7.5" transform="rotate(-24 -14 -5)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="2.4" />
+          <ellipse cx="14" cy="-5" rx="11.5" ry="7.5" transform="rotate(24 14 -5)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="0" cy="1" r="4" fill="#FFD54F" stroke="#5A3E36" strokeWidth="2.2" />
         </g>
       )}
     </svg>

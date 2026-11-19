@@ -14,6 +14,7 @@ import {
 } from '../data/photoStudio';
 import {
   Pet,
+  PetViewDirection,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -37,6 +38,7 @@ interface WardrobePhotoModalProps {
     caption: string;
     scene: PhotoScene;
     poseId: PhotoPose;
+    facing?: PetViewDirection;
     filterId: PhotoFilter;
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
@@ -57,6 +59,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
 }) => {
   const [scene, setScene] = useState<PhotoScene>(initialScene);
   const [poseId, setPoseId] = useState<PhotoPose>('happy');
+  const [facing, setFacing] = useState<PetViewDirection>('front');
   const [filterId, setFilterId] = useState<PhotoFilter>('strawberry');
   const [frameId, setFrameId] = useState<PhotoFrame>('polaroid');
   const [stickers, setStickers] = useState<PhotoStickerId[]>([]);
@@ -78,6 +81,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         : 'strawberry';
     setFilterId(defaultFilter);
     setPoseId('happy');
+    setFacing('front');
     setStickers([]);
     setTitle(`${pet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20));
     setCaption('');
@@ -127,6 +131,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         `${activeScene.label} · ${activeFilter.label}背景 · ${activePose.label}姿勢紀念`,
       scene,
       poseId,
+      facing,
       filterId,
       frameId,
       stickers,
@@ -149,6 +154,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         caption: cleanCaption,
         scene,
         poseId,
+        facing,
         filterId,
         frameId,
         stickers,
@@ -339,6 +345,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                   equipped={pet.accessories}
                   interactive={false}
                   customAnimClass={activePose.animClass}
+                  viewDirection={facing}
                   size={156}
                 />
               </div>
@@ -412,6 +419,39 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                       <Lock className="w-3 h-3 shrink-0" />
                     )}
                     <span className="truncate">{pose.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* 1.5 Facing direction selector */}
+          <section className="space-y-1.5">
+            <h3 className="text-xs font-extrabold text-[#4A3531] px-0.5">
+              🔄 寵物面向（展現正面或背部翅膀）
+            </h3>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  { id: 'front', label: '正面' },
+                  { id: 'left', label: '朝左' },
+                  { id: 'back', label: '背面' },
+                  { id: 'right', label: '朝右' },
+                ] as const
+              ).map((dir) => {
+                const selected = facing === dir.id;
+                return (
+                  <button
+                    key={dir.id}
+                    type="button"
+                    onClick={() => setFacing(dir.id)}
+                    className={`min-h-[44px] rounded-2xl px-2 border-2 text-[11px] font-extrabold transition active:scale-95 ${
+                      selected
+                        ? 'bg-[#E6F8F1] border-[#5CC9A7] text-[#1F6B54] shadow-xs'
+                        : 'bg-[#FFFDF8] border-[#EFE0D7] text-[#5A3E36] hover:bg-[#FFF6EE]'
+                    }`}
+                  >
+                    {dir.label}
                   </button>
                 );
               })}

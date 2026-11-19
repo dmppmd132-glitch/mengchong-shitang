@@ -91,11 +91,14 @@ export function syncLimitedAccessoryUnlocks(state: GameState): LimitedUnlockResu
     }
   };
 
-  // 1. 生日小皇冠：活動或成就獲得（寵物達 Lv.2 / 解鎖任一稱號或配件里程碑 / 完成 2 項每日任務）
+  // 1. 生日小皇冠：活動或成就獲得（寵物達 Lv.2 / 解鎖非新手稱號或配件里程碑 / 完成 2 項每日任務）
+  const nonSproutTitleUnlocked = state.encyclopedia.unlockedTitles.some(
+    (t) => t !== 'growth_sprout'
+  );
   const qualifiesForBirthdayCrown =
     state.pet.level >= 2 ||
     state.encyclopedia.claimedAccessoryMilestones.length >= 1 ||
-    state.encyclopedia.unlockedTitles.length >= 1 ||
+    nonSproutTitleUnlocked ||
     state.noviceGrowth.completedDailyTasksCount >= 2;
   grantIfMissing('birthday_mini_crown', qualifiesForBirthdayCrown);
 
@@ -114,6 +117,12 @@ export function syncLimitedAccessoryUnlocks(state: GameState): LimitedUnlockResu
   // 4. 派對小披風：7 天成長之路第 7 天獲得
   const qualifiesForPartyCape = state.noviceGrowth.claimedDays.includes(7);
   grantIfMissing('party_mini_cape', qualifiesForPartyCape);
+
+  // 5. 星願閃亮髮夾：寵物進化達 Lv.3 自動解鎖
+  grantIfMissing('starlight_spark_pin', state.pet.level >= 3);
+
+  // 6. 巨星閃耀手杖：寵物進化達 Lv.4 自動解鎖
+  grantIfMissing('superstar_star_wand', state.pet.level >= 4);
 
   if (newlyUnlockedIds.length === 0) {
     return { nextState: state, newlyUnlockedIds: [] };

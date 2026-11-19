@@ -71,6 +71,7 @@ import {
   PetMessage,
   PetPersonality,
   PetSpecies,
+  PetViewDirection,
   PhotoComment,
   PhotoFilter,
   PhotoFrame,
@@ -535,7 +536,11 @@ function asTitleId(value: unknown): TitleId | null {
     value === 'cloud_dreamer' ||
     value === 'little_master_chef' ||
     value === 'starlight_voyager' ||
-    value === 'party_superstar'
+    value === 'party_superstar' ||
+    value === 'growth_sprout' ||
+    value === 'growth_chubby' ||
+    value === 'growth_radiant' ||
+    value === 'growth_superstar'
   ) {
     return value;
   }
@@ -918,6 +923,12 @@ function parseSharedHouse(raw: unknown): SharedHouse {
     }
     return undefined;
   };
+  const asPetViewDirection = (v: unknown): PetViewDirection | undefined => {
+    if (v === 'front' || v === 'left' || v === 'back' || v === 'right') {
+      return v;
+    }
+    return undefined;
+  };
   const asPhotoFilter = (v: unknown): PhotoFilter | undefined => {
     if (
       v === 'strawberry' ||
@@ -1013,6 +1024,7 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             photoKind,
             scene: asPhotoScene(p.scene),
             wardrobePoseId: asWardrobePose(p.wardrobePoseId),
+            facing: asPetViewDirection(p.facing),
             filterId: asPhotoFilter(p.filterId),
             frameId: asPhotoFrame(p.frameId),
             stickers,

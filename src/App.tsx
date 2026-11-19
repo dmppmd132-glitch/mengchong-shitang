@@ -14,7 +14,7 @@ import {
   MinigameSettlementSummary,
 } from './components/minigames/MinigameHubModal';
 import { IntroHatching } from './components/IntroHatching';
-import { JournalView } from './components/JournalView';
+import { JournalSection, JournalView } from './components/JournalView';
 import { LevelUpModal } from './components/LevelUpModal';
 import { MemoryDetailModal } from './components/memories/MemoryDetailModal';
 import { ShareCardModal } from './components/memories/ShareCardModal';
@@ -95,6 +95,7 @@ import {
   PetSpecies,
   PetStickerId,
   PetTouchZone,
+  PetViewDirection,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -190,9 +191,8 @@ export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [questsInitialSection, setQuestsInitialSection] = useState<'daily' | 'growth'>('daily');
-  const [journalInitialSection, setJournalInitialSection] = useState<
-    'journal' | 'memories' | 'personality' | 'encyclopedia'
-  >('journal');
+  const [journalInitialSection, setJournalInitialSection] =
+    useState<JournalSection>('journal');
   const [journalEncyclopediaSection, setJournalEncyclopediaSection] =
     useState<EncyclopediaSection>('foods');
   const [canteenInitialSection, setCanteenInitialSection] =
@@ -707,7 +707,7 @@ export default function App() {
             weight: prev.pet.weight,
           });
         }
-        return next;
+        return syncAllAccessoryProgress(next).nextState;
       });
     } else if (currentStars > prevPrestigeStarsRef.current) {
       soundFX.levelUp(game.soundEnabled);
@@ -894,7 +894,7 @@ export default function App() {
           startedDate: prev.noviceGrowth.startedDate || todayStr,
         },
       };
-      return recordMemoryEntry(hatchedState, {
+      const withMemory = recordMemoryEntry(hatchedState, {
         uniqueKey: 'hatching_welcome',
         type: 'hatching',
         title: `${petName} 加入我們的家！`,
@@ -904,6 +904,7 @@ export default function App() {
         level: 1,
         createdAt: now.getTime(),
       });
+      return syncAllAccessoryProgress(withMemory).nextState;
     });
     setSpeech(`嗨～我是${petName}，${speciesInfo.greeting}`);
   };
@@ -2744,6 +2745,7 @@ export default function App() {
     caption: string;
     scene: PhotoScene;
     poseId: PhotoPose;
+    facing?: PetViewDirection;
     filterId: PhotoFilter;
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];

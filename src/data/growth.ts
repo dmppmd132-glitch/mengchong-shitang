@@ -1,8 +1,54 @@
-import { GrowthStageInfo, Pet, PetSpecies } from '../types';
+import { GrowthStageInfo, Pet, PetSpecies, TitleId } from '../types';
 
 export const MAX_STAGE_GROWTH = 500;
 export const PRESTIGE_STAR_STEP = 200;
 export const PRESTIGE_STAR_REWARD_COINS = 100;
+
+export interface EvolutionMilestoneMeta {
+  level: 0 | 1 | 2 | 3 | 4;
+  badgeLabel: string;
+  titleId: TitleId | null;
+  accessoryIds: string[];
+  highlightFeature: string;
+}
+
+export const EVOLUTION_MILESTONE_META: Record<0 | 1 | 2 | 3 | 4, EvolutionMilestoneMeta> = {
+  0: {
+    level: 0,
+    badgeLabel: '孵化起點',
+    titleId: null,
+    accessoryIds: ['pink_bow', 'round_glasses'],
+    highlightFeature: '輕點蛋殼破殼報到，開啟 5 大配件欄位（頭・臉・頸・手・背）與新手穿搭禮',
+  },
+  1: {
+    level: 1,
+    badgeLabel: 'Lv.1 初期寶寶',
+    titleId: 'growth_sprout',
+    accessoryIds: ['baby_bib'],
+    highlightFeature: '解鎖可愛圍兜穿搭與專屬稱號「破殼萌芽星」',
+  },
+  2: {
+    level: 2,
+    badgeLabel: 'Lv.2 圓潤成長',
+    titleId: 'growth_chubby',
+    accessoryIds: ['birthday_mini_crown'],
+    highlightFeature: '解鎖第 6 欄位「身體」穿搭、生日小皇冠與專屬稱號「圓滾幸福團」',
+  },
+  3: {
+    level: 3,
+    badgeLabel: 'Lv.3 元氣綻放',
+    titleId: 'growth_radiant',
+    accessoryIds: ['starlight_spark_pin'],
+    highlightFeature: '解鎖閃亮元氣雙頰光暈、星願閃亮髮夾與專屬稱號「元氣閃亮星」',
+  },
+  4: {
+    level: 4,
+    badgeLabel: 'Lv.4 巔峰巨星',
+    titleId: 'growth_superstar',
+    accessoryIds: ['superstar_star_wand'],
+    highlightFeature: '解鎖金星光環、閃耀星等循環（+100 金幣/★）、巨星閃耀手杖與「食堂超級巨星」',
+  },
+};
 
 export const GROWTH_STAGES: GrowthStageInfo[] = [
   {

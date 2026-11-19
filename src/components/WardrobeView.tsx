@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { BookOpen, Camera, Check, Coins, Heart, Lock, Shirt, Sparkles } from 'lucide-react';
+import {
+  BookOpen,
+  Camera,
+  Check,
+  Coins,
+  Heart,
+  Lock,
+  RotateCw,
+  Shirt,
+  Sparkles,
+} from 'lucide-react';
 import {
   ACCESSORIES,
   ACCESSORY_SLOT_LABELS,
@@ -16,6 +26,7 @@ import {
   Pet,
   PetPersonality,
   PetSpecies,
+  PetViewDirection,
   SharedHouse,
   TitleId,
 } from '../types';
@@ -60,6 +71,29 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'wardrobe' | 'encyclopedia'>('wardrobe');
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
+  const [viewDirection, setViewDirection] = useState<PetViewDirection>('front');
+
+  const directionOptions: Array<{ id: PetViewDirection; label: string }> = [
+    { id: 'front', label: '正面' },
+    { id: 'left', label: '朝左' },
+    { id: 'back', label: '背面' },
+    { id: 'right', label: '朝右' },
+  ];
+
+  const handleCycleDirection = () => {
+    const order: PetViewDirection[] = ['front', 'right', 'back', 'left'];
+    const idx = order.indexOf(viewDirection);
+    setViewDirection(order[(idx + 1) % order.length]);
+  };
+
+  const handleSelectSlot = (slot: AccessorySlot) => {
+    setActiveSlot(slot);
+    if (slot === 'back' && viewDirection === 'front') {
+      setViewDirection('back');
+    } else if ((slot === 'face' || slot === 'neck') && viewDirection === 'back') {
+      setViewDirection('front');
+    }
+  };
 
   const stage = getGrowthStage(pet.growth);
   const slotUnlocked = stage.unlockedSlots.includes(activeSlot);
@@ -136,16 +170,50 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
               </div>
             )}
 
-            <div className="my-2">
-              <PiggyCharacter
-                species={pet.species}
-                growth={pet.growth}
-                roundness={pet.roundness}
-                action="idle"
-                equipped={pet.accessories}
-                interactive={false}
-                size={180}
-              />
+            <div className="my-2 flex flex-col items-center">
+              <button
+                type="button"
+                onClick={handleCycleDirection}
+                aria-label="點擊讓寵物轉方向查看穿搭"
+                className="relative rounded-full p-1 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#FF7A9E]/35 active:scale-95 transition-transform cursor-pointer"
+              >
+                <PiggyCharacter
+                  species={pet.species}
+                  growth={pet.growth}
+                  roundness={pet.roundness}
+                  action="idle"
+                  equipped={pet.accessories}
+                  interactive={false}
+                  viewDirection={viewDirection}
+                  size={180}
+                />
+                <span className="absolute right-0 bottom-1 w-8 h-8 rounded-full bg-white/95 border border-[#D2EFE4] shadow-xs flex items-center justify-center text-[#256D57]">
+                  <RotateCw className="w-4 h-4" />
+                </span>
+              </button>
+
+              <div className="mt-1.5 w-full max-w-[300px] grid grid-cols-4 gap-1 bg-[#EBF7F2] p-1 rounded-2xl border border-[#D2EFE4]">
+                {directionOptions.map((opt) => {
+                  const selected = viewDirection === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setViewDirection(opt.id)}
+                      className={`min-h-[38px] rounded-xl text-[11px] font-extrabold whitespace-nowrap transition ${
+                        selected
+                          ? 'bg-white text-[#256D57] shadow-xs'
+                          : 'text-[#6E544E] hover:text-[#4A3531]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-[10px] font-bold text-[#7D635D]">
+                點擊寵物或方向按鈕可轉身查看背部翅膀與配件
+              </p>
             </div>
 
             {onChangeSpecies && (
@@ -191,7 +259,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                 <button
                   key={slot}
                   type="button"
-                  onClick={() => setActiveSlot(slot)}
+                  onClick={() => handleSelectSlot(slot)}
                   className={`min-h-[44px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1 transition whitespace-nowrap px-2 ${
                     activeSlot === slot
                       ? 'bg-white text-[#D64470] shadow-xs'
