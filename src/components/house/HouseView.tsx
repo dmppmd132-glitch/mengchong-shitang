@@ -48,6 +48,7 @@ import {
 } from '../../data/house';
 import { INGREDIENTS } from '../../data/kitchen';
 import { PHOTO_STICKERS } from '../../data/photoStudio';
+import { PicnicSnackId, SYSTEM_COOKIE_ID } from '../../hooks/useYardActivities';
 import {
   CropPlot,
   FarmDecorationId,
@@ -94,6 +95,10 @@ import {
   swapOrMoveFurnitureItem,
   updateHouseName,
 } from '../../utils/house';
+import {
+  mergeYardMoodBuffPeriods,
+  PICNIC_MOOD_BUFF_DURATION_MS,
+} from '../../utils/farmGrowth';
 import { evaluateItemPreference } from '../../utils/personality';
 import { ShareCardPayload } from '../../utils/shareCardCanvas';
 import { soundFX, triggerHaptic } from '../../utils/sound';
@@ -222,6 +227,63 @@ export const HouseView: React.FC<HouseViewProps> = ({
   const [sharingPhoto, setSharingPhoto] = useState<boolean>(false);
 
   const house = game.house;
+  const addYardCoins = (amount: number) => {
+    const safeAmount = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+    if (safeAmount === 0) return;
+    onUpdateGame((prev) => ({ ...prev, coins: prev.coins + safeAmount }));
+  };
+  const rewardYardSwing = () => {
+    onUpdateGame((prev) => ({
+      ...prev,
+      pet: {
+        ...prev.pet,
+        mood: Math.min(100, prev.pet.mood + 3),
+        intimacy: Math.min(100, prev.pet.intimacy + 1),
+      },
+    }));
+  };
+  const usePicnicSnack = (snackId: PicnicSnackId) => {
+    onUpdateGame((prev) => {
+      if (snackId !== SYSTEM_COOKIE_ID && (prev.ingredients[snackId] ?? 0) <= 0) {
+        return prev;
+      }
+
+      const now = Date.now();
+      const growingPlantTimes = prev.farmPlots
+        .filter((plot) => plot.cropId !== null && plot.plantedAt !== null)
+        .map((plot) => plot.plantedAt as number);
+      const relevantPeriods = (prev.yardMoodBuffPeriods ?? []).filter(
+        (period) =>
+          period.expiresAt > now ||
+          growingPlantTimes.some((plantedAt) => period.expiresAt > plantedAt)
+      );
+      const periods = mergeYardMoodBuffPeriods(relevantPeriods);
+      const activePeriod = periods.find(
+        (period) => period.startedAt <= now && period.expiresAt > now
+      );
+      const nextPeriods = activePeriod
+        ? periods.map((period) =>
+            period === activePeriod
+              ? { ...period, expiresAt: now + PICNIC_MOOD_BUFF_DURATION_MS }
+              : period
+          )
+        : [...periods, { startedAt: now, expiresAt: now + PICNIC_MOOD_BUFF_DURATION_MS }];
+
+      return {
+        ...prev,
+        ingredients:
+          snackId === SYSTEM_COOKIE_ID
+            ? prev.ingredients
+            : { ...prev.ingredients, [snackId]: Math.max(0, (prev.ingredients[snackId] ?? 0) - 1) },
+        yardMoodBuffPeriods: mergeYardMoodBuffPeriods(nextPeriods),
+        pet: {
+          ...prev.pet,
+          mood: Math.min(100, prev.pet.mood + 4),
+          intimacy: Math.min(100, prev.pet.intimacy + 1),
+        },
+      };
+    });
+  };
   const wallDef = WALLPAPER_BY_ID[house.roomLayout.wallpaperId] ?? WALLPAPER_BY_ID.cream_warm;
   const floorDef = FLOORING_BY_ID[house.roomLayout.flooringId] ?? FLOORING_BY_ID.oak_wood;
   const encCounts = getHouseEncyclopediaCounts(house);
@@ -2154,7 +2216,11 @@ export const HouseView: React.FC<HouseViewProps> = ({
             house={house}
             pet={game.pet}
             ingredients={game.ingredients}
+            buffPeriods={game.yardMoodBuffPeriods ?? []}
             soundEnabled={game.soundEnabled}
+            onAddCoins={addYardCoins}
+            onSwingReward={rewardYardSwing}
+            onFeedSnack={usePicnicSnack}
             onEditHouseName={() => {
               setHouseNameInput(house.houseName);
               setYardRenameOpen(true);

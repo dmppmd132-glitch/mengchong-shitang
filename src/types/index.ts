@@ -211,6 +211,11 @@ export interface CropPlot {
   isGolden?: boolean;
 }
 
+export interface YardMoodBuffPeriod {
+  startedAt: number;
+  expiresAt: number;
+}
+
 export interface KitchenRecipe {
   id: string;
   outputFoodId: string;
@@ -756,6 +761,7 @@ export interface GameState {
   foods: Record<string, number>;
   ingredients: Record<IngredientId, number>;
   farmPlots: CropPlot[];
+  yardMoodBuffPeriods: YardMoodBuffPeriod[];
   accessories: string[];
   weightLogs: WeightLog[];
   feedLogs: FeedLog[];
@@ -805,4 +811,3 @@ export interface SharedPetRoom {
   lastActorEmail: string | null;
   updatedAt: string;
 }
-

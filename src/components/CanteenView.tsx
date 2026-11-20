@@ -30,6 +30,7 @@ import {
   Pet,
   PiggyActionState,
   SharedHouse,
+  YardMoodBuffPeriod,
 } from '../types';
 import {
   PaymentSource,
@@ -37,7 +38,13 @@ import {
   getEffectiveHarvestYield,
   getIngredientStorageCap,
 } from '../utils/house';
+import {
+  getActiveYardBuffExpiresAt,
+  getCropGrowthState,
+  getExpectedCropDurationMs,
+} from '../utils/farmGrowth';
 import { PiggyCharacter } from './PiggyCharacter';
+import { YardMoodBuffBadge } from './house/YardMoodBuffBadge';
 import {
   BottomLeftGardenToolsSvg,
   CropIllustration,
@@ -64,6 +71,7 @@ interface CanteenViewProps {
   inventory: Record<string, number>;
   ingredients: Record<IngredientId, number>;
   farmPlots: CropPlot[];
+  yardMoodBuffPeriods: YardMoodBuffPeriod[];
   freeSeeds?: Partial<Record<IngredientId, number>>;
   puppyTreasureReady?: boolean;
   house: SharedHouse;
@@ -103,6 +111,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   inventory,
   ingredients,
   farmPlots,
+  yardMoodBuffPeriods,
   freeSeeds = {},
   puppyTreasureReady = false,
   house,
@@ -141,15 +150,17 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   }, [initialSection]);
 
   const hasGrowingCrops = farmPlots.some((p) => p.cropId !== null);
+  const activeBuffExpiresAt = getActiveYardBuffExpiresAt(yardMoodBuffPeriods, now);
+  const hasTimedFarmActivity = hasGrowingCrops || activeBuffExpiresAt !== null;
 
   useEffect(() => {
-    if (!hasGrowingCrops) return;
+    if (!hasTimedFarmActivity) return;
     setNow(Date.now());
     const timer = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [hasGrowingCrops]);
+  }, [hasTimedFarmActivity]);
 
   useEffect(() => {
     setSignNameDraft(house.houseName);
@@ -229,7 +240,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const availableFarmCoins = farmPaySource === 'treasury' ? house.treasuryCoins : coins;
 
   const readyCropsCount = farmPlots.filter(
-    (p) => p.cropId !== null && p.plantedAt !== null && now >= p.plantedAt + p.durationMs
+    (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
   ).length;
 
   const nextExpandPlotNumber = house.unlockedFarmPlots < 8 ? house.unlockedFarmPlots + 1 : null;
@@ -600,8 +611,15 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       const info = INGREDIENTS[id];
                       const active = selectedSeed === id;
                       const freeCount = freeSeeds[id] ?? 0;
-                      const effectiveSec = Math.round(
-                        getEffectiveGrowDurationMs(info.growSeconds, house) / 1000
+                      const effectiveSec = Math.max(
+                        1,
+                        Math.round(
+                          getExpectedCropDurationMs(
+                            getEffectiveGrowDurationMs(info.growSeconds, house),
+                            now,
+                            yardMoodBuffPeriods
+                          ) / 1000
+                        )
                       );
                       return (
                         <button
@@ -676,6 +694,11 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
             {/* 2. Lush Green Meadow Canvas with Side Fences, Watering Cans, Tools & Cardless 3D Soil Plots */}
             <div className="relative z-10 pt-5 pb-1">
+              <YardMoodBuffBadge
+                expiresAt={activeBuffExpiresAt}
+                now={now}
+                className="absolute right-4 top-0 z-30 max-w-[calc(100%-2rem)]"
+              />
               {/* Left & Right Wooden Side Fences With Flowers */}
               <div className="pointer-events-none absolute left-0 top-2 z-0">
                 <FarmSideFenceSvg side="left" />
@@ -700,16 +723,12 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 <div className="grid grid-cols-2 gap-x-3.5 gap-y-8">
                   {farmPlots.map((plot) => {
                     const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
-                    const plantedAt = plot.plantedAt ?? now;
-                    const elapsed = Math.max(0, now - plantedAt);
+                    const growth = getCropGrowthState(plot, now, yardMoodBuffPeriods);
                     const remainingSec = crop
-                      ? Math.max(0, Math.ceil((plot.durationMs - elapsed) / 1000))
+                      ? Math.max(0, Math.ceil(growth.remainingMs / 1000))
                       : 0;
-                    const isReady = crop !== null && elapsed >= plot.durationMs;
-                    const progressPct =
-                      crop && plot.durationMs > 0
-                        ? Math.min(100, Math.round((elapsed / plot.durationMs) * 100))
-                        : 0;
+                    const isReady = crop !== null && growth.isReady;
+                    const progressPct = crop ? growth.progressPercent : 0;
                     const seedInfo = INGREDIENTS[selectedSeed];
                     const selectedFreeCount = freeSeeds[selectedSeed] ?? 0;
                     const canPlant = selectedFreeCount > 0 || coins >= seedInfo.seedCost;

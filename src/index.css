@@ -596,6 +596,86 @@
   animation: houseMoodPop 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+@keyframes yardSwingFiveSeconds {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-7deg); }
+  22% { transform: rotate(6deg); }
+  34% { transform: rotate(-5.5deg); }
+  46% { transform: rotate(4.5deg); }
+  58% { transform: rotate(-3.5deg); }
+  70% { transform: rotate(2.6deg); }
+  82% { transform: rotate(-1.7deg); }
+  92% { transform: rotate(0.8deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-yard-swing {
+  transform-origin: 50% 14%;
+  animation: yardSwingFiveSeconds 5s cubic-bezier(0.45, 0, 0.55, 1) 1 both;
+  will-change: transform;
+}
+
+@keyframes yardBirdBob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-3px) rotate(2deg); }
+}
+
+.animate-yard-bird-bob {
+  animation: yardBirdBob 0.9s ease-in-out infinite;
+}
+
+@keyframes yardBirdFlyAway {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  30% { transform: translate(7px, -10px) scale(1.06); opacity: 1; }
+  100% { transform: translate(44px, -76px) scale(0.72); opacity: 0; }
+}
+
+.animate-yard-bird-fly-away {
+  animation: yardBirdFlyAway 0.85s cubic-bezier(0.2, 0.72, 0.26, 1) forwards;
+}
+
+@keyframes yardBirdWingFlap {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-22deg); }
+}
+
+.yard-bird-flying .yard-bird-wing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yardBirdWingFlap 0.16s ease-in-out infinite;
+}
+
+@keyframes yardFountainWater {
+  0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.82; }
+  50% { transform: translateY(-2px) scaleY(1.08); opacity: 1; }
+}
+
+.animate-yard-fountain-water {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yardFountainWater 1.4s ease-in-out infinite;
+}
+
+@keyframes yardSnackPopover {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.94); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.animate-yard-snack-popover {
+  animation: yardSnackPopover 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes yardRewardFloat {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.9); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  70% { opacity: 1; transform: translate(-50%, -14px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -22px) scale(0.96); }
+}
+
+.animate-yard-reward-float {
+  animation: yardRewardFloat 1.7s ease-out forwards;
+}
+
 .animate-house-pet-favorite {
   animation: housePetFavorite 0.72s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
@@ -711,6 +791,13 @@
   .animate-house-furniture-sleep,
   .animate-house-toy-bounce,
   .animate-house-zzz,
+  .animate-yard-swing,
+  .animate-yard-bird-bob,
+  .animate-yard-bird-fly-away,
+  .yard-bird-flying .yard-bird-wing,
+  .animate-yard-fountain-water,
+  .animate-yard-snack-popover,
+  .animate-yard-reward-float,
   .animate-water-pour,
   .animate-golden-glow,
   .animate-puppy-jump,
@@ -718,4 +805,3 @@
     animation: none;
   }
 }
-

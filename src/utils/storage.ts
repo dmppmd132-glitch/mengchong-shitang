@@ -204,6 +204,7 @@ export function createInitialGameState(): GameState {
     foods: { ...INITIAL_FOOD_INVENTORY },
     ingredients: createInitialIngredients(),
     farmPlots: createInitialFarmPlots(4),
+    yardMoodBuffPeriods: [],
     accessories: [...INITIAL_UNLOCKED_ACCESSORIES],
     weightLogs: [],
     feedLogs: [],
@@ -1697,6 +1698,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     foods: parseStringNumberRecord(raw.foodInventory, base.foods),
     ingredients: createInitialIngredients(),
     farmPlots: createInitialFarmPlots(4),
+    yardMoodBuffPeriods: [],
     accessories: Array.from(new Set([...INITIAL_UNLOCKED_ACCESSORIES, ...rawUnlocked])),
     weightLogs: parseWeightLogs(raw.records),
     feedLogs: [],
@@ -1992,6 +1994,16 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   const requestedBg = asStageBackgroundId(parsed.activeBackground);
   const activeBackground = unlockedBackgrounds.includes(requestedBg) ? requestedBg : 'default';
   const parsedHouse = parseSharedHouse(parsed.house);
+  const yardMoodBuffPeriods = Array.isArray(parsed.yardMoodBuffPeriods)
+    ? parsed.yardMoodBuffPeriods.slice(-100).flatMap((value) => {
+        if (!isRecord(value)) return [];
+        const startedAt = asNumber(value.startedAt, Number.NaN);
+        const expiresAt = asNumber(value.expiresAt, Number.NaN);
+        return Number.isFinite(startedAt) && expiresAt > startedAt
+          ? [{ startedAt, expiresAt }]
+          : [];
+      })
+    : [];
 
   const draft: GameState = {
     version: 2,
@@ -2001,6 +2013,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     foods: parseStringNumberRecord(parsed.foods, base.foods),
     ingredients: parseIngredients(parsed.ingredients, base.ingredients),
     farmPlots: parseFarmPlots(parsed.farmPlots, parsedHouse.unlockedFarmPlots),
+    yardMoodBuffPeriods,
     accessories: mergedAccessories,
     weightLogs: parsedWeightLogs,
     feedLogs: parsedFeedLogs,

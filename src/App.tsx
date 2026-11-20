@@ -166,6 +166,7 @@ import {
   toggleFavoriteMemory,
 } from './utils/memories';
 import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
+import { getCropGrowthState, getExpectedCropDurationMs } from './utils/farmGrowth';
 import {
   applyPersonalityDevelopment,
   evaluateAccessoryPreference,
@@ -1421,7 +1422,12 @@ export default function App() {
     soundFX.pop(game.soundEnabled);
     const plantedAt = Date.now();
     const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
-    const effectiveSec = Math.max(1, Math.round(durationMs / 1000));
+    const expectedDurationMs = getExpectedCropDurationMs(
+      durationMs,
+      plantedAt,
+      game.yardMoodBuffPeriods ?? []
+    );
+    const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
     const isGolden = Math.random() < 0.1;
 
     if (hasFreeSeed) {
@@ -1456,7 +1462,7 @@ export default function App() {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
     if (targetPlot.watered) return;
-    if (Date.now() >= targetPlot.plantedAt + targetPlot.durationMs) return;
+    if (getCropGrowthState(targetPlot, Date.now(), game.yardMoodBuffPeriods ?? []).isReady) return;
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
     soundFX.splash(game.soundEnabled);
@@ -1478,7 +1484,7 @@ export default function App() {
   const handleHarvestCrop = (plotId: number) => {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
-    if (Date.now() < targetPlot.plantedAt + targetPlot.durationMs) return;
+    if (!getCropGrowthState(targetPlot, Date.now(), game.yardMoodBuffPeriods ?? []).isReady) return;
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
     const harvestedId = targetPlot.cropId;
@@ -3154,6 +3160,7 @@ export default function App() {
                   inventory={game.foods}
                   ingredients={game.ingredients}
                   farmPlots={game.farmPlots}
+                  yardMoodBuffPeriods={game.yardMoodBuffPeriods ?? []}
                   freeSeeds={freeSeeds}
                   puppyTreasureReady={puppyTreasureReady}
                   house={game.house}

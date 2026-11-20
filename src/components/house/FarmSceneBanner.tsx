@@ -2,19 +2,23 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sprout, X } from 'lucide-react';
 import { ROOM_ITEM_BY_ID, STORAGE_CAPS_BY_LEVEL } from '../../data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from '../../data/kitchen';
+import { PicnicSnackId, SYSTEM_COOKIE_ID, useYardActivities } from '../../hooks/useYardActivities';
 import {
   IngredientId,
   Pet,
   PetExpression,
   PiggyActionState,
   SharedHouse,
+  YardMoodBuffPeriod,
 } from '../../types';
 import { soundFX, triggerHaptic } from '../../utils/sound';
+import { getActiveYardBuffExpiresAt } from '../../utils/farmGrowth';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { CropIllustration } from './FarmIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
 import {
   YardBarnStorageSvg,
+  YardBirdSvg,
   YardCottageSvg,
   YardFlowerSwingSvg,
   YardFlowerbedAccent,
@@ -23,6 +27,7 @@ import {
   YardRibbonBottomFence,
   YardSceneBackdropSvg,
 } from './YardIllustrations';
+import { YardMoodBuffBadge } from './YardMoodBuffBadge';
 
 const OUTDOOR_PLAYGROUND_ITEM_IDS = new Set([
   'camp_picnic_table',
@@ -45,7 +50,11 @@ interface FarmSceneBannerProps {
   house: SharedHouse;
   pet: Pet;
   ingredients: Record<IngredientId, number>;
+  buffPeriods: YardMoodBuffPeriod[];
   soundEnabled: boolean;
+  onAddCoins: (amount: number) => void;
+  onSwingReward: () => void;
+  onFeedSnack: (snackId: PicnicSnackId) => void;
   onEditHouseName: () => void;
   onGoToFarm: () => void;
 }
@@ -54,7 +63,11 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   house,
   pet,
   ingredients,
+  buffPeriods,
   soundEnabled,
+  onAddCoins,
+  onSwingReward,
+  onFeedSnack,
   onEditHouseName,
   onGoToFarm,
 }) => {
@@ -70,6 +83,14 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   const [petAction, setPetAction] = useState<PiggyActionState>('idle');
   const [petExpression, setPetExpression] = useState<PetExpression>('normal');
   const [moodBubble, setMoodBubble] = useState<{ key: number; symbol: '♪' | '🩷' } | null>(null);
+
+  const yard = useYardActivities({
+    buffPeriods,
+    onSwingReward,
+    onAddCoins,
+    onFeedSnack,
+  });
+  const activeBuffExpiresAt = getActiveYardBuffExpiresAt(buffPeriods, yard.now);
 
   const bubbleTimerRef = useRef<number | null>(null);
 
@@ -135,6 +156,23 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
     (sum, id) => sum + (ingredients[id] ?? 0),
     0
   );
+  const availableSnackIds = INGREDIENT_IDS.filter((id) => (ingredients[id] ?? 0) > 0);
+  const selectedSnackInfo =
+    yard.selectedSnack === SYSTEM_COOKIE_ID
+      ? { emoji: '🍪', name: '系統招待小餅乾' }
+      : yard.selectedSnack
+      ? INGREDIENTS[yard.selectedSnack]
+      : null;
+  const handleStartSwing = () => {
+    soundFX.heart(soundEnabled);
+    triggerHaptic(14);
+    yard.startSwing();
+  };
+  const handleFeedSnack = (snackId: PicnicSnackId) => {
+    soundFX.heart(soundEnabled);
+    triggerHaptic(10);
+    yard.chooseSnack(snackId);
+  };
 
   return (
     <section
@@ -185,39 +223,158 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
 
         {/* 2. MIDDLE OUTDOOR LAWN PLAYGROUND: Left Fountain + Center Picnic Blanket & Live Pet + Right Flower Swing */}
         <div className="relative w-full h-[252px] sm:h-[280px] -mt-3 px-2 select-none">
+          {yard.rewardToast && (
+            <div
+              key={yard.rewardToast}
+              role="status"
+              className="pointer-events-none absolute left-1/2 top-2 z-[70] w-max max-w-[calc(100%-1rem)] -translate-x-1/2 animate-yard-reward-float rounded-full border-2 border-[#6B5344] bg-[#FFFDF8] px-3 py-1 text-center text-[11px] font-extrabold text-[#8C5C23] shadow-md"
+            >
+              🍀 {yard.rewardToast}
+            </div>
+          )}
+
           {/* Independent furniture layer: left fountain */}
           <div className="absolute left-1 sm:left-3 top-8 z-10 isolate">
             <YardFountainSvg />
+            {yard.birdVisible && (
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.heart(soundEnabled);
+                  triggerHaptic(12);
+                  yard.handleBirdClick();
+                }}
+                aria-label="點擊庭院小鳥，獲得幸運小驚喜金幣 2 枚"
+                title="點我領取金幣 +2"
+                className={`absolute right-0 top-[34px] z-30 flex min-h-[42px] min-w-[44px] items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF7A9E] ${
+                  yard.birdFlyingAway ? 'yard-bird-flying animate-yard-bird-fly-away' : 'animate-yard-bird-bob'
+                }`}
+              >
+                <YardBirdSvg />
+              </button>
+            )}
           </div>
 
           {/* Independent furniture layer: right flower-vine swing */}
           <div className="absolute right-1 sm:right-3 top-1 z-10 isolate">
-            <YardFlowerSwingSvg />
+            <button
+              type="button"
+              onClick={handleStartSwing}
+              aria-label="和花藤木頭鞦韆互動，讓寵物盪五秒"
+              title="點擊讓寵物盪鞦韆"
+              className="relative block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF7A9E]"
+            >
+              <span className={yard.isSwinging ? 'inline-flex animate-yard-swing' : 'inline-flex'}>
+                <YardFlowerSwingSvg />
+              </span>
+            </button>
+            {yard.swingNotice && (
+              <div
+                role="status"
+                className="pointer-events-none absolute -top-8 right-0 z-40 w-max max-w-[190px] rounded-full border-2 border-[#6B5344] bg-[#FFFDF8] px-2.5 py-1 text-[10px] font-extrabold text-[#7A4B5D] shadow-sm"
+              >
+                {yard.swingNotice}
+              </div>
+            )}
           </div>
 
           {/* Independent furniture layer: enlarged central picnic area */}
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-0 z-10 isolate">
-            {activeOutdoorItem ? (
-              <div className="relative flex flex-col items-center">
-                <YardPicnicAreaSvg />
+          <div
+            className={`absolute left-1/2 -translate-x-1/2 bottom-0 isolate ${
+              yard.isPicnicMenuOpen ? 'z-50' : 'z-10'
+            }`}
+          >
+            <div className="relative flex flex-col items-center">
+              <YardPicnicAreaSvg />
+              {activeOutdoorItem && (
                 <div className="absolute -top-6 right-5 drop-shadow-[0_2px_2px_rgba(107,83,68,0.22)]">
                   <FurnitureGraphic itemId={activeOutdoorItem.id} size={52} />
                 </div>
-              </div>
-            ) : (
-              <YardPicnicAreaSvg />
-            )}
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.pop(soundEnabled);
+                  yard.togglePicnicMenu();
+                }}
+                aria-label="查看野餐竹籃並選擇點心"
+                aria-expanded={yard.isPicnicMenuOpen}
+                aria-controls="yard-picnic-snack-menu"
+                title="點擊竹籃選擇野餐點心"
+                className="absolute left-[74%] top-[27%] z-20 h-[56%] w-[21%] rounded-xl focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#FF7A9E]"
+              />
+
+              {selectedSnackInfo && (
+                <span
+                  aria-label={`野餐盤上的${selectedSnackInfo.name}`}
+                  className="pointer-events-none absolute left-[65%] top-[60%] z-20 flex h-7 w-7 items-center justify-center rounded-full border border-[#B5895A] bg-[#FFFDF8]/95 text-base shadow-sm"
+                >
+                  {selectedSnackInfo.emoji}
+                </span>
+              )}
+
+              {yard.isPicnicMenuOpen && (
+                <div
+                  id="yard-picnic-snack-menu"
+                  role="dialog"
+                  aria-label="選擇野餐點心"
+                  onClick={(event) => event.stopPropagation()}
+                  className="animate-yard-snack-popover absolute bottom-[calc(100%+8px)] left-1/2 z-[70] max-h-[190px] w-[232px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-[20px] border-2 border-[#6B5344] bg-[#FFFDF8] p-2.5 text-[#4E3629] shadow-[0_4px_0_#B58C64]"
+                >
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-xs font-extrabold">🧺 野餐點心時間</h3>
+                      <p className="text-[9px] font-bold text-[#7B6658]">選一份收成點心，獲得 3 分鐘農場加成</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={yard.closePicnicMenu}
+                      aria-label="關閉點心選單"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#D9C4A9] bg-[#FBF0E2] text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {availableSnackIds.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {availableSnackIds.map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => handleFeedSnack(id)}
+                          className="flex min-h-9 items-center justify-between gap-1 rounded-xl border border-[#D8BD98] bg-[#FFF4DE] px-2 py-1 text-left text-[10px] font-extrabold hover:bg-[#FCE8C8] focus-visible:outline-2 focus-visible:outline-[#5BB493]"
+                        >
+                          <span className="min-w-0 truncate">{INGREDIENTS[id].emoji} {INGREDIENTS[id].name}</span>
+                          <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 tabular-nums">×{ingredients[id]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#D8BD98] bg-[#FFF8EA] p-2 text-center">
+                      <p className="mb-1 text-[10px] font-bold text-[#765C4A]">小倉庫暫無收成，今天由我們招待點心！</p>
+                      <button
+                        type="button"
+                        onClick={() => handleFeedSnack(SYSTEM_COOKIE_ID)}
+                        className="min-h-9 w-full rounded-xl border-2 border-[#6B5344] bg-[#F9DDB4] px-2 text-[11px] font-extrabold shadow-[0_2px_0_#C29A70] focus-visible:outline-2 focus-visible:outline-[#5BB493]"
+                      >
+                        🍪 系統招待小餅乾 <span className="ml-1 text-[#397A5E]">免費</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Pet stays centered on the picnic blanket while remaining tappable */}
           <button
             type="button"
             onClick={handleTapYardPet}
-            aria-label={`跟在庭院玩耍的 ${pet.name} 互動`}
+            aria-label={yard.isSwinging ? `${pet.name}正在鞦韆上玩耍` : `跟在庭院玩耍的 ${pet.name} 互動`}
             className="house-pet-mover absolute z-30 -translate-x-1/2 -translate-y-1/2 min-w-[82px] min-h-[82px] flex items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-[#FF7A9E] rounded-full"
             style={{
-              left: '50%',
-              top: '78%',
+              left: yard.isSwinging ? '84%' : '50%',
+              top: yard.isSwinging ? '26%' : '78%',
             }}
           >
             {/* Soft Ground Shadow Under Pet */}
@@ -227,14 +384,14 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
             />
 
             {/* Hand-Drawn Comic Speech Bubble (♪ or 🩷) */}
-            {moodBubble && (
+            {(yard.activityBubble ?? moodBubble) && (
               <div
-                key={moodBubble.key}
+                key={(yard.activityBubble ?? moodBubble)!.key}
                 className="pointer-events-none animate-house-mood-pop absolute -top-7 left-1/2 -translate-x-1/2 z-30"
                 aria-hidden="true"
               >
                 <div className="relative w-8 h-7 rounded-full bg-[#FFFDF8] border-2 border-[#6B5344] flex items-center justify-center text-sm font-extrabold text-[#D64470] shadow-xs">
-                  <span>{moodBubble.symbol}</span>
+                  <span>{(yard.activityBubble ?? moodBubble)!.symbol}</span>
                   <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#FFFDF8] border-r-2 border-b-2 border-[#6B5344]" />
                 </div>
               </div>
@@ -248,8 +405,8 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
                 species={pet.species}
                 growth={pet.growth}
                 roundness={pet.roundness}
-                action={petAction}
-                expression={petExpression}
+                action={yard.isEating ? 'eating' : yard.isSwinging ? 'petted' : petAction}
+                expression={yard.isEating || yard.isSwinging ? 'happyTongue' : petExpression}
                 equipped={pet.accessories}
                 size={88}
                 interactive={false}
@@ -294,6 +451,12 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
             </div>
           )}
         </div>
+
+        <YardMoodBuffBadge
+          expiresAt={activeBuffExpiresAt}
+          now={yard.now}
+          className="pointer-events-none absolute bottom-[78px] right-2 z-50"
+        />
 
         {/* Active Yard Flowerbed Strip (Daisy / Lavender When Equipped) */}
         <YardFlowerbedAccent flowerbedId={flowerbedId} />

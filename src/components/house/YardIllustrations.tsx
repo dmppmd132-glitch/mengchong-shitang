@@ -446,7 +446,7 @@ export const YardFountainSvg: React.FC = () => (
     {/* Pool Water */}
     <ellipse cx="48" cy="58" rx="31" ry="10.5" fill="#BBE9F7" stroke={COCOA} strokeWidth="1.5" />
     <path d="M27 59Q36 63 44 61M56 61Q64 63 71 58" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
-    <path d="M31 55Q39 52 47 55M55 55Q62 52 68 55" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity="0.72" className="animate-pulse" />
+    <path d="M31 55Q39 52 47 55M55 55Q62 52 68 55" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity="0.72" className="animate-yard-fountain-water" />
     <circle cx="25" cy="56" r="1.7" fill="#FFFFFF" opacity="0.9" />
     <circle cx="72" cy="57" r="1.4" fill="#FFFFFF" opacity="0.85" />
 
@@ -470,7 +470,7 @@ export const YardFountainSvg: React.FC = () => (
       stroke="#84D6F5"
       strokeWidth="2.4"
       strokeLinecap="round"
-      className="animate-pulse"
+      className="animate-yard-fountain-water"
     />
     <path
       d="M36 39C31 44 31 53 33 58M60 39C65 44 65 53 63 58"
@@ -488,6 +488,21 @@ export const YardFountainSvg: React.FC = () => (
       <circle cx="87" cy="64" r="2.5" fill="#FFF0A8" /><circle cx="84.5" cy="66" r="2" fill="#FFF0A8" /><circle cx="89.5" cy="66" r="2" fill="#FFF0A8" />
       <circle cx="81" cy="62" r="1" fill="#FFD84D" /><circle cx="87" cy="66" r="1" fill="#E99A69" />
     </g>
+  </svg>
+);
+
+/* A tiny pastel bluebird that can perch on and fly away from the fountain. */
+export const YardBirdSvg: React.FC = () => (
+  <svg width="38" height="32" viewBox="0 0 42 36" fill="none" aria-hidden="true">
+    <ellipse cx="20" cy="32" rx="11" ry="2.5" fill="rgba(96,128,56,0.2)" />
+    <path d="M8 20L2 16L5 25L12 25Z" fill="#7BBBD9" stroke={COCOA} strokeWidth="1.4" strokeLinejoin="round" />
+    <ellipse cx="20" cy="21" rx="13" ry="9" fill="#9ED7E8" stroke={COCOA} strokeWidth="1.5" />
+    <circle cx="27" cy="14" r="7.2" fill="#B7E7EF" stroke={COCOA} strokeWidth="1.5" />
+    <path className="yard-bird-wing" d="M12 19Q18 12 24 20Q20 27 13 24Z" fill="#78BDD6" stroke={COCOA} strokeWidth="1.2" />
+    <path d="M33 14L41 17L33 19Z" fill="#F2B66F" stroke={COCOA} strokeWidth="1.2" strokeLinejoin="round" />
+    <circle cx="29" cy="13" r="1.2" fill="#49382E" />
+    <circle cx="29.4" cy="12.6" r="0.35" fill="#FFFDF8" />
+    <path d="M16 29Q20 32 24 29" stroke="#668F55" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
 
