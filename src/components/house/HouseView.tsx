@@ -18,7 +18,6 @@ import {
   Send,
   ShoppingBag,
   Sparkles,
-  Sprout,
   Tag,
   Trash2,
   Trees,
@@ -202,6 +201,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
 
   // House signboard editor
   const [editingHouseName, setEditingHouseName] = useState<boolean>(false);
+  const [yardRenameOpen, setYardRenameOpen] = useState<boolean>(false);
   const [houseNameInput, setHouseNameInput] = useState<string>(game.house.houseName);
 
   // Furniture note input
@@ -593,6 +593,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
     if (res.ok) {
       onUpdateGame(() => res.nextState);
       setEditingHouseName(false);
+      setYardRenameOpen(false);
       soundFX.pop(game.soundEnabled);
       showNotice(res.notice);
     } else {
@@ -2151,18 +2152,71 @@ export const HouseView: React.FC<HouseViewProps> = ({
         <div className="space-y-3.5">
           <FarmSceneBanner
             house={house}
+            pet={game.pet}
+            ingredients={game.ingredients}
             farmPlots={farmPlots}
-            onEditHouseName={() => setEditingHouseName(true)}
+            soundEnabled={game.soundEnabled}
+            onEditHouseName={() => {
+              setHouseNameInput(house.houseName);
+              setYardRenameOpen(true);
+            }}
+            onGoToFarm={onGoToFarm}
           />
 
-          <button
-            type="button"
-            onClick={onGoToFarm}
-            className="w-full min-h-[46px] rounded-2xl bg-[#5CC9A7] text-white text-xs font-extrabold shadow-[0_3px_0_#3BA886] inline-flex items-center justify-center gap-1.5 hover:bg-[#49B895] active:translate-y-0.5 transition"
-          >
-            <Sprout className="w-4 h-4 shrink-0" />
-            <span>前往食堂開心農場種植／採收作物</span>
-          </button>
+          {/* Storybook Cottage Signboard Rename Modal */}
+          {yardRenameOpen && (
+            <div
+              className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-label="修改小屋名稱"
+              onClick={() => setYardRenameOpen(false)}
+            >
+              <form
+                onSubmit={handleSaveHouseName}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm rounded-3xl bg-[#FFFDF8] border-2 border-[#6B5344] shadow-[0_6px_0_#A67A50] p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-extrabold text-[#4A3531]">
+                    🪧 修改小屋招牌名稱
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setYardRenameOpen(false)}
+                    aria-label="關閉改名視窗"
+                    className="min-w-[36px] min-h-[36px] rounded-xl bg-[#F6ECE4] text-[#5A3E36] inline-flex items-center justify-center"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  maxLength={14}
+                  value={houseNameInput}
+                  onChange={(e) => setHouseNameInput(e.target.value)}
+                  placeholder="輸入小屋名稱（最多14字）"
+                  autoFocus
+                  className="w-full min-h-[44px] rounded-2xl bg-white border-2 border-[#D9BFA9] px-3 text-sm font-bold text-[#4A3531] focus:outline-none focus:border-[#FF7A9E]"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    className="flex-1 min-h-[44px] rounded-2xl bg-[#5CC9A7] border-2 border-[#6B5344] shadow-[0_3px_0_#3BA886] text-white text-xs font-extrabold active:translate-y-0.5 transition"
+                  >
+                    儲存新名稱
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setYardRenameOpen(false)}
+                    className="min-h-[44px] px-4 rounded-2xl bg-[#F5EAE1] border-2 border-[#6B5344] text-xs font-extrabold text-[#5A3E36]"
+                  >
+                    取消
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* Payment Source Toggle */}
           <section className="rounded-2xl bg-[#FFF6EA] border border-[#F0D9C0] p-2.5 space-y-2">
