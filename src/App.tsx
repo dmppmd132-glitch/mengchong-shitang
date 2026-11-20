@@ -40,7 +40,7 @@ import {
   getRoundnessTier,
 } from './data/growth';
 import { ROOM_ITEM_BY_ID } from './data/house';
-import { INGREDIENTS } from './data/kitchen';
+import { INGREDIENT_IDS, INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
 import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
 import {
@@ -172,7 +172,7 @@ import {
 } from './utils/personality';
 import { ShareCardPayload } from './utils/shareCardCanvas';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
-import { soundFX } from './utils/sound';
+import { soundFX, triggerHaptic } from './utils/sound';
 import {
   applyTimeDecay,
   clampStat,
@@ -232,6 +232,26 @@ export default function App() {
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
+  const [freeSeeds, setFreeSeeds] = useState<Partial<Record<IngredientId, number>>>(() => {
+    try {
+      const raw = localStorage.getItem('farm_free_seeds_v1');
+      if (!raw) return {};
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return {};
+      const result: Partial<Record<IngredientId, number>> = {};
+      for (const id of INGREDIENT_IDS) {
+        const val = (parsed as Record<string, unknown>)[id];
+        if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+          result[id] = Math.floor(val);
+        }
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  });
+  const [puppyTreasureReady, setPuppyTreasureReady] = useState<boolean>(false);
+  const lastPuppyTreasureAtRef = useRef<number>(Date.now());
 
   const currentUserId = cloudUser?.id ?? 'local';
   const actorName = cloudUser?.email ? cloudUser.email.split('@')[0] || '飼主' : '飼主';
@@ -270,6 +290,24 @@ export default function App() {
   useEffect(() => {
     saveGameState(game);
   }, [game]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('farm_free_seeds_v1', JSON.stringify(freeSeeds));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [freeSeeds]);
+
+  useEffect(() => {
+    if (puppyTreasureReady) return;
+    const elapsed = Date.now() - lastPuppyTreasureAtRef.current;
+    const delay = Math.max(200, 30_000 - elapsed);
+    const timer = window.setTimeout(() => {
+      setPuppyTreasureReady(true);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [puppyTreasureReady]);
 
   useEffect(() => {
     const milestoneLen = game.encyclopedia.claimedAccessoryMilestones.length;
@@ -1375,7 +1413,8 @@ export default function App() {
 
   const handlePlantCrop = (plotId: number, ingredientId: IngredientId) => {
     const info = INGREDIENTS[ingredientId];
-    if (game.coins < info.seedCost) return;
+    const hasFreeSeed = (freeSeeds[ingredientId] ?? 0) > 0;
+    if (!hasFreeSeed && game.coins < info.seedCost) return;
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || targetPlot.cropId !== null) return;
 
@@ -1383,12 +1422,22 @@ export default function App() {
     const plantedAt = Date.now();
     const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
     const effectiveSec = Math.max(1, Math.round(durationMs / 1000));
+    const isGolden = Math.random() < 0.1;
+
+    if (hasFreeSeed) {
+      setFreeSeeds((prev) => {
+        const nextCount = Math.max(0, (prev[ingredientId] ?? 0) - 1);
+        return { ...prev, [ingredientId]: nextCount };
+      });
+    }
 
     setGame((prev) => ({
       ...prev,
-      coins: prev.coins - info.seedCost,
+      coins: hasFreeSeed ? prev.coins : prev.coins - info.seedCost,
       farmPlots: prev.farmPlots.map((p) =>
-        p.id === plotId ? { ...p, cropId: ingredientId, plantedAt, durationMs } : p
+        p.id === plotId
+          ? { ...p, cropId: ingredientId, plantedAt, durationMs, watered: false, isGolden }
+          : p
       ),
       noviceGrowth: {
         ...prev.noviceGrowth,
@@ -1396,7 +1445,34 @@ export default function App() {
           prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
       },
     }));
-    setSpeech(`種下${info.name}種子囉，再等 ${effectiveSec} 秒就可以收成了！`);
+    setSpeech(
+      hasFreeSeed
+        ? `用免費種子種下${info.name}囉，再等 ${effectiveSec} 秒就可以收成了！`
+        : `種下${info.name}種子囉，再等 ${effectiveSec} 秒就可以收成了！`
+    );
+  };
+
+  const handleWaterCrop = (plotId: number) => {
+    const targetPlot = game.farmPlots.find((p) => p.id === plotId);
+    if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
+    if (targetPlot.watered) return;
+    if (Date.now() >= targetPlot.plantedAt + targetPlot.durationMs) return;
+
+    const cropInfo = INGREDIENTS[targetPlot.cropId];
+    soundFX.splash(game.soundEnabled);
+    soundFX.heart(game.soundEnabled);
+    triggerHaptic(15);
+
+    setGame((prev) => ({
+      ...prev,
+      farmPlots: prev.farmPlots.map((p) =>
+        p.id === plotId && p.plantedAt !== null
+          ? { ...p, plantedAt: p.plantedAt - 5000, watered: true }
+          : p
+      ),
+    }));
+    pushFeedback(`${cropInfo.name} 澆水加速 -5 秒`, '💧');
+    setSpeech(`幫${cropInfo.name}澆水囉！等待時間立刻減少 5 秒 💧`);
   };
 
   const handleHarvestCrop = (plotId: number) => {
@@ -1419,17 +1495,28 @@ export default function App() {
     const totalYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
     const nextQty = Math.min(storageCap, curQty + totalYield);
     const actualGain = Math.max(1, nextQty - curQty);
-    soundFX.heart(game.soundEnabled);
+    const isGolden = Boolean(targetPlot.isGolden);
+    const goldenCoinBonus = isGolden ? cropInfo.seedCost * 2 : 0;
+
+    if (isGolden) {
+      soundFX.levelUp(game.soundEnabled);
+      triggerHaptic(25);
+    } else {
+      soundFX.heart(game.soundEnabled);
+    }
 
     setGame((prev) => {
       const harvestedState: GameState = {
         ...prev,
+        coins: prev.coins + goldenCoinBonus,
         ingredients: {
           ...prev.ingredients,
           [harvestedId]: Math.min(storageCap, (prev.ingredients[harvestedId] ?? 0) + totalYield),
         },
         farmPlots: prev.farmPlots.map((p) =>
-          p.id === plotId ? { ...p, cropId: null, plantedAt: null, durationMs: 0 } : p
+          p.id === plotId
+            ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
+            : p
         ),
       };
       let withMem = recordMonthlyActivity(harvestedState, {
@@ -1445,8 +1532,48 @@ export default function App() {
       });
       return withMem;
     });
-    pushFeedback(`${cropInfo.name} +${actualGain}`, cropInfo.emoji);
-    setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做料理或手作家具吧～`);
+
+    if (isGolden) {
+      pushFeedback(`大豐收！獲得雙倍金幣 +${goldenCoinBonus}`, '🌟');
+      setSpeech(`大豐收！黃金${cropInfo.name}閃閃發光，獲得雙倍金幣 +${goldenCoinBonus} 🪙！`);
+    } else {
+      pushFeedback(`${cropInfo.name} +${actualGain}`, cropInfo.emoji);
+      setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做料理或手作家具吧～`);
+    }
+  };
+
+  const handleClaimPuppyTreasure = (): string | null => {
+    if (!puppyTreasureReady) return null;
+    lastPuppyTreasureAtRef.current = Date.now();
+    setPuppyTreasureReady(false);
+
+    soundFX.petVoice(game.soundEnabled, 'dog');
+    soundFX.heart(game.soundEnabled);
+    triggerHaptic(18);
+
+    const giveCoins = Math.random() < 0.5;
+    if (giveCoins) {
+      const coinBonus = Math.floor(Math.random() * 3) + 1;
+      setGame((prev) => ({
+        ...prev,
+        coins: prev.coins + coinBonus,
+      }));
+      const msg = `尋寶成功！獲得 ${coinBonus} 枚免費金幣`;
+      pushFeedback(`小狗送你 ${coinBonus} 金幣！`, '🪙');
+      setSpeech(`汪！草地小狗挖到寶藏了，送你 ${coinBonus} 枚免費金幣！`);
+      return msg;
+    }
+
+    const randomSeedId = INGREDIENT_IDS[Math.floor(Math.random() * INGREDIENT_IDS.length)];
+    const seedInfo = INGREDIENTS[randomSeedId];
+    setFreeSeeds((prev) => ({
+      ...prev,
+      [randomSeedId]: (prev[randomSeedId] ?? 0) + 1,
+    }));
+    const msg = `尋寶成功！獲得 1 顆免費${seedInfo.name}種子`;
+    pushFeedback(`小狗送你 1 顆免費${seedInfo.name}種子！`, seedInfo.emoji);
+    setSpeech(`汪！小狗撿到了 1 顆免費${seedInfo.name}種子，快選來種植吧！`);
+    return msg;
   };
 
   const handleExpandFarmPlot = (paySource: PaymentSource) => {
@@ -3027,11 +3154,15 @@ export default function App() {
                   inventory={game.foods}
                   ingredients={game.ingredients}
                   farmPlots={game.farmPlots}
+                  freeSeeds={freeSeeds}
+                  puppyTreasureReady={puppyTreasureReady}
                   house={game.house}
                   onFeed={handleFeed}
                   onBuyFood={handleBuyFood}
                   onPlantCrop={handlePlantCrop}
+                  onWaterCrop={handleWaterCrop}
                   onHarvestCrop={handleHarvestCrop}
+                  onClaimPuppyTreasure={handleClaimPuppyTreasure}
                   onCookRecipe={handleCookRecipe}
                   onOpenMinigame={() => setMinigameOpen(true)}
                   onOpenFarmPhotoStudio={() => handleOpenScenePhoto('farm')}

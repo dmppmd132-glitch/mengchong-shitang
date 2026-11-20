@@ -282,16 +282,50 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
 
       {/* Interactive Cozy 2D Room Stage */}
       <div className="rounded-2xl border border-[#EAD4CB] overflow-hidden bg-[#FFF9F2]">
-        {/* Wallpaper + Wooden Baseboard + Pet Reaction Bubble */}
+        {/* Wallpaper + Pastel Bunting + Wooden Baseboard + Pet Reaction Bubble */}
         <div
-          className="relative px-2.5 pt-2 pb-3 border-b-2 border-[#9C6F45] flex items-center justify-between gap-2"
+          className="relative px-2.5 pt-3.5 pb-3 border-b-2 border-[#9C6F45] flex items-center justify-between gap-2 overflow-hidden"
           style={{ background: wallDef.wallBgStyle }}
         >
-          <p className="flex-1 min-w-0 rounded-xl bg-white/90 border border-[#F1D5DF] px-2.5 py-1 text-[11px] font-extrabold text-[#4A3531] leading-snug truncate">
+          {/* Delicate Top Macaron Bunting */}
+          <svg
+            viewBox="0 0 360 14"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-x-0 top-0 w-full h-3.5"
+            aria-hidden="true"
+          >
+            <path d="M0 2Q90 7 180 2.5Q270 7 360 2" fill="none" stroke="#8C624D" strokeWidth="1.2" />
+            {[
+              { x: 14, c: '#FFB3C7' },
+              { x: 38, c: '#FFE596' },
+              { x: 62, c: '#B6E1FF' },
+              { x: 86, c: '#DEC8FF' },
+              { x: 110, c: '#FFB3C7' },
+              { x: 134, c: '#FFE596' },
+              { x: 158, c: '#B6E1FF' },
+              { x: 184, c: '#DEC8FF' },
+              { x: 208, c: '#FFB3C7' },
+              { x: 232, c: '#FFE596' },
+              { x: 256, c: '#B6E1FF' },
+              { x: 280, c: '#DEC8FF' },
+              { x: 304, c: '#FFB3C7' },
+              { x: 328, c: '#FFE596' },
+            ].map((b, i) => (
+              <polygon
+                key={i}
+                points={`${b.x},3 ${b.x + 16},4 ${b.x + 8},12`}
+                fill={b.c}
+                stroke="#8C624D"
+                strokeWidth="0.9"
+                strokeLinejoin="round"
+              />
+            ))}
+          </svg>
+          <p className="relative z-10 flex-1 min-w-0 rounded-xl bg-white/90 border border-[#F1D5DF] px-2.5 py-1 text-[11px] font-extrabold text-[#4A3531] leading-snug truncate">
             {statusText}
           </p>
           {isInteracting && (
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="relative z-10 flex items-center gap-1 shrink-0">
               {target.preferenceMatch === 'favorite' && (
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-[#FFEAF2] text-[#D64470] border border-[#F5B4CA]">
                   ♥ 最愛！
@@ -316,7 +350,7 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
           />
         </div>
 
-        {/* 6x4 Cozy Floor + Plush Rug + CSS-animated Pet */}
+        {/* 6x4 Cozy Floor + Wavy Cocoa Grain + Lace Rug & Props + CSS-animated Pet */}
         <div
           className="relative p-1.5 overflow-hidden"
           style={{ background: floorDef.floorBgStyle }}
@@ -326,37 +360,86 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
             className="pointer-events-none absolute inset-0 opacity-20"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(180deg, rgba(130,86,48,0) 0px, rgba(130,86,48,0) 18px, rgba(130,86,48,0.28) 19px, rgba(130,86,48,0) 20px)',
+                'repeating-linear-gradient(180deg, rgba(122,82,56,0) 0px, rgba(122,82,56,0) 18px, rgba(122,82,56,0.28) 19px, rgba(122,82,56,0) 20px)',
             }}
           />
-
-          {/* Centered Round Plush Rug */}
-          <div
-            className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 w-[54%] max-w-[180px] h-[56%]"
+          {/* Hand-drawn Wavy Cocoa Wood Grain */}
+          <svg
+            viewBox="0 0 360 150"
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-0 w-full h-full opacity-[0.22]"
             aria-hidden="true"
           >
-            <svg viewBox="0 0 220 120" className="w-full h-full opacity-90">
-              <ellipse cx="110" cy="62" rx="100" ry="48" fill="#FFE9F0" stroke="#F4C7D6" strokeWidth="3" strokeDasharray="6 4" />
-              <ellipse cx="110" cy="60" rx="84" ry="39" fill="#FFF7EE" />
+            <g fill="none" stroke="#7A5238" strokeWidth="1.2" strokeLinecap="round">
+              <path d="M12 16C48 11 90 21 132 15" />
+              <path d="M168 17C214 12 262 22 316 16" />
+              <path d="M36 48C86 42 136 53 188 47" />
+              <path d="M220 49C268 43 312 53 348 48" />
+              <path d="M16 82C62 77 108 87 154 81" />
+              <path d="M192 83C242 77 294 88 344 82" />
+              <path d="M32 116C84 110 138 121 190 115" />
+              <path d="M222 118C268 112 310 121 348 117" />
+            </g>
+          </svg>
+
+          {/* Centered Pink Lace Round Rug + Bowl & Wind-up Mouse */}
+          <div
+            className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 w-[74%] max-w-[240px] h-[58%] flex items-center justify-center"
+            aria-hidden="true"
+          >
+            <svg width="26" height="20" viewBox="0 0 42 32" fill="none" className="absolute left-0 bottom-[16%]">
+              <ellipse cx="21" cy="12" rx="12.5" ry="4.5" fill="#FFE8B8" stroke="#7A5238" strokeWidth="1.6" />
+              <path d="M7 12C7 15.2 13.3 17.5 21 17.5C28.7 17.5 35 15.2 35 12L37 22.5C37 25.5 29.8 27.5 21 27.5C12.2 27.5 5 25.5 5 22.5L7 12Z" fill="#FFA9C4" stroke="#7A5238" strokeWidth="1.8" />
+              <ellipse cx="21" cy="23" rx="2.6" ry="2" fill="#FFF8FA" />
+            </svg>
+
+            <svg viewBox="0 0 240 132" className="w-[74%] max-w-[180px] h-full opacity-95">
+              <ellipse cx="120" cy="67" rx="110" ry="54" fill="#FFE6EF" stroke="#F5B9CD" strokeWidth="6" strokeDasharray="2 9" strokeLinecap="round" />
+              <ellipse cx="120" cy="67" rx="104" ry="49" fill="#FFEAF1" stroke="#F2B4C8" strokeWidth="2.2" />
+              <ellipse cx="120" cy="66" rx="86" ry="39" fill="#FFF8F0" />
+            </svg>
+
+            <svg width="28" height="20" viewBox="0 0 44 32" fill="none" className="absolute right-0 bottom-[18%]">
+              <line x1="22" y1="8" x2="22" y2="13" stroke="#C68E3E" strokeWidth="2" />
+              <circle cx="19.5" cy="6.5" r="2.7" fill="none" stroke="#E2AC4C" strokeWidth="1.8" />
+              <circle cx="24.5" cy="6.5" r="2.7" fill="none" stroke="#E2AC4C" strokeWidth="1.8" />
+              <path d="M9 22C9 16 14 12.5 21.5 12.5C28 12.5 32.5 16.5 32.5 21.5C32.5 24.2 28.5 25.5 21 25.5C13.5 25.5 9 24.5 9 22Z" fill="#E0D8EE" stroke="#7A5238" strokeWidth="1.6" />
+              <circle cx="16.5" cy="13" r="3.4" fill="#FFB5CA" stroke="#7A5238" strokeWidth="1.4" />
+              <circle cx="8.6" cy="20.6" r="1.6" fill="#FF7AA2" />
             </svg>
           </div>
 
-          {/* Starter Ambient Corner Plant & Box if Empty */}
+          {/* Starter Cat-Face Flower Pot & Bunny-in-Box if Empty */}
           {house.roomLayout.placedItems.length === 0 && (
             <>
-              <div className="pointer-events-none absolute left-2 top-1.5 opacity-95" aria-hidden="true">
-                <svg width="32" height="34" viewBox="0 0 52 56" fill="none">
-                  <path d="M16 33H36L33 50H19L16 33Z" fill="#DF8E66" stroke="#B66843" strokeWidth="2" />
-                  <rect x="14" y="29" width="24" height="5" rx="2.5" fill="#EA9F78" stroke="#B66843" strokeWidth="1.8" />
-                  <path d="M26 29C26 21 20 14 14 14C14 21 18 26 26 29Z" fill="#77C88E" stroke="#4D9B64" strokeWidth="1.8" />
-                  <path d="M26 29C26 20 32 13 38 14C38 21 33 26 26 29Z" fill="#63B87B" stroke="#4D9B64" strokeWidth="1.8" />
+              <div className="pointer-events-none absolute left-2 top-1 opacity-95" aria-hidden="true">
+                <svg width="34" height="36" viewBox="0 0 58 62" fill="none">
+                  <path d="M29 31C23 24 16 23 13 26C16 30 22 32 29 31Z" fill="#77C88E" stroke="#4D8F68" strokeWidth="1.6" />
+                  <path d="M29 31C35 24 42 23 45 26C42 30 36 32 29 31Z" fill="#63B87B" stroke="#4D8F68" strokeWidth="1.6" />
+                  <circle cx="29" cy="13" r="4.5" fill="#FF98B8" />
+                  <circle cx="29" cy="13" r="2" fill="#FFE37A" />
+                  <circle cx="18" cy="18" r="3.6" fill="#FFB0C9" />
+                  <circle cx="40" cy="18" r="3.6" fill="#FFB0C9" />
+                  <path d="M16 32L18 25L24 31Z" fill="#FFFDF9" stroke="#7A5238" strokeWidth="1.8" />
+                  <path d="M42 32L40 25L34 31Z" fill="#FFFDF9" stroke="#7A5238" strokeWidth="1.8" />
+                  <path d="M15 32C15 30.5 16.5 30 29 30C41.5 30 43 30.5 43 32L40 53C39.6 55 36 56 29 56C22 56 18.4 55 18 53L15 32Z" fill="#FFFDF9" stroke="#7A5238" strokeWidth="1.8" />
+                  <circle cx="23.5" cy="40.5" r="1.7" fill="#6B4732" />
+                  <circle cx="34.5" cy="40.5" r="1.7" fill="#6B4732" />
+                  <path d="M26.8 43.2Q28 45 29 43.5Q30 45 31.2 43.2" fill="none" stroke="#6B4732" strokeWidth="1.4" strokeLinecap="round" />
                 </svg>
               </div>
-              <div className="pointer-events-none absolute right-2 top-1.5 opacity-95" aria-hidden="true">
-                <svg width="34" height="32" viewBox="0 0 56 52" fill="none">
-                  <rect x="10" y="20" width="36" height="26" rx="3" fill="#E3BA8D" stroke="#AD7E52" strokeWidth="2" />
-                  <path d="M10 20L17 12H40L46 20H10Z" fill="#EECCA3" stroke="#AD7E52" strokeWidth="1.8" />
-                  <path d="M28 38C25.5 36.2 24 34.4 24 32.8C24 31.6 25 30.8 26.2 30.8C27 30.8 27.6 31.2 28 31.9C28.4 31.2 29 30.8 29.8 30.8C31 30.8 32 31.6 32 32.8C32 34.4 30.5 36.2 28 38Z" fill="#FF7A9E" />
+              <div className="pointer-events-none absolute right-2 top-0.5 opacity-95" aria-hidden="true">
+                <svg width="36" height="36" viewBox="0 0 64 62" fill="none">
+                  <ellipse cx="25" cy="14" rx="4.2" ry="9.5" transform="rotate(-14 25 14)" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.8" />
+                  <ellipse cx="39" cy="14" rx="4.2" ry="9.5" transform="rotate(14 39 14)" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.8" />
+                  <ellipse cx="32" cy="24" rx="10.5" ry="9" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.8" />
+                  <circle cx="28" cy="23.2" r="1.5" fill="#6B4732" />
+                  <circle cx="36" cy="23.2" r="1.5" fill="#6B4732" />
+                  <rect x="12" y="28" width="40" height="27" rx="3" fill="#E3BA8D" stroke="#7A5238" strokeWidth="1.9" />
+                  <ellipse cx="32" cy="45.8" rx="3" ry="2.3" fill="#FF8EB0" />
+                  <circle cx="28.7" cy="42.4" r="1.3" fill="#FF8EB0" />
+                  <circle cx="32" cy="41.4" r="1.3" fill="#FF8EB0" />
+                  <circle cx="35.3" cy="42.4" r="1.3" fill="#FF8EB0" />
                 </svg>
               </div>
             </>

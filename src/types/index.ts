@@ -62,7 +62,7 @@ export type PetExpression =
   | 'happyTongue'
   | 'ticklish';
 
-export type PetViewDirection = 'front' | 'left' | 'back' | 'right';
+export type PetViewDirection = 'front' | 'left' | 'back' | 'right' | 'flipped';
 
 export interface Pet {
   id: string;
@@ -207,6 +207,8 @@ export interface CropPlot {
   cropId: IngredientId | null;
   plantedAt: number | null;
   durationMs: number;
+  watered?: boolean;
+  isGolden?: boolean;
 }
 
 export interface KitchenRecipe {

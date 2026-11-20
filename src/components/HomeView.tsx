@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Bath,
   BookHeart,
+  FlipHorizontal2,
   Footprints,
   Gamepad2,
   Heart,
@@ -36,6 +37,7 @@ import {
   PetMessage,
   PetPersonality,
   PetTouchZone,
+  PetViewDirection,
   PiggyActionState,
   SharedHouse,
   SharedPetRoom,
@@ -160,6 +162,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
   const [draggingFoodId, setDraggingFoodId] = useState<string | null>(null);
   const [isDropOver, setIsDropOver] = useState(false);
+  const [petDirection, setPetDirection] = useState<PetViewDirection>('front');
+
+  const petDirectionOrder: PetViewDirection[] = ['front', 'flipped', 'right', 'back', 'left'];
+  const petDirectionLabels: Record<PetViewDirection, string> = {
+    front: '正面',
+    flipped: '翻轉',
+    right: '朝右',
+    back: '背面',
+    left: '朝左',
+  };
+  const handleCyclePetDirection = () => {
+    const idx = petDirectionOrder.indexOf(petDirection);
+    setPetDirection(petDirectionOrder[(idx + 1) % petDirectionOrder.length]);
+  };
 
   const growthInfo = getGrowthRemaining(pet.growth, pet.species);
   const careBalanced = isCareBalanced(pet);
@@ -417,14 +433,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
           feedEffect={feedEffect}
           feedParticles={feedParticles}
           onPet={onPet}
+          viewDirection={petDirection}
           size={206}
           isDropTarget={isDropOver}
         />
 
-        <p className="mt-1 text-[11px] font-bold text-[#8A716B] flex items-center gap-1 text-center">
-          <Sparkles className="w-3 h-3 text-[#FF7A9E] shrink-0" />
-          <span>輕點{speciesInfo.shortName}的頭、臉頰、肚肚或小手有不同反應</span>
-        </p>
+        <div className="w-full mt-1.5 flex items-center justify-between gap-2">
+          <p className="text-[11px] font-bold text-[#8A716B] flex items-center gap-1 min-w-0">
+            <Sparkles className="w-3 h-3 text-[#FF7A9E] shrink-0" />
+            <span className="truncate">
+              輕點{speciesInfo.shortName}的頭、臉頰、肚肚或小手有不同反應
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={handleCyclePetDirection}
+            aria-label={`轉向：目前為${petDirectionLabels[petDirection]}，點擊切換方向`}
+            className="min-h-[36px] px-2.5 py-1 rounded-xl bg-white/92 border border-[#EAD4DC] text-[11px] font-extrabold text-[#5A3E36] inline-flex items-center gap-1 shadow-xs hover:bg-white active:scale-95 transition shrink-0"
+          >
+            <FlipHorizontal2 className="w-3.5 h-3.5 text-[#D64470]" />
+            <span>轉向 · {petDirectionLabels[petDirection]}</span>
+          </button>
+        </div>
       </section>
 
       <section className="grid grid-cols-4 gap-2" aria-label="照護互動按鈕">

@@ -430,10 +430,11 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
             <h3 className="text-xs font-extrabold text-[#4A3531] px-0.5">
               🔄 寵物面向（展現正面或背部翅膀）
             </h3>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-5 gap-1.5">
               {(
                 [
                   { id: 'front', label: '正面' },
+                  { id: 'flipped', label: '翻轉' },
                   { id: 'left', label: '朝左' },
                   { id: 'back', label: '背面' },
                   { id: 'right', label: '朝右' },

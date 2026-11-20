@@ -385,6 +385,8 @@ function parseFarmPlots(raw: unknown, unlockedFarmPlots = 4): CropPlot[] {
       cropId,
       plantedAt,
       durationMs,
+      watered: saved.watered === true,
+      isGolden: saved.isGolden === true,
     };
   });
 }
@@ -924,7 +926,7 @@ function parseSharedHouse(raw: unknown): SharedHouse {
     return undefined;
   };
   const asPetViewDirection = (v: unknown): PetViewDirection | undefined => {
-    if (v === 'front' || v === 'left' || v === 'back' || v === 'right') {
+    if (v === 'front' || v === 'left' || v === 'back' || v === 'right' || v === 'flipped') {
       return v;
     }
     return undefined;

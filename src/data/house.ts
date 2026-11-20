@@ -556,8 +556,9 @@ export const WALLPAPERS: WallpaperDefinition[] = [
     price: 0,
     themeId: null,
     emoji: '🧈',
-    description: '柔和温暖的奶油色粉刷牆面，百搭又耐看。',
-    wallBgStyle: 'linear-gradient(180deg, #FFF7E8 0%, #FFEEDB 100%)',
+    description: '極淡的奶油雙色垂直條紋壁紙，柔暖又充滿手繪插畫質感。',
+    wallBgStyle:
+      'repeating-linear-gradient(90deg, #FFF9EE 0px, #FFF9EE 18px, #FFF1DB 18px, #FFF1DB 36px)',
     accentDotColor: '#F2C9A0',
   },
   {

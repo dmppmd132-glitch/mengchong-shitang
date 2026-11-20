@@ -430,15 +430,23 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
         </div>
       )}
 
-      <svg
-        viewBox="0 0 240 240"
-        className={`w-full h-full overflow-visible ${animClass}`}
-        aria-hidden="true"
-      >
-        <ellipse cx="120" cy="212" rx={58 * scaleX} ry="11" fill="#E8D2C8" opacity="0.7" />
+      {(() => {
+        const isHorizontallyFlipped = viewDirection === 'right' || viewDirection === 'flipped';
+        const isSideView = viewDirection === 'left' || viewDirection === 'right';
+        return (
+          <div
+            className="w-full h-full transition-transform duration-300"
+            style={{ transform: isHorizontallyFlipped ? 'scaleX(-1)' : undefined }}
+          >
+            <svg
+              viewBox="0 0 240 240"
+              className={`w-full h-full overflow-visible ${animClass}`}
+              aria-hidden="true"
+            >
+              <ellipse cx="120" cy="212" rx={58 * scaleX} ry="11" fill="#E8D2C8" opacity="0.7" />
 
-        <g transform={`translate(120, 128) scale(${scaleX}, ${scaleY}) translate(-120, -128)`}>
-          {viewDirection === 'back' ? (
+              <g transform={`translate(120, 128) scale(${scaleX}, ${scaleY}) translate(-120, -128)`}>
+                {viewDirection === 'back' ? (
             <g>
               {/* Held accessory peeking on right paw */}
               {equipped.held === 'pink_balloon' && (
@@ -706,7 +714,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               <g>{renderHeadAccessories()}</g>
             </g>
           ) : (
-            <g transform={viewDirection === 'right' ? 'translate(240, 0) scale(-1, 1)' : undefined}>
+            <g>
           {/* Tail */}
           {species === 'rabbit' ? (
             <circle
@@ -806,129 +814,256 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             </g>
           )}
           {equipped.back === 'space_mini_cape' && (
-            <g>
-              <path
-                d="M 50 130 Q 28 176 44 202 Q 120 214 196 202 Q 212 176 190 130 Q 120 144 50 130 Z"
-                fill="#463F8F"
-                stroke="#5A3E36"
-                strokeWidth="4"
-                strokeLinejoin="round"
-              />
-              <path d="M 60 176 L 70 166 L 67 178 Z" fill="#85D7FF" />
-              <circle cx="172" cy="178" r="4.5" fill="#FFE066" />
-              <circle cx="92" cy="192" r="2.8" fill="#FFFDF7" />
-              <circle cx="146" cy="192" r="2.5" fill="#9AE6FF" />
-            </g>
+            isSideView ? (
+              <g>
+                <path
+                  d="M 68 132 Q 60 176 74 202 Q 140 214 212 198 Q 222 170 194 128 Q 130 142 68 132 Z"
+                  fill="#463F8F"
+                  stroke="#5A3E36"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                />
+                <path d="M 182 162 L 194 152 L 190 165 Z" fill="#85D7FF" />
+                <circle cx="196" cy="182" r="4.5" fill="#FFE066" />
+                <circle cx="174" cy="192" r="2.8" fill="#FFFDF7" />
+              </g>
+            ) : (
+              <g>
+                <path
+                  d="M 50 130 Q 28 176 44 202 Q 120 214 196 202 Q 212 176 190 130 Q 120 144 50 130 Z"
+                  fill="#463F8F"
+                  stroke="#5A3E36"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                />
+                <path d="M 60 176 L 70 166 L 67 178 Z" fill="#85D7FF" />
+                <circle cx="172" cy="178" r="4.5" fill="#FFE066" />
+                <circle cx="92" cy="192" r="2.8" fill="#FFFDF7" />
+                <circle cx="146" cy="192" r="2.5" fill="#9AE6FF" />
+              </g>
+            )
           )}
           {equipped.back === 'camping_backpack' && (
-            <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(16, 0)' : undefined}>
-              <rect
-                x="44"
-                y="112"
-                width="34"
-                height="62"
-                rx="14"
-                fill="#679E6B"
-                stroke="#5A3E36"
-                strokeWidth="4"
-              />
-              <rect
-                x="48"
-                y="104"
-                width="26"
-                height="16"
-                rx="8"
-                fill="#D89B5B"
-                stroke="#5A3E36"
-                strokeWidth="3.5"
-              />
-              <rect
-                x="162"
-                y="112"
-                width="34"
-                height="62"
-                rx="14"
-                fill="#679E6B"
-                stroke="#5A3E36"
-                strokeWidth="4"
-              />
-              <rect
-                x="166"
-                y="104"
-                width="26"
-                height="16"
-                rx="8"
-                fill="#D89B5B"
-                stroke="#5A3E36"
-                strokeWidth="3.5"
-              />
-            </g>
+            isSideView ? (
+              <g transform="translate(8, -12)">
+                <rect
+                  x="162"
+                  y="112"
+                  width="36"
+                  height="58"
+                  rx="14"
+                  fill="#679E6B"
+                  stroke="#5A3E36"
+                  strokeWidth="4"
+                />
+                <rect
+                  x="166"
+                  y="102"
+                  width="28"
+                  height="16"
+                  rx="8"
+                  fill="#D89B5B"
+                  stroke="#5A3E36"
+                  strokeWidth="3.5"
+                />
+                <circle cx="184" cy="142" r="3" fill="#FFE066" />
+              </g>
+            ) : (
+              <g>
+                <rect
+                  x="44"
+                  y="112"
+                  width="34"
+                  height="62"
+                  rx="14"
+                  fill="#679E6B"
+                  stroke="#5A3E36"
+                  strokeWidth="4"
+                />
+                <rect
+                  x="48"
+                  y="104"
+                  width="26"
+                  height="16"
+                  rx="8"
+                  fill="#D89B5B"
+                  stroke="#5A3E36"
+                  strokeWidth="3.5"
+                />
+                <rect
+                  x="162"
+                  y="112"
+                  width="34"
+                  height="62"
+                  rx="14"
+                  fill="#679E6B"
+                  stroke="#5A3E36"
+                  strokeWidth="4"
+                />
+                <rect
+                  x="166"
+                  y="104"
+                  width="26"
+                  height="16"
+                  rx="8"
+                  fill="#D89B5B"
+                  stroke="#5A3E36"
+                  strokeWidth="3.5"
+                />
+              </g>
+            )
           )}
           {equipped.back === 'angel_feather_wings' && (
-            <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(22, 0)' : undefined}>
-              <path
-                d="M 60 124 C 38 92 8 92 14 122 C 16 134 26 140 26 140 C 18 150 34 162 50 152 C 56 156 64 150 64 136 Z"
-                fill="#FFFDF7"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M 180 124 C 202 92 232 92 226 122 C 224 134 214 140 214 140 C 222 150 206 162 190 152 C 184 156 176 150 176 136 Z"
-                fill="#FFFDF7"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-              <path d="M 46 130 C 34 118 24 120 28 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
-              <path d="M 194 130 C 206 118 216 120 212 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
-            </g>
+            isSideView ? (
+              <g>
+                <g transform="translate(230, -8) scale(-0.86, 0.86)">
+                  <path
+                    d="M 60 124 C 38 92 8 92 14 122 C 16 134 26 140 26 140 C 18 150 34 162 50 152 C 56 156 64 150 64 136 Z"
+                    fill="#FFFDF7"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M 46 130 C 34 118 24 120 28 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
+                </g>
+                <g transform="translate(-4, 2)">
+                  <path
+                    d="M 180 124 C 202 92 232 92 226 122 C 224 134 214 140 214 140 C 222 150 206 162 190 152 C 184 156 176 150 176 136 Z"
+                    fill="#FFFDF7"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M 194 130 C 206 118 216 120 212 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
+                </g>
+              </g>
+            ) : (
+              <g>
+                <path
+                  d="M 60 124 C 38 92 8 92 14 122 C 16 134 26 140 26 140 C 18 150 34 162 50 152 C 56 156 64 150 64 136 Z"
+                  fill="#FFFDF7"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M 180 124 C 202 92 232 92 226 122 C 224 134 214 140 214 140 C 222 150 206 162 190 152 C 184 156 176 150 176 136 Z"
+                  fill="#FFFDF7"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+                <path d="M 46 130 C 34 118 24 120 28 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
+                <path d="M 194 130 C 206 118 216 120 212 132" fill="none" stroke="#E9D8C8" strokeWidth="2.8" strokeLinecap="round" />
+              </g>
+            )
           )}
           {equipped.back === 'butterfly_dream_wings' && (
-            <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(22, 0)' : undefined}>
-              <path
-                d="M 62 122 C 40 84 6 92 14 124 C 16 136 32 140 50 138 C 24 146 22 168 42 170 C 54 170 62 154 64 138 Z"
-                fill="#FF9AC2"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M 178 122 C 200 84 234 92 226 124 C 224 136 208 140 190 138 C 216 146 218 168 198 170 C 186 170 178 154 176 138 Z"
-                fill="#8BE0CE"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-              <circle cx="34" cy="118" r="6" fill="#FFF5B8" />
-              <circle cx="206" cy="118" r="6" fill="#FFF5B8" />
-            </g>
+            isSideView ? (
+              <g>
+                <g transform="translate(230, -8) scale(-0.86, 0.86)">
+                  <path
+                    d="M 62 122 C 40 84 6 92 14 124 C 16 136 32 140 50 138 C 24 146 22 168 42 170 C 54 170 62 154 64 138 Z"
+                    fill="#FF9AC2"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="34" cy="118" r="6" fill="#FFF5B8" />
+                </g>
+                <g transform="translate(-4, 2)">
+                  <path
+                    d="M 178 122 C 200 84 234 92 226 124 C 224 136 208 140 190 138 C 216 146 218 168 198 170 C 186 170 178 154 176 138 Z"
+                    fill="#8BE0CE"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="206" cy="118" r="6" fill="#FFF5B8" />
+                </g>
+              </g>
+            ) : (
+              <g>
+                <path
+                  d="M 62 122 C 40 84 6 92 14 124 C 16 136 32 140 50 138 C 24 146 22 168 42 170 C 54 170 62 154 64 138 Z"
+                  fill="#FF9AC2"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M 178 122 C 200 84 234 92 226 124 C 224 136 208 140 190 138 C 216 146 218 168 198 170 C 186 170 178 154 176 138 Z"
+                  fill="#8BE0CE"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+                <circle cx="34" cy="118" r="6" fill="#FFF5B8" />
+                <circle cx="206" cy="118" r="6" fill="#FFF5B8" />
+              </g>
+            )
           )}
           {equipped.back === 'devil_bat_wings' && (
-            <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(22, 0)' : undefined}>
-              <path
-                d="M 62 126 C 42 94 14 96 12 122 Q 24 128 28 142 Q 40 134 46 148 Q 56 140 64 138 Z"
-                fill="#8A63B8"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M 178 126 C 198 94 226 96 228 122 Q 216 128 212 142 Q 200 134 194 148 Q 184 140 176 138 Z"
-                fill="#8A63B8"
-                stroke="#5A3E36"
-                strokeWidth="3.8"
-                strokeLinejoin="round"
-              />
-            </g>
+            isSideView ? (
+              <g>
+                <g transform="translate(230, -8) scale(-0.86, 0.86)">
+                  <path
+                    d="M 62 126 C 42 94 14 96 12 122 Q 24 128 28 142 Q 40 134 46 148 Q 56 140 64 138 Z"
+                    fill="#8A63B8"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                </g>
+                <g transform="translate(-4, 2)">
+                  <path
+                    d="M 178 126 C 198 94 226 96 228 122 Q 216 128 212 142 Q 200 134 194 148 Q 184 140 176 138 Z"
+                    fill="#8A63B8"
+                    stroke="#5A3E36"
+                    strokeWidth="3.8"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              </g>
+            ) : (
+              <g>
+                <path
+                  d="M 62 126 C 42 94 14 96 12 122 Q 24 128 28 142 Q 40 134 46 148 Q 56 140 64 138 Z"
+                  fill="#8A63B8"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M 178 126 C 198 94 226 96 228 122 Q 216 128 212 142 Q 200 134 194 148 Q 184 140 176 138 Z"
+                  fill="#8A63B8"
+                  stroke="#5A3E36"
+                  strokeWidth="3.8"
+                  strokeLinejoin="round"
+                />
+              </g>
+            )
           )}
           {equipped.back === 'bee_honey_wings' && (
-            <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(22, 0)' : undefined}>
-              <ellipse cx="40" cy="142" rx="18" ry="11" transform="rotate(-14 40 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
-              <ellipse cx="200" cy="142" rx="18" ry="11" transform="rotate(14 200 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
-              <ellipse cx="36" cy="118" rx="24" ry="15" transform="rotate(-24 36 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
-              <ellipse cx="204" cy="118" rx="24" ry="15" transform="rotate(24 204 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
-            </g>
+            isSideView ? (
+              <g>
+                <g transform="translate(230, -8) scale(-0.86, 0.86)">
+                  <ellipse cx="40" cy="142" rx="18" ry="11" transform="rotate(-14 40 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
+                  <ellipse cx="36" cy="118" rx="24" ry="15" transform="rotate(-24 36 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
+                </g>
+                <g transform="translate(-4, 2)">
+                  <ellipse cx="200" cy="142" rx="18" ry="11" transform="rotate(14 200 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
+                  <ellipse cx="204" cy="118" rx="24" ry="15" transform="rotate(24 204 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
+                </g>
+              </g>
+            ) : (
+              <g>
+                <ellipse cx="40" cy="142" rx="18" ry="11" transform="rotate(-14 40 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
+                <ellipse cx="200" cy="142" rx="18" ry="11" transform="rotate(14 200 142)" fill="#FFF2B2" stroke="#5A3E36" strokeWidth="3.2" />
+                <ellipse cx="36" cy="118" rx="24" ry="15" transform="rotate(-24 36 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
+                <ellipse cx="204" cy="118" rx="24" ry="15" transform="rotate(24 204 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
+              </g>
+            )
           )}
 
           {/* Ears behind body */}
@@ -1211,55 +1346,57 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               <circle cx="120" cy="161" r="6" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.6" />
             </g>
           )}
-          {equipped.back === 'camping_backpack' && (
-            <g>
-              <path d="M 76 138 Q 84 156 76 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
-              <path d="M 164 138 Q 156 156 164 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
-            </g>
-          )}
-          {equipped.back === 'space_mini_cape' && (
-            <g>
-              <path d="M 78 148 Q 120 161 162 148" fill="none" stroke="#85D7FF" strokeWidth="4" strokeLinecap="round" />
-              <circle cx="120" cy="158" r="5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.4" />
-            </g>
-          )}
-          {(equipped.back === 'angel_feather_wings' ||
-            equipped.back === 'butterfly_dream_wings' ||
-            equipped.back === 'devil_bat_wings' ||
-            equipped.back === 'bee_honey_wings') && (
-            <g>
-              <path
-                d="M 74 138 Q 84 156 76 172"
-                fill="none"
-                stroke={
-                  equipped.back === 'butterfly_dream_wings'
-                    ? '#FF9AC2'
-                    : equipped.back === 'devil_bat_wings'
-                    ? '#9A74C9'
-                    : equipped.back === 'bee_honey_wings'
-                    ? '#FFD54F'
-                    : '#F5E7CE'
-                }
-                strokeWidth="4.8"
-                strokeLinecap="round"
-              />
-              <path
-                d="M 166 138 Q 156 156 164 172"
-                fill="none"
-                stroke={
-                  equipped.back === 'butterfly_dream_wings'
-                    ? '#8BE0CE'
-                    : equipped.back === 'devil_bat_wings'
-                    ? '#9A74C9'
-                    : equipped.back === 'bee_honey_wings'
-                    ? '#FFD54F'
-                    : '#F5E7CE'
-                }
-                strokeWidth="4.8"
-                strokeLinecap="round"
-              />
-            </g>
-          )}
+          <g transform={isSideView ? 'translate(-8, 0)' : undefined}>
+            {equipped.back === 'camping_backpack' && (
+              <g>
+                <path d="M 76 138 Q 84 156 76 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
+                <path d="M 164 138 Q 156 156 164 174" fill="none" stroke="#8C5B32" strokeWidth="5.5" strokeLinecap="round" />
+              </g>
+            )}
+            {equipped.back === 'space_mini_cape' && (
+              <g>
+                <path d="M 78 148 Q 120 161 162 148" fill="none" stroke="#85D7FF" strokeWidth="4" strokeLinecap="round" />
+                <circle cx="120" cy="158" r="5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.4" />
+              </g>
+            )}
+            {(equipped.back === 'angel_feather_wings' ||
+              equipped.back === 'butterfly_dream_wings' ||
+              equipped.back === 'devil_bat_wings' ||
+              equipped.back === 'bee_honey_wings') && (
+              <g>
+                <path
+                  d="M 74 138 Q 84 156 76 172"
+                  fill="none"
+                  stroke={
+                    equipped.back === 'butterfly_dream_wings'
+                      ? '#FF9AC2'
+                      : equipped.back === 'devil_bat_wings'
+                      ? '#9A74C9'
+                      : equipped.back === 'bee_honey_wings'
+                      ? '#FFD54F'
+                      : '#F5E7CE'
+                  }
+                  strokeWidth="4.8"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M 166 138 Q 156 156 164 172"
+                  fill="none"
+                  stroke={
+                    equipped.back === 'butterfly_dream_wings'
+                      ? '#8BE0CE'
+                      : equipped.back === 'devil_bat_wings'
+                      ? '#9A74C9'
+                      : equipped.back === 'bee_honey_wings'
+                      ? '#FFD54F'
+                      : '#F5E7CE'
+                  }
+                  strokeWidth="4.8"
+                  strokeLinecap="round"
+                />
+              </g>
+            )}
+          </g>
 
           <ellipse cx="88" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
           <ellipse cx="152" cy="194" rx="14" ry="10" fill={palette.limb} stroke="#5A3E36" strokeWidth="4" />
@@ -1359,7 +1496,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             </g>
           )}
 
-          <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(-15, 0)' : undefined}>
+          <g transform={isSideView ? 'translate(-15, 0)' : undefined}>
           <ellipse
             cx="72"
             cy="132"
@@ -1858,13 +1995,16 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           )}
           </g>
 
-          <g transform={viewDirection === 'left' || viewDirection === 'right' ? 'translate(-8, 0)' : undefined}>
-          {renderHeadAccessories()}
-          </g>
-            </g>
-          )}
-        </g>
-      </svg>
+                <g transform={isSideView ? 'translate(-8, 0)' : undefined}>
+                  {renderHeadAccessories()}
+                </g>
+              </g>
+            )}
+              </g>
+            </svg>
+          </div>
+        );
+      })()}
     </div>
   );
 };

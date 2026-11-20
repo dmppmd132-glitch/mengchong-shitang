@@ -75,13 +75,14 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 
   const directionOptions: Array<{ id: PetViewDirection; label: string }> = [
     { id: 'front', label: '正面' },
+    { id: 'flipped', label: '翻轉' },
     { id: 'left', label: '朝左' },
     { id: 'back', label: '背面' },
     { id: 'right', label: '朝右' },
   ];
 
   const handleCycleDirection = () => {
-    const order: PetViewDirection[] = ['front', 'right', 'back', 'left'];
+    const order: PetViewDirection[] = ['front', 'flipped', 'right', 'back', 'left'];
     const idx = order.indexOf(viewDirection);
     setViewDirection(order[(idx + 1) % order.length]);
   };
@@ -192,7 +193,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                 </span>
               </button>
 
-              <div className="mt-1.5 w-full max-w-[300px] grid grid-cols-4 gap-1 bg-[#EBF7F2] p-1 rounded-2xl border border-[#D2EFE4]">
+              <div className="mt-1.5 w-full max-w-[320px] grid grid-cols-5 gap-1 bg-[#EBF7F2] p-1 rounded-2xl border border-[#D2EFE4]">
                 {directionOptions.map((opt) => {
                   const selected = viewDirection === opt.id;
                   return (

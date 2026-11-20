@@ -1050,61 +1050,247 @@ export const HouseView: React.FC<HouseViewProps> = ({
             </div>
 
             {/* 2D Horizontal Scene Canvas */}
-            <div className="relative w-full h-[308px] sm:h-[332px] overflow-hidden select-none">
-              {/* TOP 35%: Cream Wall + Framed Painting + Sunlit Window + Wooden Baseboard */}
+            <div className="relative w-full h-[312px] sm:h-[336px] overflow-hidden select-none">
+              {/* TOP 35%: Pastel Striped Wall + Macaron Bunting + Bear Frame + Shelf + Curtained Window + Baseboard */}
               <div
                 className="relative h-[35%] w-full overflow-hidden"
                 style={{ background: wallDef.wallBgStyle }}
               >
-                {/* Soft Wall Vignette */}
+                {/* Delicate Soft Vertical Stripe & Top Glow Overlay */}
                 <div
                   className="pointer-events-none absolute inset-0"
                   style={{
-                    background:
-                      'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 75%)',
+                    backgroundImage:
+                      'repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 18px, rgba(242,206,166,0.08) 18px, rgba(242,206,166,0.08) 36px), linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0) 78%)',
                   }}
                 />
 
-                {/* Left Framed Wall Painting (小壁畫) */}
-                <div
-                  className="pointer-events-none absolute left-[8%] top-[16%] drop-shadow-[0_2px_2px_rgba(90,62,54,0.16)]"
+                {/* Top Pastel Macaron Triangular Party Bunting + Cute Bows (頂部三角派對彩旗與蝴蝶結) */}
+                <svg
+                  viewBox="0 0 400 28"
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute inset-x-0 top-0 w-full h-6 z-[4]"
                   aria-hidden="true"
                 >
-                  <svg width="56" height="44" viewBox="0 0 56 44" fill="none">
-                    <path d="M22 6L28 1L34 6" stroke="#B68B64" strokeWidth="1.5" strokeLinecap="round" />
-                    <circle cx="28" cy="1.8" r="1.5" fill="#9B704A" />
-                    <rect x="4" y="6" width="48" height="34" rx="4" fill="#D5A678" stroke="#A6784E" strokeWidth="2" />
-                    <rect x="8.5" y="10.5" width="39" height="25" rx="2" fill="#FFFDF6" />
-                    <path d="M8.5 29C15 24 21 25 27 28C34 31 40 25 47.5 27V35.5H8.5V29Z" fill="#CFEAD6" />
-                    <circle cx="38" cy="17" r="3.2" fill="#FFD97D" />
-                    <circle cx="20" cy="22" r="3.8" fill="#FF92B2" />
-                    <circle cx="20" cy="22" r="1.5" fill="#FFF3B0" />
-                    <path d="M20 26V32" stroke="#5FA876" strokeWidth="1.6" strokeLinecap="round" />
+                  {/* Curved Cocoa Garland String */}
+                  <path
+                    d="M0 4 Q100 13 200 5 Q300 13 400 4"
+                    fill="none"
+                    stroke="#8C624D"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                  {/* Macaron Pastel Triangles: Pink, Soft Yellow, Baby Blue, Lavender */}
+                  {[
+                    { x1: 12, y1: 5, x2: 32, y2: 7, tx: 21, ty: 20, fill: '#FFB3C7' },
+                    { x1: 36, y1: 7, x2: 56, y2: 8.5, tx: 45, ty: 22, fill: '#FFE596' },
+                    { x1: 60, y1: 8.5, x2: 80, y2: 9.5, tx: 69, ty: 23, fill: '#B6E1FF' },
+                    { x1: 84, y1: 9.5, x2: 104, y2: 9.5, tx: 94, ty: 23, fill: '#DEC8FF' },
+                    { x1: 108, y1: 9.5, x2: 128, y2: 9, tx: 118, ty: 22.5, fill: '#FFB3C7' },
+                    { x1: 132, y1: 9, x2: 152, y2: 8, tx: 142, ty: 21.5, fill: '#FFE596' },
+                    { x1: 156, y1: 8, x2: 176, y2: 6.5, tx: 166, ty: 20, fill: '#B6E1FF' },
+                    { x1: 180, y1: 6.5, x2: 196, y2: 5.5, tx: 188, ty: 18.5, fill: '#DEC8FF' },
+                    { x1: 204, y1: 5.5, x2: 222, y2: 6.8, tx: 213, ty: 19.5, fill: '#FFB3C7' },
+                    { x1: 226, y1: 6.8, x2: 246, y2: 8.2, tx: 236, ty: 21, fill: '#FFE596' },
+                    { x1: 250, y1: 8.2, x2: 270, y2: 9.2, tx: 260, ty: 22, fill: '#B6E1FF' },
+                    { x1: 274, y1: 9.2, x2: 294, y2: 9.5, tx: 284, ty: 22.5, fill: '#DEC8FF' },
+                    { x1: 298, y1: 9.5, x2: 318, y2: 9.5, tx: 308, ty: 23, fill: '#FFB3C7' },
+                    { x1: 322, y1: 9.5, x2: 342, y2: 8.5, tx: 332, ty: 22, fill: '#FFE596' },
+                    { x1: 346, y1: 8.5, x2: 366, y2: 7, tx: 356, ty: 21, fill: '#B6E1FF' },
+                    { x1: 370, y1: 7, x2: 390, y2: 5, tx: 380, ty: 19.5, fill: '#DEC8FF' },
+                  ].map((flag, i) => (
+                    <g key={i}>
+                      <polygon
+                        points={`${flag.x1},${flag.y1} ${flag.x2},${flag.y2} ${flag.tx},${flag.ty}`}
+                        fill={flag.fill}
+                        stroke="#8C624D"
+                        strokeWidth="1.2"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx={flag.tx} cy={flag.ty - 5.5} r="1.1" fill="#FFFDF8" opacity="0.75" />
+                    </g>
+                  ))}
+                  {/* Cute Ribbon Bows at Connection Knots */}
+                  {[
+                    { cx: 8, cy: 4.5, color: '#FF9BB8' },
+                    { cx: 106, cy: 9.5, color: '#FFD470' },
+                    { cx: 200, cy: 5.5, color: '#FF9BB8' },
+                    { cx: 296, cy: 9.5, color: '#9FD3FF' },
+                    { cx: 392, cy: 4.5, color: '#FF9BB8' },
+                  ].map((bow, idx) => (
+                    <g key={idx} transform={`translate(${bow.cx}, ${bow.cy})`}>
+                      <path d="M-2 1L-5 6.5M2 1L5 6.5" stroke="#8C624D" strokeWidth="1.2" strokeLinecap="round" />
+                      <ellipse cx="-4.2" cy="0" rx="3.8" ry="2.4" transform="rotate(-18 -4.2 0)" fill={bow.color} stroke="#8C624D" strokeWidth="1.1" />
+                      <ellipse cx="4.2" cy="0" rx="3.8" ry="2.4" transform="rotate(18 4.2 0)" fill={bow.color} stroke="#8C624D" strokeWidth="1.1" />
+                      <circle cx="0" cy="0" r="1.8" fill="#FFF7EE" stroke="#8C624D" strokeWidth="1.1" />
+                    </g>
+                  ))}
+                </svg>
+
+                {/* Left Bear-Ears Wooden Picture Frame (小熊耳朵造型的木質畫框) */}
+                <div
+                  className="pointer-events-none absolute left-[5%] top-[22%] drop-shadow-[0_2px_2px_rgba(90,62,54,0.16)]"
+                  aria-hidden="true"
+                >
+                  <svg width="62" height="52" viewBox="0 0 62 52" fill="none">
+                    {/* Hanging String & Wooden Pin */}
+                    <path d="M23 11L31 2.5L39 11" stroke="#9B704A" strokeWidth="1.4" strokeLinecap="round" />
+                    <circle cx="31" cy="2.6" r="1.9" fill="#8A5E3B" />
+                    {/* Bear Wooden Ears */}
+                    <circle cx="14" cy="12" r="7" fill="#D5A678" stroke="#8A5E3B" strokeWidth="1.8" />
+                    <circle cx="14" cy="12" r="3.6" fill="#E8C39E" />
+                    <circle cx="48" cy="12" r="7" fill="#D5A678" stroke="#8A5E3B" strokeWidth="1.8" />
+                    <circle cx="48" cy="12" r="3.6" fill="#E8C39E" />
+                    {/* Main Wooden Frame */}
+                    <rect x="6" y="11" width="50" height="36" rx="7" fill="#D5A678" stroke="#8A5E3B" strokeWidth="2" />
+                    <rect x="11" y="16" width="40" height="26" rx="4" fill="#FFFDF6" stroke="#BA8B5E" strokeWidth="1.1" />
+                    {/* Cozy Hand-drawn Scenery Inside */}
+                    <path d="M11 35C18 30 25 31 31 34C38 37 44 31 51 33V42H11V35Z" fill="#CFEAD6" />
+                    <circle cx="42" cy="22" r="3.4" fill="#FFD97D" />
+                    <path d="M17 22C17 20.3 18.8 19.4 20.2 20.2C21.2 19 23.2 19.3 23.7 20.8C25 21 25.6 22.5 24.8 23.5H17.4C16.8 23.2 16.8 22.4 17 22Z" fill="#EAF5FF" />
+                    <circle cx="24" cy="29" r="3.5" fill="#FF94B4" />
+                    <circle cx="24" cy="29" r="1.4" fill="#FFF3B0" />
+                    <path d="M24 32.5V38" stroke="#5FA876" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                 </div>
 
-                {/* Right-Center Sunlit Window (透出柔和陽光光束的窗戶) */}
+                {/* Middle Wooden Wall Shelf with Pastel Books & Mini Succulent (木頭小壁架＋粉嫩書本＋迷你多肉) */}
                 <div
-                  className="pointer-events-none absolute right-[13%] top-[10%] drop-shadow-[0_2px_3px_rgba(90,62,54,0.14)]"
+                  className="pointer-events-none absolute left-[29%] top-[28%] drop-shadow-[0_2px_2px_rgba(90,62,54,0.14)]"
                   aria-hidden="true"
                 >
-                  <svg width="88" height="72" viewBox="0 0 88 72" fill="none">
-                    <rect x="4" y="4" width="80" height="62" rx="6" fill="#C9996B" stroke="#9D7046" strokeWidth="2.2" />
-                    <rect x="9" y="9" width="70" height="52" rx="3" fill="#DFF2FF" />
-                    {/* Soft sky clouds */}
-                    <path d="M16 30C16 26.5 19.5 24 23.5 24.5C25 22 29 21.5 31.5 23.8C34 24 36 26.5 35.5 29.5H16Z" fill="#FFFFFF" opacity="0.9" />
-                    <path d="M52 24C52 21.5 54.5 20 57.5 20.5C59 18.5 62.5 18.5 64 20.5C66 21 67.5 23 67 25H52Z" fill="#FFFFFF" opacity="0.85" />
-                    {/* Warm sun peek */}
-                    <circle cx="64" cy="16" r="5" fill="#FFF2A6" />
-                    {/* Soft greenery outside */}
-                    <path d="M9 52C20 45 34 48 44 51C55 46 69 47 79 52V61H9V52Z" fill="#BFE7C7" opacity="0.85" />
-                    {/* Window panes */}
-                    <line x1="44" y1="9" x2="44" y2="61" stroke="#B68559" strokeWidth="2.4" />
-                    <line x1="9" y1="35" x2="79" y2="35" stroke="#B68559" strokeWidth="2.4" />
-                    {/* Soft cream curtain valance */}
-                    <path d="M8 8H80V16C74 20 66 20 60 16C54 20 48 20 44 16C40 20 34 20 28 16C22 20 14 20 8 16V8Z" fill="#FFEAF0" stroke="#F0BCCB" strokeWidth="1.2" />
-                    {/* Window sill */}
-                    <rect x="1" y="64" width="86" height="6" rx="2.5" fill="#DFB285" stroke="#A8784E" strokeWidth="1.5" />
+                  <svg width="78" height="48" viewBox="0 0 78 48" fill="none">
+                    {/* Pastel Leaning Books on Left of Shelf */}
+                    <rect x="10" y="10" width="7.5" height="22" rx="1.8" fill="#FFB3C7" stroke="#8A5E3B" strokeWidth="1.3" />
+                    <line x1="11.5" y1="15" x2="16" y2="15" stroke="#FFFDF8" strokeWidth="1.2" strokeLinecap="round" />
+                    <rect x="18" y="13" width="7" height="19" rx="1.8" fill="#FFE599" stroke="#8A5E3B" strokeWidth="1.3" />
+                    <line x1="19.5" y1="18" x2="23.5" y2="18" stroke="#FFFDF8" strokeWidth="1.2" strokeLinecap="round" />
+                    <rect x="25.5" y="11" width="7" height="21" rx="1.8" fill="#BFE8DA" stroke="#8A5E3B" strokeWidth="1.3" />
+                    <line x1="27" y1="16" x2="31" y2="16" stroke="#FFFDF8" strokeWidth="1.2" strokeLinecap="round" />
+                    <rect
+                      x="34"
+                      y="13"
+                      width="6.5"
+                      height="19"
+                      rx="1.6"
+                      transform="rotate(-9 34 32)"
+                      fill="#DFC9FF"
+                      stroke="#8A5E3B"
+                      strokeWidth="1.3"
+                    />
+
+                    {/* Mini Succulent Pot on Right of Shelf */}
+                    <path d="M51 22H65L63 32H53L51 22Z" fill="#FFFDF7" stroke="#8A5E3B" strokeWidth="1.4" strokeLinejoin="round" />
+                    <rect x="49.5" y="20" width="17" height="3.2" rx="1.6" fill="#FFE6EE" stroke="#8A5E3B" strokeWidth="1.2" />
+                    <ellipse cx="55" cy="18" rx="3.4" ry="2.2" transform="rotate(-24 55 18)" fill="#7AD19B" stroke="#4D8F68" strokeWidth="1.1" />
+                    <ellipse cx="61" cy="18" rx="3.4" ry="2.2" transform="rotate(24 61 18)" fill="#6EC28E" stroke="#4D8F68" strokeWidth="1.1" />
+                    <ellipse cx="58" cy="15.5" rx="2.6" ry="3.2" fill="#95E0B0" stroke="#4D8F68" strokeWidth="1.1" />
+
+                    {/* Wooden Shelf Plank & Curved Brackets */}
+                    <rect x="4" y="32" width="70" height="5.5" rx="2.5" fill="#D9AA7B" stroke="#8A5E3B" strokeWidth="1.5" />
+                    <path d="M14 37.5H21C19 41 16.5 43.5 14 45V37.5Z" fill="#C49161" stroke="#8A5E3B" strokeWidth="1.3" strokeLinejoin="round" />
+                    <path d="M64 37.5H57C59 41 61.5 43.5 64 45V37.5Z" fill="#C49161" stroke="#8A5E3B" strokeWidth="1.3" strokeLinejoin="round" />
+                  </svg>
+                </div>
+
+                {/* Right Sunlit Window with Tied Pink Bow Curtains, Mini Succulent & Cat Silhouette (窗戶＋蝴蝶結粉色窗簾＋多肉＋小貓背影) */}
+                <div
+                  className="pointer-events-none absolute right-[5%] top-[12%] drop-shadow-[0_2px_3px_rgba(90,62,54,0.15)]"
+                  aria-hidden="true"
+                >
+                  <svg width="112" height="82" viewBox="0 0 112 82" fill="none">
+                    {/* Curtain Rod & Finials */}
+                    <line x1="6" y1="6" x2="106" y2="6" stroke="#9C6D46" strokeWidth="2.8" strokeLinecap="round" />
+                    <circle cx="6" cy="6" r="3" fill="#DFAF80" stroke="#8A5E3B" strokeWidth="1.3" />
+                    <circle cx="106" cy="6" r="3" fill="#DFAF80" stroke="#8A5E3B" strokeWidth="1.3" />
+
+                    {/* Outer Wooden Window Frame */}
+                    <rect x="14" y="8" width="84" height="64" rx="6" fill="#CCA072" stroke="#8A5E3B" strokeWidth="2" />
+                    <rect x="19" y="13" width="74" height="54" rx="3" fill="#DFF2FF" />
+
+                    {/* Sunny Sky, Clouds, Sun & Outdoor Greenery */}
+                    <circle cx="72" cy="22" r="5.5" fill="#FFF1A3" />
+                    <path d="M27 33C27 29.5 30.5 27 34.5 27.5C36 25 40 24.5 42.5 26.8C45 27 47 29.5 46.5 32.5H27Z" fill="#FFFFFF" opacity="0.92" />
+                    <path d="M61 28C61 25.5 63.5 24 66.5 24.5C68 22.5 71.5 22.5 73 24.5C75 25 76.5 27 76 29H61Z" fill="#FFFFFF" opacity="0.86" />
+                    <path d="M19 56C30 49 44 52 55 55C67 49 81 51 93 56V67H19V56Z" fill="#BEE7C7" opacity="0.88" />
+
+                    {/* Window Panes */}
+                    <line x1="56" y1="13" x2="56" y2="67" stroke="#A6784E" strokeWidth="2.2" />
+                    <line x1="19" y1="39" x2="93" y2="39" stroke="#A6784E" strokeWidth="2.2" />
+
+                    {/* Left & Right Gathered Pink Curtains Tied with Ribbon Bows */}
+                    <path
+                      d="M12 7H35C32 23 28 34 23 43C29 52 32 61 33 69H12C10 50 10 26 12 7Z"
+                      fill="#FFC4D6"
+                      stroke="#9F5F73"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                    <path d="M17 11C17 24 16 33 18 42M24 11C23 22 22 31 20 40" stroke="#F49CB8" strokeWidth="1.2" strokeLinecap="round" />
+                    {/* Left Tieback Bow */}
+                    <g transform="translate(22, 43)">
+                      <path d="M-2 1L-5 7M2 1L5 7" stroke="#9F5F73" strokeWidth="1.3" strokeLinecap="round" />
+                      <ellipse cx="-4" cy="0" rx="4" ry="2.4" transform="rotate(-18 -4 0)" fill="#FF8EB0" stroke="#9F5F73" strokeWidth="1.1" />
+                      <ellipse cx="4" cy="0" rx="4" ry="2.4" transform="rotate(18 4 0)" fill="#FF8EB0" stroke="#9F5F73" strokeWidth="1.1" />
+                      <circle cx="0" cy="0" r="1.9" fill="#FFEAF1" stroke="#9F5F73" strokeWidth="1.1" />
+                    </g>
+
+                    <path
+                      d="M100 7H77C80 23 84 34 89 43C83 52 80 61 79 69H100C102 50 102 26 100 7Z"
+                      fill="#FFC4D6"
+                      stroke="#9F5F73"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                    <path d="M95 11C95 24 96 33 94 42M88 11C89 22 90 31 92 40" stroke="#F49CB8" strokeWidth="1.2" strokeLinecap="round" />
+                    {/* Right Tieback Bow */}
+                    <g transform="translate(90, 43)">
+                      <path d="M-2 1L-5 7M2 1L5 7" stroke="#9F5F73" strokeWidth="1.3" strokeLinecap="round" />
+                      <ellipse cx="-4" cy="0" rx="4" ry="2.4" transform="rotate(-18 -4 0)" fill="#FF8EB0" stroke="#9F5F73" strokeWidth="1.1" />
+                      <ellipse cx="4" cy="0" rx="4" ry="2.4" transform="rotate(18 4 0)" fill="#FF8EB0" stroke="#9F5F73" strokeWidth="1.1" />
+                      <circle cx="0" cy="0" r="1.9" fill="#FFEAF1" stroke="#9F5F73" strokeWidth="1.1" />
+                    </g>
+
+                    {/* Top Scalloped Pink Valance */}
+                    <path
+                      d="M11 7H101V14C94 18 85 18 79 14C73 18 65 18 59 14C53 18 47 18 41 14C35 18 27 18 21 14C17 17 13 17 11 14V7Z"
+                      fill="#FFD9E5"
+                      stroke="#9F5F73"
+                      strokeWidth="1.3"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Inner Sill Mini Succulent + Cozy Sitting Cat Back Silhouette */}
+                    {/* Mini Succulent on Left Sill */}
+                    <g transform="translate(34, 54)">
+                      <path d="M2 7H13L11.5 15H3.5L2 7Z" fill="#FFFDF7" stroke="#8A5E3B" strokeWidth="1.2" />
+                      <ellipse cx="5.2" cy="5.2" rx="2.8" ry="1.8" transform="rotate(-24 5.2 5.2)" fill="#7AD19B" stroke="#4D8F68" strokeWidth="1" />
+                      <ellipse cx="9.8" cy="5.2" rx="2.8" ry="1.8" transform="rotate(24 9.8 5.2)" fill="#6EC28E" stroke="#4D8F68" strokeWidth="1" />
+                      <ellipse cx="7.5" cy="3.5" rx="2.2" ry="2.6" fill="#95E0B0" stroke="#4D8F68" strokeWidth="1" />
+                    </g>
+
+                    {/* Wooden Window Sill */}
+                    <rect x="8" y="69" width="96" height="6.5" rx="2.5" fill="#E2B688" stroke="#8A5E3B" strokeWidth="1.5" />
+
+                    {/* Sitting Cat Back-View Silhouette on Inner Sill (柔和深可可色小貓背影剪影) */}
+                    <g transform="translate(55, 45)">
+                      {/* Curled Tail Hanging Down Over Sill */}
+                      <path
+                        d="M14 23C19 24 21 29 18 33C16.5 35 13.5 34.5 14 32.5"
+                        fill="none"
+                        stroke="#735145"
+                        strokeWidth="3.2"
+                        strokeLinecap="round"
+                      />
+                      {/* Plump Sitting Body */}
+                      <ellipse cx="9" cy="18.5" rx="7.5" ry="7" fill="#735145" />
+                      {/* Round Head + Pointed Cat Ears */}
+                      <polygon points="3.5,8 4.5,1 9,6" fill="#735145" />
+                      <polygon points="14.5,8 13.5,1 9,6" fill="#735145" />
+                      <circle cx="9" cy="9" r="5.8" fill="#735145" />
+                      {/* Soft Pastel Collar Ribbon Hint */}
+                      <path d="M5 13.5Q9 15 13 13.5" fill="none" stroke="#FF9BB8" strokeWidth="1.6" strokeLinecap="round" />
+                    </g>
                   </svg>
                 </div>
 
@@ -1118,62 +1304,255 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 />
               </div>
 
-              {/* BOTTOM 65%: Warm Oak Wood Floor + Round Plush Rug + Ambient Starter Decor + Interactive Cells + Pet */}
+              {/* BOTTOM 65%: Warm Oak Floor + Soft Cocoa Wavy Wood Grain + Lace Rug & Props + Starter Cat Pot/Bunny Box */}
               <div
                 className="relative h-[65%] w-full overflow-hidden"
                 style={{ background: floorDef.floorBgStyle }}
               >
-                {/* Oak Wood Plank Lines Texture */}
+                {/* Oak Plank Seam Lines */}
                 <div
                   className="pointer-events-none absolute inset-0 opacity-25"
                   style={{
                     backgroundImage:
-                      'repeating-linear-gradient(180deg, rgba(130,86,48,0) 0px, rgba(130,86,48,0) 22px, rgba(130,86,48,0.28) 23px, rgba(130,86,48,0) 24px)',
+                      'repeating-linear-gradient(180deg, rgba(122,82,56,0) 0px, rgba(122,82,56,0) 22px, rgba(122,82,56,0.28) 23px, rgba(122,82,56,0) 24px)',
                   }}
                 />
 
-                {/* Round Plush Rug (圓形毛絨地毯) */}
-                <div
-                  className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 w-[56%] max-w-[240px] h-[54%]"
+                {/* Hand-Drawn Wavy Wood-Grain Texture in Soft Dark Cocoa (柔和深可可色水波紋木紋線條) */}
+                <svg
+                  viewBox="0 0 400 210"
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute inset-0 w-full h-full opacity-[0.26]"
                   aria-hidden="true"
                 >
-                  <svg viewBox="0 0 220 120" className="w-full h-full drop-shadow-[0_3px_4px_rgba(95,62,42,0.12)]">
-                    <ellipse cx="110" cy="62" rx="102" ry="50" fill="#FFE9F0" stroke="#F4C7D6" strokeWidth="3" strokeDasharray="6 4" />
-                    <ellipse cx="110" cy="60" rx="88" ry="41" fill="#FFF7EE" />
-                    <ellipse cx="110" cy="60" rx="68" ry="29" fill="none" stroke="#F8D6E1" strokeWidth="2" opacity="0.8" />
+                  <g fill="none" stroke="#7A5238" strokeWidth="1.35" strokeLinecap="round">
+                    {/* Staggered Vertical Plank Joints */}
+                    <line x1="92" y1="0" x2="92" y2="26" />
+                    <line x1="256" y1="0" x2="256" y2="26" />
+                    <line x1="168" y1="26" x2="168" y2="52" />
+                    <line x1="334" y1="26" x2="334" y2="52" />
+                    <line x1="68" y1="52" x2="68" y2="78" />
+                    <line x1="224" y1="52" x2="224" y2="78" />
+                    <line x1="142" y1="78" x2="142" y2="104" />
+                    <line x1="310" y1="78" x2="310" y2="104" />
+                    <line x1="88" y1="104" x2="88" y2="130" />
+                    <line x1="268" y1="104" x2="268" y2="130" />
+                    <line x1="184" y1="130" x2="184" y2="156" />
+                    <line x1="342" y1="130" x2="342" y2="156" />
+                    <line x1="112" y1="156" x2="112" y2="182" />
+                    <line x1="286" y1="156" x2="286" y2="182" />
+                    {/* Soft Wavy Wood-Grain Ripples & Knots */}
+                    <path d="M12 12C34 8 56 16 80 11" />
+                    <path d="M108 14C144 9 186 18 238 12" />
+                    <path d="M274 11C312 16 348 8 386 13" />
+                    <path d="M24 38C64 33 110 43 152 37" />
+                    <path d="M184 40C226 34 274 44 320 38" />
+                    <path d="M348 39C366 36 382 41 394 38" />
+                    <path d="M84 65C124 59 168 70 208 63" />
+                    <path d="M240 66C288 60 338 70 388 64" />
+                    <path d="M18 90C58 85 96 95 130 89" />
+                    <path d="M158 92C206 86 254 96 298 90" />
+                    <path d="M324 91C352 87 374 94 392 90" />
+                    <path d="M104 117C148 111 196 122 252 115" />
+                    <path d="M284 118C322 113 356 122 390 117" />
+                    <path d="M20 142C66 137 118 147 170 141" />
+                    <path d="M204 144C246 138 294 147 330 142" />
+                    <path d="M14 169C48 164 78 173 102 168" />
+                    <path d="M126 170C174 164 224 174 274 168" />
+                    <path d="M302 169C338 165 366 173 392 169" />
+                    <path d="M36 194C88 189 144 198 198 193" />
+                    <path d="M226 195C280 190 336 199 384 194" />
+                    {/* Subtle Oval Wood Knots */}
+                    <ellipse cx="48" cy="64" rx="10" ry="3.2" />
+                    <ellipse cx="292" cy="143" rx="11" ry="3.2" />
+                    <ellipse cx="144" cy="193" rx="9" ry="2.8" />
+                  </g>
+                </svg>
+
+                {/* Pink Lace Round Rug + Left Paw Bowl & Right Wind-up Mouse Toy (粉色蕾絲圓地毯＋肉球碗＋發條小老鼠) */}
+                <div
+                  className="pointer-events-none absolute left-1/2 top-[56%] -translate-x-1/2 -translate-y-1/2 w-[78%] max-w-[330px] h-[58%] flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  {/* Left: Pink Paw Pet Bowl (粉色肉球寵物碗) */}
+                  <div className="absolute left-0 sm:left-2 bottom-[14%] drop-shadow-[0_2px_2px_rgba(90,62,54,0.16)]">
+                    <svg width="42" height="32" viewBox="0 0 42 32" fill="none">
+                      <ellipse cx="21" cy="26.5" rx="16" ry="3.6" fill="rgba(110,74,56,0.16)" />
+                      {/* Golden Kibble Inside Bowl */}
+                      <ellipse cx="21" cy="12" rx="12.5" ry="4.5" fill="#FFE8B8" stroke="#7A5238" strokeWidth="1.4" />
+                      <circle cx="17" cy="11.5" r="2.2" fill="#E39B54" />
+                      <circle cx="21" cy="10.8" r="2.3" fill="#D5863E" />
+                      <circle cx="25" cy="11.6" r="2.1" fill="#E39B54" />
+                      {/* Pink Ceramic Bowl Body */}
+                      <path
+                        d="M7 12C7 15.2 13.3 17.5 21 17.5C28.7 17.5 35 15.2 35 12L37 22.5C37 25.5 29.8 27.5 21 27.5C12.2 27.5 5 25.5 5 22.5L7 12Z"
+                        fill="#FFA9C4"
+                        stroke="#7A5238"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      {/* Cute Paw Print on Front of Bowl */}
+                      <ellipse cx="21" cy="23" rx="2.6" ry="2" fill="#FFF8FA" />
+                      <circle cx="17.8" cy="20.4" r="1.1" fill="#FFF8FA" />
+                      <circle cx="21" cy="19.6" r="1.15" fill="#FFF8FA" />
+                      <circle cx="24.2" cy="20.4" r="1.1" fill="#FFF8FA" />
+                    </svg>
+                  </div>
+
+                  {/* Center: Pink Lace Round Rug (粉色蕾絲圓地毯) */}
+                  <svg
+                    viewBox="0 0 240 132"
+                    className="w-[74%] max-w-[236px] h-full drop-shadow-[0_3px_4px_rgba(95,62,42,0.12)]"
+                  >
+                    {/* Outer Lace Scallops */}
+                    <ellipse
+                      cx="120"
+                      cy="67"
+                      rx="110"
+                      ry="54"
+                      fill="#FFE6EF"
+                      stroke="#F5B9CD"
+                      strokeWidth="6"
+                      strokeDasharray="2 9"
+                      strokeLinecap="round"
+                    />
+                    {/* Main Pastel Pink Rug Base */}
+                    <ellipse cx="120" cy="67" rx="104" ry="49" fill="#FFEAF1" stroke="#F2B4C8" strokeWidth="2.2" />
+                    {/* Cream Plush Inner Circle */}
+                    <ellipse cx="120" cy="66" rx="86" ry="39" fill="#FFF8F0" />
+                    {/* Delicate Stitched Lace Ring */}
+                    <ellipse cx="120" cy="66" rx="70" ry="30" fill="none" stroke="#F8CEDB" strokeWidth="2" strokeDasharray="5 4" />
                   </svg>
+
+                  {/* Right: Mini Wind-up Mouse Toy (迷你發條小老鼠玩具) */}
+                  <div className="absolute right-0 sm:right-2 bottom-[18%] drop-shadow-[0_2px_2px_rgba(90,62,54,0.16)]">
+                    <svg width="44" height="32" viewBox="0 0 44 32" fill="none">
+                      <ellipse cx="21" cy="26.5" rx="14" ry="3.2" fill="rgba(110,74,56,0.16)" />
+                      {/* Curly Tail */}
+                      <path
+                        d="M31 21C36 20 39 16 37 13.5C35.5 11.8 33.5 13 34.8 14.5"
+                        fill="none"
+                        stroke="#F29BB5"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      {/* Golden Wind-up Key on Back */}
+                      <line x1="22" y1="8" x2="22" y2="13" stroke="#C68E3E" strokeWidth="1.8" strokeLinecap="round" />
+                      <circle cx="19.5" cy="6.5" r="2.7" fill="none" stroke="#E2AC4C" strokeWidth="1.8" />
+                      <circle cx="24.5" cy="6.5" r="2.7" fill="none" stroke="#E2AC4C" strokeWidth="1.8" />
+                      {/* Plump Toy Mouse Body */}
+                      <path
+                        d="M9 22C9 16 14 12.5 21.5 12.5C28 12.5 32.5 16.5 32.5 21.5C32.5 24.2 28.5 25.5 21 25.5C13.5 25.5 9 24.5 9 22Z"
+                        fill="#E0D8EE"
+                        stroke="#7A5238"
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                      />
+                      {/* Cute Pink Round Ears */}
+                      <circle cx="16.5" cy="13" r="3.4" fill="#FFB5CA" stroke="#7A5238" strokeWidth="1.3" />
+                      <circle cx="16.5" cy="13" r="1.5" fill="#FFE8F0" />
+                      {/* Tiny Cocoa Eye, Pink Nose & Whiskers */}
+                      <circle cx="12.5" cy="18.5" r="1.2" fill="#6B4732" />
+                      <circle cx="8.6" cy="20.6" r="1.5" fill="#FF7AA2" />
+                      <path d="M9 21.5L5.5 22.5M9 19.5L5.8 18.8" stroke="#7A5238" strokeWidth="1" strokeLinecap="round" />
+                    </svg>
+                  </div>
                 </div>
 
                 {/* Starter Ambient Corner Decor when Room Has Zero Furniture */}
                 {house.roomLayout.placedItems.length === 0 && (
                   <>
-                    {/* Left Corner Cozy Potted Plant (小盆栽) */}
+                    {/* Left Corner: Cute Cat-Face White Flower Pot with Blooming Pink Flowers (可愛貓咪臉花盆＋盛開粉色小花) */}
                     <div
-                      className="pointer-events-none absolute left-2.5 top-1.5 z-[5]"
+                      className="pointer-events-none absolute left-2 top-1 z-[5] drop-shadow-[0_2px_2px_rgba(90,62,54,0.15)]"
                       aria-hidden="true"
                     >
-                      <svg width="52" height="56" viewBox="0 0 52 56" fill="none">
-                        <ellipse cx="26" cy="51" rx="15" ry="3.5" fill="rgba(74,53,49,0.16)" />
-                        <path d="M16 33H36L33 50H19L16 33Z" fill="#DF8E66" stroke="#B66843" strokeWidth="1.8" strokeLinejoin="round" />
-                        <rect x="14" y="29" width="24" height="5" rx="2.5" fill="#EA9F78" stroke="#B66843" strokeWidth="1.6" />
-                        <path d="M26 29C26 21 20 14 14 14C14 21 18 26 26 29Z" fill="#77C88E" stroke="#4D9B64" strokeWidth="1.5" />
-                        <path d="M26 29C26 20 32 13 38 14C38 21 33 26 26 29Z" fill="#63B87B" stroke="#4D9B64" strokeWidth="1.5" />
-                        <path d="M26 29C23 20 24 10 26 6C29 10 29 20 26 29Z" fill="#8CD8A0" stroke="#4D9B64" strokeWidth="1.5" />
+                      <svg width="58" height="62" viewBox="0 0 58 62" fill="none">
+                        <ellipse cx="29" cy="57" rx="17" ry="3.8" fill="rgba(110,74,56,0.16)" />
+                        {/* Lush Green Leaves & Stems */}
+                        <path d="M29 31C23 24 16 23 13 26C16 30 22 32 29 31Z" fill="#77C88E" stroke="#4D8F68" strokeWidth="1.4" />
+                        <path d="M29 31C35 24 42 23 45 26C42 30 36 32 29 31Z" fill="#63B87B" stroke="#4D8F68" strokeWidth="1.4" />
+                        <path d="M22 30L18 19M29 30V14M36 30L40 20" stroke="#4D8F68" strokeWidth="1.8" strokeLinecap="round" />
+                        {/* Three Blooming Pink Little Flowers */}
+                        {[
+                          { cx: 18, cy: 17, r: 3.3 },
+                          { cx: 29, cy: 12, r: 3.8 },
+                          { cx: 40, cy: 18, r: 3.2 },
+                        ].map((fl, idx) => (
+                          <g key={idx} transform={`translate(${fl.cx}, ${fl.cy})`}>
+                            <circle cx="0" cy={-fl.r} r={fl.r * 0.85} fill="#FF98B8" stroke="#9F5F73" strokeWidth="0.9" />
+                            <circle cx={fl.r} cy="0" r={fl.r * 0.85} fill="#FFB0C9" stroke="#9F5F73" strokeWidth="0.9" />
+                            <circle cx="0" cy={fl.r} r={fl.r * 0.85} fill="#FF98B8" stroke="#9F5F73" strokeWidth="0.9" />
+                            <circle cx={-fl.r} cy="0" r={fl.r * 0.85} fill="#FFB0C9" stroke="#9F5F73" strokeWidth="0.9" />
+                            <circle cx="0" cy="0" r={fl.r * 0.68} fill="#FFE37A" />
+                          </g>
+                        ))}
+                        {/* White Cat-Face Ceramic Flower Pot */}
+                        <path d="M16 32L18 25L24 31Z" fill="#FFFDF9" stroke="#7A5238" strokeWidth="1.6" strokeLinejoin="round" />
+                        <path d="M42 32L40 25L34 31Z" fill="#FFFDF9" stroke="#7A5238" strokeWidth="1.6" strokeLinejoin="round" />
+                        <path d="M18.3 30.5L19.3 27L22 30Z" fill="#FFC2D4" />
+                        <path d="M39.7 30.5L38.7 27L36 30Z" fill="#FFC2D4" />
+                        <path
+                          d="M15 32C15 30.5 16.5 30 29 30C41.5 30 43 30.5 43 32L40 53C39.6 55 36 56 29 56C22 56 18.4 55 18 53L15 32Z"
+                          fill="#FFFDF9"
+                          stroke="#7A5238"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
+                        />
+                        {/* Cute Cat Face Details */}
+                        <circle cx="23.5" cy="40.5" r="1.5" fill="#6B4732" />
+                        <circle cx="34.5" cy="40.5" r="1.5" fill="#6B4732" />
+                        <ellipse cx="20.5" cy="43.5" rx="2.4" ry="1.4" fill="#FFB3C7" opacity="0.85" />
+                        <ellipse cx="37.5" cy="43.5" rx="2.4" ry="1.4" fill="#FFB3C7" opacity="0.85" />
+                        <path d="M26.8 43.2Q28 45 29 43.5Q30 45 31.2 43.2" fill="none" stroke="#6B4732" strokeWidth="1.3" strokeLinecap="round" />
+                        <path d="M16.5 41.5L20 42M16.5 44L20 43.8M41.5 41.5L38 42M41.5 44L38 43.8" stroke="#9C7A66" strokeWidth="1" strokeLinecap="round" />
                       </svg>
                     </div>
 
-                    {/* Right Corner Cozy Cardboard Box (溫馨小紙箱) */}
+                    {/* Right Corner: Kraft Cardboard Box with Paw Sticker + Peeking Plush Bunny (肉球貼紙紙箱＋探頭布偶小兔子) */}
                     <div
-                      className="pointer-events-none absolute right-2.5 top-2 z-[5]"
+                      className="pointer-events-none absolute right-2 top-0.5 z-[5] drop-shadow-[0_2px_2px_rgba(90,62,54,0.15)]"
                       aria-hidden="true"
                     >
-                      <svg width="56" height="52" viewBox="0 0 56 52" fill="none">
-                        <ellipse cx="28" cy="47" rx="20" ry="3.5" fill="rgba(74,53,49,0.16)" />
-                        <rect x="10" y="20" width="36" height="26" rx="3" fill="#E3BA8D" stroke="#AD7E52" strokeWidth="1.8" />
-                        <path d="M10 20L17 12H40L46 20H10Z" fill="#EECCA3" stroke="#AD7E52" strokeWidth="1.6" strokeLinejoin="round" />
-                        <path d="M28 12V20" stroke="#AD7E52" strokeWidth="1.5" />
-                        <rect x="24" y="20" width="8" height="8" rx="1" fill="#F8DFBF" opacity="0.85" />
-                        <path d="M28 38C25.5 36.2 24 34.4 24 32.8C24 31.6 25 30.8 26.2 30.8C27 30.8 27.6 31.2 28 31.9C28.4 31.2 29 30.8 29.8 30.8C31 30.8 32 31.6 32 32.8C32 34.4 30.5 36.2 28 38Z" fill="#FF7A9E" />
+                      <svg width="64" height="62" viewBox="0 0 64 62" fill="none">
+                        <ellipse cx="32" cy="57" rx="21" ry="3.8" fill="rgba(110,74,56,0.16)" />
+                        {/* Open Back Box Rim */}
+                        <path d="M13 28L18 22H46L51 28H13Z" fill="#C99764" stroke="#7A5238" strokeWidth="1.5" strokeLinejoin="round" />
+
+                        {/* Cute Plush Bunny Peeking Out of Box */}
+                        <g>
+                          {/* Floppy Bunny Ears */}
+                          <ellipse cx="25" cy="14" rx="4.2" ry="9.5" transform="rotate(-14 25 14)" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.5" />
+                          <ellipse cx="25.2" cy="14.5" rx="2.1" ry="6" transform="rotate(-14 25.2 14.5)" fill="#FFC4D6" />
+                          <ellipse cx="39" cy="14" rx="4.2" ry="9.5" transform="rotate(14 39 14)" fill="#FFF9F2" stroke="#7A5E3B" strokeWidth="1.5" />
+                          <ellipse cx="38.8" cy="14.5" rx="2.1" ry="6" transform="rotate(14 38.8 14.5)" fill="#FFC4D6" />
+                          {/* Bunny Head */}
+                          <ellipse cx="32" cy="24" rx="10.5" ry="9" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.6" />
+                          {/* Stitched Eyes, Blush & Tiny Pink Nose */}
+                          <circle cx="28" cy="23.2" r="1.4" fill="#6B4732" />
+                          <circle cx="36" cy="23.2" r="1.4" fill="#6B4732" />
+                          <ellipse cx="25" cy="25.5" rx="2.2" ry="1.3" fill="#FFB3C7" opacity="0.85" />
+                          <ellipse cx="39" cy="25.5" rx="2.2" ry="1.3" fill="#FFB3C7" opacity="0.85" />
+                          <ellipse cx="32" cy="25.2" rx="1.6" ry="1.1" fill="#FF8EB0" />
+                          <path d="M30.4 26.8Q32 28.2 33.6 26.8" fill="none" stroke="#6B4732" strokeWidth="1.2" strokeLinecap="round" />
+                        </g>
+
+                        {/* Cardboard Box Front & Side Flaps */}
+                        <path d="M12 28L7 33L12 36V28Z" fill="#EECFA8" stroke="#7A5238" strokeWidth="1.4" strokeLinejoin="round" />
+                        <path d="M52 28L57 33L52 36V28Z" fill="#EECFA8" stroke="#7A5238" strokeWidth="1.4" strokeLinejoin="round" />
+                        <rect x="12" y="28" width="40" height="27" rx="3" fill="#E3BA8D" stroke="#7A5238" strokeWidth="1.7" />
+                        <path d="M12 28L16 33H48L52 28" fill="#EECCA3" stroke="#7A5238" strokeWidth="1.4" strokeLinejoin="round" />
+
+                        {/* Bunny Little Paws Resting on Box Rim */}
+                        <ellipse cx="24.5" cy="29.2" rx="3.4" ry="2.4" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.3" />
+                        <ellipse cx="39.5" cy="29.2" rx="3.4" ry="2.4" fill="#FFF9F2" stroke="#7A5238" strokeWidth="1.3" />
+
+                        {/* Cute Pink Paw-Print Sticker on Box Front */}
+                        <rect x="24.5" y="37" width="15" height="14" rx="4" fill="#FFF8F0" stroke="#D9A87E" strokeWidth="1.1" />
+                        <ellipse cx="32" cy="45.8" rx="3" ry="2.3" fill="#FF8EB0" />
+                        <circle cx="28.7" cy="42.4" r="1.25" fill="#FF8EB0" />
+                        <circle cx="32" cy="41.4" r="1.3" fill="#FF8EB0" />
+                        <circle cx="35.3" cy="42.4" r="1.25" fill="#FF8EB0" />
                       </svg>
                     </div>
                   </>
@@ -1405,13 +1784,17 @@ export const HouseView: React.FC<HouseViewProps> = ({
               >
                 <defs>
                   <linearGradient id="cozySunBeam" x1="0.72" y1="0.08" x2="0.32" y2="0.96">
-                    <stop offset="0%" stopColor="#FFF7C8" stopOpacity="0.40" />
-                    <stop offset="52%" stopColor="#FFF7D6" stopOpacity="0.18" />
+                    <stop offset="0%" stopColor="#FFF7C8" stopOpacity="0.44" />
+                    <stop offset="52%" stopColor="#FFF7D6" stopOpacity="0.20" />
                     <stop offset="100%" stopColor="#FFF9E6" stopOpacity="0" />
                   </linearGradient>
                 </defs>
-                <polygon points="278,18 338,18 228,312 108,312" fill="url(#cozySunBeam)" />
-                <polygon points="256,28 272,28 142,306 96,306" fill="url(#cozySunBeam)" opacity="0.65" />
+                <polygon points="274,22 356,22 238,314 116,314" fill="url(#cozySunBeam)" />
+                <polygon points="256,30 272,30 144,308 96,308" fill="url(#cozySunBeam)" opacity="0.65" />
+                <circle cx="292" cy="86" r="2.2" fill="#FFFDF4" opacity="0.68" />
+                <circle cx="256" cy="134" r="1.8" fill="#FFFDF4" opacity="0.58" />
+                <circle cx="222" cy="186" r="2.4" fill="#FFFDF4" opacity="0.5" />
+                <circle cx="192" cy="238" r="1.7" fill="#FFFDF4" opacity="0.42" />
               </svg>
             </div>
           </section>
