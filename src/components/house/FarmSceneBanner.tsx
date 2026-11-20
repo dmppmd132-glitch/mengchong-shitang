@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sprout, X } from 'lucide-react';
 import { ROOM_ITEM_BY_ID, STORAGE_CAPS_BY_LEVEL } from '../../data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from '../../data/kitchen';
 import {
-  CropPlot,
   IngredientId,
   Pet,
   PetExpression,
@@ -12,13 +11,7 @@ import {
 } from '../../types';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { PiggyCharacter } from '../PiggyCharacter';
-import {
-  CropIllustration,
-  GoldenAuraSvg,
-  RightWateringCanSvg,
-  SoilBedBackdropSvg,
-  WoodenPlotSignSvg,
-} from './FarmIllustrations';
+import { CropIllustration } from './FarmIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
 import {
   YardBarnStorageSvg,
@@ -52,7 +45,6 @@ interface FarmSceneBannerProps {
   house: SharedHouse;
   pet: Pet;
   ingredients: Record<IngredientId, number>;
-  farmPlots: CropPlot[];
   soundEnabled: boolean;
   onEditHouseName: () => void;
   onGoToFarm: () => void;
@@ -62,7 +54,6 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   house,
   pet,
   ingredients,
-  farmPlots,
   soundEnabled,
   onEditHouseName,
   onGoToFarm,
@@ -73,24 +64,13 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   const storageLevel = house.farmUpgrades.storageLevel;
   const storageCap = STORAGE_CAPS_BY_LEVEL[storageLevel] ?? 15;
 
-  const [now, setNow] = useState<number>(() => Date.now());
   const [storageOpen, setStorageOpen] = useState<boolean>(false);
   const [selectedYardItemId, setSelectedYardItemId] = useState<string | null>(null);
 
-  // Live pet wandering & breathing on the central lawn / picnic blanket
-  const [petPos, setPetPos] = useState<{ xPercent: number; yPercent: number }>({
-    xPercent: 56,
-    yPercent: 60,
-  });
-  const [petFacingLeft, setPetFacingLeft] = useState<boolean>(false);
-  const [isPetMoving, setIsPetMoving] = useState<boolean>(false);
   const [petAction, setPetAction] = useState<PiggyActionState>('idle');
   const [petExpression, setPetExpression] = useState<PetExpression>('normal');
   const [moodBubble, setMoodBubble] = useState<{ key: number; symbol: '♪' | '🩷' } | null>(null);
 
-  const petPosRef = useRef(petPos);
-  petPosRef.current = petPos;
-  const moveTimerRef = useRef<number | null>(null);
   const bubbleTimerRef = useRef<number | null>(null);
 
   const ownedOutdoorItems = useMemo(() => {
@@ -106,50 +86,6 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   const activeOutdoorItem = selectedYardItemId
     ? ownedOutdoorItems.find((item) => item.id === selectedYardItemId) ?? null
     : null;
-
-  // Live crop timer tick while any crop is growing
-  const hasAnyCrop = farmPlots.some((p) => p.cropId !== null);
-  useEffect(() => {
-    if (!hasAnyCrop) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 500);
-    return () => window.clearInterval(interval);
-  }, [hasAnyCrop]);
-
-  const movePetOnLawn = useCallback((nextX: number, nextY: number) => {
-    const clampedX = Math.max(30, Math.min(72, nextX));
-    const clampedY = Math.max(40, Math.min(74, nextY));
-    const dx = clampedX - petPosRef.current.xPercent;
-    if (Math.abs(dx) > 2) {
-      setPetFacingLeft(dx < 0);
-    }
-    setIsPetMoving(true);
-    setPetPos({ xPercent: clampedX, yPercent: clampedY });
-    if (moveTimerRef.current !== null) {
-      window.clearTimeout(moveTimerRef.current);
-    }
-    moveTimerRef.current = window.setTimeout(() => {
-      setIsPetMoving(false);
-    }, 1050);
-  }, []);
-
-  // Periodic gentle strolls across picnic blanket & meadow
-  useEffect(() => {
-    const waypoints = [
-      { x: 56, y: 60 },
-      { x: 43, y: 54 },
-      { x: 64, y: 63 },
-      { x: 49, y: 66 },
-      { x: 38, y: 62 },
-    ];
-    const stroll = () => {
-      const next = waypoints[Math.floor(Math.random() * waypoints.length)];
-      movePetOnLawn(next.x, next.y);
-      setPetAction('idle');
-      setPetExpression(Math.random() < 0.35 ? 'sparkle' : 'normal');
-    };
-    const interval = window.setInterval(stroll, 4800);
-    return () => window.clearInterval(interval);
-  }, [movePetOnLawn]);
 
   // Periodic ♪ or 🩷 speech bubble above pet
   useEffect(() => {
@@ -174,7 +110,6 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
 
   useEffect(() => {
     return () => {
-      if (moveTimerRef.current !== null) window.clearTimeout(moveTimerRef.current);
       if (bubbleTimerRef.current !== null) window.clearTimeout(bubbleTimerRef.current);
     };
   }, []);
@@ -206,7 +141,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
       aria-label="萌寵暖暖庭院手繪場景"
       className="relative -mx-4 sm:mx-0 sm:rounded-[28px] overflow-hidden border-y-2 sm:border-2 border-[#6B5344] bg-[#D9E8C4] shadow-[0_4px_0_rgba(107,83,68,0.16)]"
     >
-      {/* Full Illustrated Courtyard Backdrop (Sky, Bushes, Upper Fence, Meadow & Winding Cobblestone Path) */}
+        {/* Full illustrated courtyard backdrop: warm sky, soft hills, open lawn and short path */}
       <YardSceneBackdropSvg fenceId={fenceId} hasGreenhouse={hasGreenhouse} />
 
       <div className="relative z-10 flex flex-col">
@@ -218,7 +153,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
             onEditHouseName={onEditHouseName}
           />
 
-          <div className="flex flex-col items-end gap-1 pt-2 pr-0.5 w-[44%]">
+          <div className="flex flex-col items-end gap-1 pt-2 pr-0.5 w-[46%]">
             <div className="w-full flex justify-end">
               <YardBarnStorageSvg
                 storageLevel={storageLevel}
@@ -249,19 +184,19 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
         </div>
 
         {/* 2. MIDDLE OUTDOOR LAWN PLAYGROUND: Left Fountain + Center Picnic Blanket & Live Pet + Right Flower Swing */}
-        <div className="relative w-full h-[188px] sm:h-[205px] -mt-3 px-2 select-none">
-          {/* Left Pastel Double-Tier Fountain */}
-          <div className="absolute left-2 sm:left-4 top-2 z-10">
+        <div className="relative w-full h-[252px] sm:h-[280px] -mt-3 px-2 select-none">
+          {/* Independent furniture layer: left fountain */}
+          <div className="absolute left-1 sm:left-3 top-8 z-10 isolate">
             <YardFountainSvg />
           </div>
 
-          {/* Right Flower-Vine Wooden Swing */}
-          <div className="absolute right-1.5 sm:right-4 -top-1 z-10">
+          {/* Independent furniture layer: right flower-vine swing */}
+          <div className="absolute right-1 sm:right-3 top-1 z-10 isolate">
             <YardFlowerSwingSvg />
           </div>
 
-          {/* Central Picnic Blanket (With Baskets & Rattle) or Selected Outdoor Furniture */}
-          <div className="absolute left-1/2 -translate-x-[38%] bottom-1 z-10">
+          {/* Independent furniture layer: enlarged central picnic area */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-0 z-10 isolate">
             {activeOutdoorItem ? (
               <div className="relative flex flex-col items-center">
                 <YardPicnicAreaSvg />
@@ -274,15 +209,15 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
             )}
           </div>
 
-          {/* Live Wandering & Breathing Pet Character */}
+          {/* Pet stays centered on the picnic blanket while remaining tappable */}
           <button
             type="button"
             onClick={handleTapYardPet}
             aria-label={`跟在庭院玩耍的 ${pet.name} 互動`}
-            className="house-pet-mover absolute z-20 -translate-x-1/2 -translate-y-1/2 min-w-[74px] min-h-[74px] flex items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-[#FF7A9E] rounded-full"
+            className="house-pet-mover absolute z-30 -translate-x-1/2 -translate-y-1/2 min-w-[82px] min-h-[82px] flex items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-[#FF7A9E] rounded-full"
             style={{
-              left: `${petPos.xPercent}%`,
-              top: `${petPos.yPercent}%`,
+              left: '50%',
+              top: '78%',
             }}
           >
             {/* Soft Ground Shadow Under Pet */}
@@ -305,14 +240,9 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
               </div>
             )}
 
-            {/* Pet Sprite (Flips Direction Smoothly + Breathing Animation) */}
+            {/* Breathing pet sprite */}
             <div
-              className={`transition-transform duration-300 ${
-                isPetMoving ? 'animate-house-pet-walk' : 'animate-house-pet-breathe'
-              }`}
-              style={{
-                transform: petFacingLeft ? 'scaleX(-1)' : undefined,
-              }}
+              className="animate-house-pet-breathe transition-transform duration-300"
             >
               <PiggyCharacter
                 species={pet.species}
@@ -321,7 +251,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
                 action={petAction}
                 expression={petExpression}
                 equipped={pet.accessories}
-                size={82}
+                size={88}
                 interactive={false}
               />
             </div>
@@ -329,7 +259,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
 
           {/* Optional Compact Lawn Furniture Switcher (Shown Only When Player Owns Outdoor-Friendly Items) */}
           {ownedOutdoorItems.length > 0 && (
-            <div className="absolute left-2 bottom-1 z-20 flex items-center gap-1 max-w-[42%] overflow-x-auto no-scrollbar">
+            <div className="absolute left-2 bottom-1 z-40 flex items-center gap-1 max-w-[42%] overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => {
@@ -368,118 +298,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
         {/* Active Yard Flowerbed Strip (Daisy / Lavender When Equipped) */}
         <YardFlowerbedAccent flowerbedId={flowerbedId} />
 
-        {/* 3. LOWER FRONT-YARD GARDEN PLOTS (Synced Live 4..8 Farm Soil Beds Directly on Grass) */}
-        <div className="relative px-3.5 sm:px-5 pt-4 pb-1">
-          {/* Cute Watering Can Resting Near Right Grass Edge */}
-          <div className="pointer-events-none absolute -top-9 right-2.5 z-10 scale-90">
-            <RightWateringCanSvg />
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-3.5 gap-y-7">
-            {farmPlots.map((plot) => {
-              const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
-              const plantedAt = plot.plantedAt ?? now;
-              const elapsed = Math.max(0, now - plantedAt);
-              const remainingSec = crop
-                ? Math.max(0, Math.ceil((plot.durationMs - elapsed) / 1000))
-                : 0;
-              const isReady = crop !== null && elapsed >= plot.durationMs;
-              const progressPct =
-                crop && plot.durationMs > 0
-                  ? Math.min(100, Math.round((elapsed / plot.durationMs) * 100))
-                  : 0;
-              const isGoldenMature = isReady && Boolean(plot.isGolden);
-              const growthStage: 'sprout' | 'growing' | 'mature' = isReady
-                ? 'mature'
-                : progressPct < 45
-                ? 'sprout'
-                : 'growing';
-
-              return (
-                <button
-                  key={plot.id}
-                  type="button"
-                  onClick={onGoToFarm}
-                  aria-label={`前院田地 #${plot.id + 1}${crop ? `（${crop.name}）` : '（空田地，點擊前往農場）'}`}
-                  className="group relative w-full min-h-[112px] px-3 pt-5 pb-4 flex flex-col items-center justify-center text-center transition hover:brightness-[1.03] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-[#5CC9A7] rounded-2xl"
-                >
-                  {/* Top-Left Tilted Wooden Plot Stake */}
-                  <div className="absolute -top-3.5 left-2 z-20">
-                    <WoodenPlotSignSvg label={`田地 #${plot.id + 1}`} />
-                  </div>
-
-                  {/* 3D Organic Brown Soil Bed SVG */}
-                  <SoilBedBackdropSvg isReady={isReady} isGolden={isGoldenMature} />
-
-                  {/* Sprinkler Indicator */}
-                  {hasSprinkler && plot.id % 2 === 0 && (
-                    <span
-                      className="absolute right-3 top-2.5 text-xs z-10 pointer-events-none"
-                      aria-hidden="true"
-                    >
-                      💧
-                    </span>
-                  )}
-
-                  {crop ? (
-                    <div className="relative z-10 w-full flex flex-col items-center gap-0.5">
-                      <div className="relative flex items-center justify-center">
-                        {isGoldenMature && <GoldenAuraSvg />}
-                        <div
-                          className={
-                            isGoldenMature
-                              ? 'scale-[1.2] drop-shadow-[0_0_7px_rgba(255,204,41,0.95)] brightness-110'
-                              : ''
-                          }
-                        >
-                          <CropIllustration
-                            cropId={plot.cropId!}
-                            stage={growthStage}
-                            size={isReady ? 46 : 42}
-                            className={isReady ? 'animate-bounce' : ''}
-                          />
-                        </div>
-                      </div>
-
-                      <span className="text-[11px] font-extrabold text-[#462E20]">
-                        {isGoldenMature ? `🌟 黃金${crop.name}` : crop.name}
-                      </span>
-
-                      {isReady ? (
-                        <span className="text-[10px] font-extrabold text-[#8A4A0B]">
-                          已成熟 · 點擊採收
-                        </span>
-                      ) : (
-                        <div className="w-full max-w-[96px] space-y-0.5">
-                          <p className="text-[9.5px] font-extrabold text-[#462E20] tabular-nums">
-                            剩餘 {remainingSec} 秒
-                          </p>
-                          <div className="w-full h-1.5 rounded-full bg-[#FFF6E6] border border-[#6B5344] overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[#76C8A5] transition-all duration-300"
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="relative z-10 flex flex-col items-center justify-center py-1">
-                      <span className="text-xs font-extrabold text-[#462E20]">
-                        田地 #{plot.id + 1}
-                      </span>
-                      <span className="text-[10px] font-bold text-[#6B5344] mt-0.5">
-                        空田地，可播種
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 4. BOTTOM WOODEN FENCE + WILDFLOWERS + EMBEDDED MINT RIBBON BUTTON */}
+        {/* Bottom wooden fence + wildflowers + mint ribbon gate to the separate farm page */}
         <YardRibbonBottomFence fenceId={fenceId} onGoToFarm={onGoToFarm} />
       </div>
 

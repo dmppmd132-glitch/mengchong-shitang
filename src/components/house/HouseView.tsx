@@ -2154,7 +2154,6 @@ export const HouseView: React.FC<HouseViewProps> = ({
             house={house}
             pet={game.pet}
             ingredients={game.ingredients}
-            farmPlots={farmPlots}
             soundEnabled={game.soundEnabled}
             onEditHouseName={() => {
               setHouseNameInput(house.houseName);

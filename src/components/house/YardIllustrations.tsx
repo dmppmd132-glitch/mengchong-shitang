@@ -3,7 +3,7 @@ import { FarmDecorationId } from '../../types';
 
 const COCOA = '#6B5344';
 
-/* Full Courtyard Backdrop: Pastel Sky, Trees, Upper Fence, Meadow (#D9E8C4) & Winding Cobblestone Path */
+/* Full Courtyard Backdrop: warm cream sky, soft rolling shrubs, open meadow and a short picnic path */
 export const YardSceneBackdropSvg: React.FC<{
   fenceId: FarmDecorationId | null;
   hasGreenhouse?: boolean;
@@ -14,54 +14,59 @@ export const YardSceneBackdropSvg: React.FC<{
 
   return (
     <svg
-      viewBox="0 0 400 440"
+      viewBox="0 0 400 520"
       preserveAspectRatio="none"
       className="pointer-events-none absolute inset-0 w-full h-full block"
       aria-hidden="true"
     >
       <defs>
         <linearGradient id="yardSkyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={hasGreenhouse ? '#D8F4FB' : '#DDF2F7'} />
-          <stop offset="62%" stopColor="#ECFAEE" />
-          <stop offset="100%" stopColor="#D9E8C4" />
+          <stop offset="0%" stopColor={hasGreenhouse ? '#FFF0D2' : '#FFF3DC'} />
+          <stop offset="58%" stopColor="#FFF9E9" />
+          <stop offset="100%" stopColor="#E8F0D4" />
         </linearGradient>
         <linearGradient id="yardMeadowGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#CBE0A8" />
-          <stop offset="40%" stopColor="#D9E8C4" />
-          <stop offset="100%" stopColor="#CFE3AE" />
+          <stop offset="0%" stopColor="#D3E9B5" />
+          <stop offset="42%" stopColor="#DFF0C5" />
+          <stop offset="100%" stopColor="#CFE5AC" />
         </linearGradient>
       </defs>
 
       {/* Sky */}
-      <rect x="0" y="0" width="400" height="175" fill="url(#yardSkyGrad)" />
+      <rect x="0" y="0" width="400" height="194" fill="url(#yardSkyGrad)" />
 
       {/* Soft Fluffy Clouds */}
       <path
-        d="M214 48C214 41 221 36 229 37C233 31 243 30 248 36C255 36 260 42 259 48H214Z"
+        d="M205 48C205 41 212 36 220 37C224 31 234 30 239 36C246 36 251 42 250 48H205Z"
         fill="#FFFFFF"
         opacity="0.82"
       />
 
-      {/* Distant Rolling Bushes & Trees Behind Fence */}
+      {/* Soft pink-green rolling hills and shrub silhouettes */}
       <path
-        d="M170 116Q205 94 238 112Q272 90 315 110Q358 92 400 114V146H170Z"
-        fill="#AED38E"
-        stroke={COCOA}
-        strokeWidth="1.5"
+        d="M0 139Q42 108 92 129Q132 104 180 128Q225 101 275 126Q332 98 400 128V177H0Z"
+        fill="#C7DFA9"
+        opacity="0.96"
       />
       <path
-        d="M185 128Q218 114 252 126Q288 110 330 124Q368 112 400 126V146H185Z"
-        fill="#9BC47C"
+        d="M0 151Q56 125 114 146Q169 119 226 144Q284 115 342 140Q375 126 400 140V178H0Z"
+        fill="#A9CC87"
+        opacity="0.88"
       />
+      <g fill="#F3B4BE" opacity="0.78">
+        <circle cx="28" cy="138" r="2.3" /><circle cx="35" cy="134" r="1.8" />
+        <circle cx="300" cy="130" r="2.2" /><circle cx="308" cy="126" r="1.8" />
+        <circle cx="371" cy="141" r="2" /><circle cx="379" cy="137" r="1.7" />
+      </g>
 
       {/* Background Picket Fence (Upper Meadow Horizon) */}
       <g>
-        <rect x="172" y="127" width="228" height="4.5" fill={railFill} stroke={COCOA} strokeWidth="1.2" />
-        <rect x="172" y="138" width="228" height="4.5" fill={railFill} stroke={COCOA} strokeWidth="1.2" />
-        {[180, 194, 208, 222, 236, 250, 264, 344, 358, 372, 386].map((x) => (
+        <rect x="0" y="145" width="400" height="4.5" fill={railFill} stroke={COCOA} strokeWidth="1.2" opacity="0.9" />
+        <rect x="0" y="158" width="400" height="4.5" fill={railFill} stroke={COCOA} strokeWidth="1.2" opacity="0.9" />
+        {[10, 32, 54, 76, 98, 120, 142, 164, 186, 208, 230, 252, 274, 296, 318, 340, 362, 384].map((x) => (
           <path
             key={x}
-            d={`M${x} 118L${x + 4.5} 112L${x + 9} 118V145H${x}Z`}
+            d={`M${x} 145L${x + 4.5} 138L${x + 9} 145V166H${x}Z`}
             fill={picketFill}
             stroke={COCOA}
             strokeWidth="1.3"
@@ -72,53 +77,40 @@ export const YardSceneBackdropSvg: React.FC<{
 
       {/* Main Pastel Meadow Lawn (#D9E8C4) */}
       <path
-        d="M0 132Q110 124 230 136T400 132V440H0Z"
+        d="M0 166Q110 153 230 166T400 162V520H0Z"
         fill="url(#yardMeadowGrad)"
       />
       <path
-        d="M172 136Q285 130 400 136"
+        d="M0 166Q180 157 400 164"
         fill="none"
         stroke="#A4C97E"
         strokeWidth="1.8"
       />
 
-      {/* Winding Hand-Drawn Cobblestone Path From Cottage Door to Lower-Left Lawn */}
+      {/* Short winding cobblestone path from cottage door to the picnic blanket edge */}
       <g>
         {/* Soft Warm Sand Mortar Bed Under Stones */}
         <path
-          d="M124 148C172 168 206 196 194 234C182 268 118 292 66 322C34 340 16 356 2 370"
+          d="M124 158C150 171 176 186 184 207C193 231 178 250 161 267C145 284 143 300 155 314C160 320 166 325 174 329"
           fill="none"
           stroke="#C7BA96"
-          strokeWidth="36"
+          strokeWidth="30"
           strokeLinecap="round"
           opacity="0.52"
         />
         {[
-          { cx: 122, cy: 152, rx: 14, ry: 6, rot: 8, fill: '#E7D8C3' },
-          { cx: 144, cy: 161, rx: 12, ry: 5.5, rot: 14, fill: '#D9CAB4' },
-          { cx: 118, cy: 165, rx: 11, ry: 5, rot: -6, fill: '#DDD0BA' },
-          { cx: 156, cy: 175, rx: 13, ry: 6, rot: 18, fill: '#EAE0CE' },
-          { cx: 136, cy: 179, rx: 11, ry: 5.5, rot: 4, fill: '#D6C4AE' },
-          { cx: 178, cy: 188, rx: 14, ry: 6, rot: 20, fill: '#E4D7C4' },
-          { cx: 158, cy: 195, rx: 12, ry: 5.5, rot: 10, fill: '#D5C3AC' },
-          { cx: 192, cy: 204, rx: 13, ry: 6, rot: -12, fill: '#E8DDD0' },
-          { cx: 174, cy: 213, rx: 12, ry: 5.5, rot: -4, fill: '#DACBB4' },
-          { cx: 192, cy: 224, rx: 12, ry: 6, rot: -18, fill: '#E5D8C5' },
-          { cx: 172, cy: 233, rx: 13, ry: 6, rot: -14, fill: '#D5C5AE' },
-          { cx: 184, cy: 245, rx: 11, ry: 5.5, rot: -26, fill: '#E7DCCB' },
-          { cx: 158, cy: 251, rx: 14, ry: 6.5, rot: -20, fill: '#DDD0BA' },
-          { cx: 164, cy: 264, rx: 12, ry: 5.5, rot: -24, fill: '#D4C3AC' },
-          { cx: 136, cy: 269, rx: 14, ry: 6.5, rot: -18, fill: '#E7DAC7' },
-          { cx: 138, cy: 282, rx: 12, ry: 5.5, rot: -22, fill: '#D6C5AE' },
-          { cx: 112, cy: 285, rx: 13, ry: 6, rot: -18, fill: '#E9DFCE' },
-          { cx: 112, cy: 298, rx: 12, ry: 5.5, rot: -24, fill: '#D9C9B2' },
-          { cx: 88, cy: 300, rx: 14, ry: 6.5, rot: -20, fill: '#E5D8C4' },
-          { cx: 84, cy: 314, rx: 12, ry: 6, rot: -26, fill: '#D5C4AC' },
-          { cx: 60, cy: 317, rx: 13, ry: 6, rot: -22, fill: '#E8DCCB' },
-          { cx: 56, cy: 332, rx: 12, ry: 5.5, rot: -25, fill: '#DACAB2' },
-          { cx: 34, cy: 336, rx: 13, ry: 6, rot: -24, fill: '#E5D8C4' },
-          { cx: 28, cy: 350, rx: 12, ry: 6, rot: -28, fill: '#D7C6AE' },
-          { cx: 10, cy: 358, rx: 12, ry: 5.5, rot: -24, fill: '#E5D8C4' },
+          { cx: 126, cy: 158, rx: 13, ry: 5.5, rot: 8, fill: '#E7D8C3' },
+          { cx: 143, cy: 169, rx: 12, ry: 5, rot: 14, fill: '#D9CAB4' },
+          { cx: 160, cy: 181, rx: 12, ry: 5, rot: 14, fill: '#DDD0BA' },
+          { cx: 176, cy: 194, rx: 12, ry: 5.5, rot: 18, fill: '#EAE0CE' },
+          { cx: 186, cy: 211, rx: 12, ry: 5.5, rot: -8, fill: '#D6C4AE' },
+          { cx: 185, cy: 229, rx: 12, ry: 5.5, rot: -18, fill: '#E4D7C4' },
+          { cx: 174, cy: 246, rx: 12, ry: 5.5, rot: -22, fill: '#D5C3AC' },
+          { cx: 160, cy: 263, rx: 12, ry: 5.5, rot: -25, fill: '#E8DDD0' },
+          { cx: 148, cy: 280, rx: 12, ry: 5.5, rot: -22, fill: '#DACBB4' },
+          { cx: 146, cy: 297, rx: 12, ry: 5.5, rot: -5, fill: '#E5D8C5' },
+          { cx: 156, cy: 313, rx: 12, ry: 5.5, rot: 20, fill: '#D5C5AE' },
+          { cx: 170, cy: 326, rx: 11, ry: 5, rot: 18, fill: '#E7DCCB' },
         ].map((stone, idx) => (
           <ellipse
             key={idx}
@@ -134,18 +126,15 @@ export const YardSceneBackdropSvg: React.FC<{
         ))}
       </g>
 
-      {/* Stepping Stones Leading Toward Barn */}
-      <ellipse cx="238" cy="176" rx="14" ry="5.5" transform="rotate(-12 238 176)" fill="#DFD1BC" stroke={COCOA} strokeWidth="1.3" />
-      <ellipse cx="266" cy="162" rx="11" ry="4.5" transform="rotate(-8 266 162)" fill="#D5C4AC" stroke={COCOA} strokeWidth="1.3" />
-
       {/* Subtle Hand-Drawn Grass Blades Scattered Across Lawn */}
       {[
-        { x: 24, y: 205 },
-        { x: 112, y: 238 },
-        { x: 242, y: 215 },
-        { x: 368, y: 288 },
-        { x: 220, y: 312 },
-        { x: 46, y: 288 },
+        { x: 24, y: 224 },
+        { x: 92, y: 258 },
+        { x: 244, y: 226 },
+        { x: 368, y: 306 },
+        { x: 230, y: 378 },
+        { x: 46, y: 350 },
+        { x: 330, y: 430 },
       ].map((g, idx) => (
         <path
           key={idx}
@@ -351,7 +340,7 @@ export const YardBarnStorageSvg: React.FC<{
     type="button"
     onClick={onOpenStorage}
     aria-label={`開啟小倉庫清單（Lv.${storageLevel + 1}，上限 ${storageCap}/種）`}
-    className="group relative w-[42%] max-w-[178px] select-none cursor-pointer focus-visible:outline-2 focus-visible:outline-[#FF7A9E] rounded-2xl transition active:scale-[0.98]"
+    className="group relative w-[82%] max-w-[220px] select-none cursor-pointer focus-visible:outline-2 focus-visible:outline-[#FF7A9E] rounded-2xl transition active:scale-[0.98]"
   >
     <svg viewBox="0 0 176 146" fill="none" className="w-full h-auto block" aria-hidden="true">
       {/* Hay Bale Tucked on Left Side */}
@@ -424,16 +413,13 @@ export const YardBarnStorageSvg: React.FC<{
       </g>
     </svg>
 
-    {/* Crisp Wooden Barn Sign Label */}
-    <div className="pointer-events-none absolute left-[24%] top-[33%] w-[45%] flex flex-col items-center text-center leading-tight">
-      <span className="text-[11px] sm:text-xs font-extrabold text-[#4A2F20] drop-shadow-[0_1px_0_rgba(255,248,235,0.8)]">
+    {/* One-line barn name and compact cream wooden capacity plaque */}
+    <div className="pointer-events-none absolute left-[24%] top-[37%] w-[50%] flex flex-col items-center text-center leading-tight">
+      <span className="whitespace-nowrap text-[10px] sm:text-xs font-extrabold text-[#4A2F20] drop-shadow-[0_1px_0_rgba(255,248,235,0.8)]">
         小倉庫
       </span>
-      <span className="text-[8.5px] sm:text-[9.5px] font-extrabold text-[#5D3F2E] tabular-nums whitespace-nowrap">
+      <span className="mt-0.5 max-w-full rounded-[5px] border border-[#A77C51] bg-[#FFF1D5]/95 px-1 py-[2px] text-[6.5px] sm:text-[8px] font-extrabold text-[#5D3F2E] tabular-nums whitespace-nowrap shadow-[0_1px_0_rgba(107,83,68,0.2)]">
         Lv.{storageLevel + 1} 上限 {storageCap}/種
-      </span>
-      <span className="mt-0.5 text-[8px] font-bold text-[#8A5434] opacity-85 group-hover:opacity-100">
-        點擊查看 ›
       </span>
     </div>
   </button>
@@ -441,7 +427,7 @@ export const YardBarnStorageSvg: React.FC<{
 
 /* Left Pastel Double-Tier Garden Fountain */
 export const YardFountainSvg: React.FC = () => (
-  <svg width="86" height="82" viewBox="0 0 96 90" fill="none" className="pointer-events-none select-none" aria-hidden="true">
+  <svg width="94" height="90" viewBox="0 0 96 90" fill="none" className="pointer-events-none select-none" aria-hidden="true">
     {/* Meadow Shadow */}
     <ellipse cx="48" cy="76" rx="40" ry="11" fill="rgba(96,128,56,0.22)" />
 
@@ -460,6 +446,9 @@ export const YardFountainSvg: React.FC = () => (
     {/* Pool Water */}
     <ellipse cx="48" cy="58" rx="31" ry="10.5" fill="#BBE9F7" stroke={COCOA} strokeWidth="1.5" />
     <path d="M27 59Q36 63 44 61M56 61Q64 63 71 58" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+    <path d="M31 55Q39 52 47 55M55 55Q62 52 68 55" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" opacity="0.72" className="animate-pulse" />
+    <circle cx="25" cy="56" r="1.7" fill="#FFFFFF" opacity="0.9" />
+    <circle cx="72" cy="57" r="1.4" fill="#FFFFFF" opacity="0.85" />
 
     {/* Center Pedestal Column */}
     <path
@@ -491,6 +480,14 @@ export const YardFountainSvg: React.FC = () => (
     />
     <circle cx="42" cy="11" r="1.6" fill="#BBE9F7" />
     <circle cx="54" cy="11" r="1.6" fill="#BBE9F7" />
+
+    {/* Tiny flower cluster beside the fountain */}
+    <path d="M78 75Q78 67 81 62M85 76Q85 69 87 66M91 76Q91 70 94 66" stroke="#659B58" strokeWidth="1.8" strokeLinecap="round" />
+    <g stroke={COCOA} strokeWidth="0.7">
+      <circle cx="81" cy="60" r="2.7" fill="#FFB4CC" /><circle cx="78.5" cy="62" r="2.2" fill="#FFB4CC" /><circle cx="83.5" cy="62" r="2.2" fill="#FFB4CC" />
+      <circle cx="87" cy="64" r="2.5" fill="#FFF0A8" /><circle cx="84.5" cy="66" r="2" fill="#FFF0A8" /><circle cx="89.5" cy="66" r="2" fill="#FFF0A8" />
+      <circle cx="81" cy="62" r="1" fill="#FFD84D" /><circle cx="87" cy="66" r="1" fill="#E99A69" />
+    </g>
   </svg>
 );
 
@@ -563,7 +560,7 @@ export const YardFlowerSwingSvg: React.FC = () => (
 
 /* Pink-White Checkered Picnic Blanket + Woven Seed Baskets + Rattle Toy */
 export const YardPicnicAreaSvg: React.FC = () => (
-  <svg width="176" height="92" viewBox="0 0 186 98" fill="none" className="pointer-events-none select-none" aria-hidden="true">
+  <svg width="210" height="111" viewBox="0 0 186 98" fill="none" className="pointer-events-none select-none" aria-hidden="true">
     <defs>
       <pattern id="yardPicnicGingham" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(-14)">
         <rect width="16" height="16" fill="#FFFDF9" />
@@ -782,7 +779,7 @@ export const YardRibbonBottomFence: React.FC<{
           </svg>
 
           {/* Center Pill Body */}
-          <span className="relative z-10 inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-[#98E8C8] via-[#7AD8B4] to-[#59BE98] border-2 border-[#6B5344] shadow-[0_3px_0_#439676] px-4 py-2 text-xs sm:text-[13px] font-extrabold text-[#1E4F3D] whitespace-nowrap">
+          <span className="relative z-10 inline-flex items-center justify-center gap-1 rounded-full bg-gradient-to-b from-[#98E8C8] via-[#7AD8B4] to-[#59BE98] border-2 border-[#6B5344] shadow-[0_3px_0_#439676] px-2.5 py-2 text-[10px] sm:gap-1.5 sm:px-4 sm:text-[13px] font-extrabold text-[#1E4F3D] whitespace-nowrap">
             <span aria-hidden="true">🌱</span>
             <span>前往食堂開心農場種植／採收作物</span>
           </span>
