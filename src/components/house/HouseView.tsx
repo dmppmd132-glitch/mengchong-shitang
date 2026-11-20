@@ -210,7 +210,9 @@ export const HouseView: React.FC<HouseViewProps> = ({
   const [yardRenameOpen, setYardRenameOpen] = useState<boolean>(false);
   const [houseNameInput, setHouseNameInput] = useState<string>(game.house.houseName);
   const [yardManagementOpen, setYardManagementOpen] = useState<boolean>(false);
+  const [yardManagementSection, setYardManagementSection] = useState<'decor' | 'expansion' | 'upgrades'>('decor');
   const yardManagementTriggerRef = useRef<HTMLButtonElement>(null);
+  const yardManagementContentRef = useRef<HTMLDivElement>(null);
   const closeYardManagement = useCallback(() => {
     setYardManagementOpen(false);
     window.requestAnimationFrame(() => yardManagementTriggerRef.current?.focus());
@@ -229,6 +231,12 @@ export const HouseView: React.FC<HouseViewProps> = ({
       window.removeEventListener('keydown', handleEscape);
     };
   }, [yardManagementOpen, closeYardManagement]);
+
+  useEffect(() => {
+    if (yardManagementOpen && yardManagementContentRef.current) {
+      yardManagementContentRef.current.scrollTop = 0;
+    }
+  }, [yardManagementOpen, yardManagementSection]);
 
   // Furniture note input
   const [noteInput, setNoteInput] = useState<string>('');
@@ -848,7 +856,10 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 </button>
               </div>
               <p className="text-[11px] font-bold text-[#7D635D] mt-0.5 tabular-nums">
-                家具 {summaryStats.placedCount}/{summaryStats.maxCells} 格 · 寵愛 {summaryStats.favoritePlacedCount} 件 · 金庫 {house.treasuryCoins} 幣
+                {tab !== 'yard' && (
+                  <>家具 {summaryStats.placedCount}/{summaryStats.maxCells} 格 · 寵愛 {summaryStats.favoritePlacedCount} 件 · </>
+                )}
+                金庫 {house.treasuryCoins} 幣
                 {sharedRoom ? ' · 共養同步中' : ''}
               </p>
             </div>
@@ -891,56 +902,58 @@ export const HouseView: React.FC<HouseViewProps> = ({
         </div>
 
         {/* Four-Zone Coverage Cards with Micro Progress Bars */}
-        <div className="grid grid-cols-4 gap-1.5">
-          {ZONE_ORDER.map((z) => {
-            const meta = ROOM_ZONES[z];
-            const cnt = summaryStats.zoneCounts[z];
-            const pct = Math.min(100, Math.round((cnt / 6) * 100));
-            const barColor =
-              z === 'sleep'
-                ? 'bg-[#9A85DB]'
-                : z === 'decor'
-                ? 'bg-[#FF7A9E]'
-                : z === 'play'
-                ? 'bg-[#5CC9A7]'
-                : 'bg-[#F0A847]';
-            const isZoneFull = cnt >= 6;
-            return (
-              <button
-                key={z}
-                type="button"
-                onClick={() => {
-                  setStowedZoneFilter(z);
-                  setDecorateMode(true);
-                  setTab('room');
-                }}
-                className="min-h-[54px] rounded-2xl bg-white/90 border border-[#EFE0D7] px-2 py-1.5 flex flex-col justify-between gap-1 hover:bg-white transition active:scale-[0.98]"
-              >
-                <div className="w-full flex items-center justify-between gap-0.5">
-                  <span className="text-[11px] font-extrabold text-[#4A3531] whitespace-nowrap">
-                    {meta.emoji} {meta.name}
-                  </span>
-                </div>
-                <div className="w-full space-y-1">
-                  <div className="h-1.5 w-full rounded-full bg-[#EFE3DC] overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${barColor}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[9.5px] font-extrabold tabular-nums">
-                    <span className={isZoneFull ? 'text-[#1F6B54]' : cnt > 0 ? 'text-[#5A423C]' : 'text-[#9A857E]'}>
-                      {isZoneFull ? '滿格 ✓' : cnt > 0 ? '佈置中' : '待佈置'}
-                    </span>
-                    <span className={cnt > 0 ? 'text-[#256D57]' : 'text-[#9A857E]'}>
-                      {cnt}/6
+        {tab !== 'yard' && (
+          <div className="grid grid-cols-4 gap-1.5">
+            {ZONE_ORDER.map((z) => {
+              const meta = ROOM_ZONES[z];
+              const cnt = summaryStats.zoneCounts[z];
+              const pct = Math.min(100, Math.round((cnt / 6) * 100));
+              const barColor =
+                z === 'sleep'
+                  ? 'bg-[#9A85DB]'
+                  : z === 'decor'
+                  ? 'bg-[#FF7A9E]'
+                  : z === 'play'
+                  ? 'bg-[#5CC9A7]'
+                  : 'bg-[#F0A847]';
+              const isZoneFull = cnt >= 6;
+              return (
+                <button
+                  key={z}
+                  type="button"
+                  onClick={() => {
+                    setStowedZoneFilter(z);
+                    setDecorateMode(true);
+                    setTab('room');
+                  }}
+                  className="min-h-[54px] rounded-2xl bg-white/90 border border-[#EFE0D7] px-2 py-1.5 flex flex-col justify-between gap-1 hover:bg-white transition active:scale-[0.98]"
+                >
+                  <div className="w-full flex items-center justify-between gap-0.5">
+                    <span className="text-[11px] font-extrabold text-[#4A3531] whitespace-nowrap">
+                      {meta.emoji} {meta.name}
                     </span>
                   </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="w-full space-y-1">
+                    <div className="h-1.5 w-full rounded-full bg-[#EFE3DC] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[9.5px] font-extrabold tabular-nums">
+                      <span className={isZoneFull ? 'text-[#1F6B54]' : cnt > 0 ? 'text-[#5A423C]' : 'text-[#9A857E]'}>
+                        {isZoneFull ? '滿格 ✓' : cnt > 0 ? '佈置中' : '待佈置'}
+                      </span>
+                      <span className={cnt > 0 ? 'text-[#256D57]' : 'text-[#9A857E]'}>
+                        {cnt}/6
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* 5 Section Sub-Navigation */}
@@ -2358,190 +2371,237 @@ export const HouseView: React.FC<HouseViewProps> = ({
                     </button>
                   </div>
                 </header>
-                <div className="min-h-0 overflow-y-auto overscroll-contain p-3.5 space-y-3.5">
-          {/* Payment Source Toggle */}
-          <section className="rounded-2xl bg-[#FFF6EA] border border-[#F0D9C0] p-2.5 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-extrabold text-[#7D635D]">
-              <span>庭院建設付款方式</span>
-              <span className="tabular-nums">
-                個人 {game.coins} 幣 · 金庫 {house.treasuryCoins} 幣
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setPaySource('personal')}
-                className={`min-h-[44px] rounded-lg text-xs font-extrabold transition ${
-                  paySource === 'personal'
-                    ? 'bg-white text-[#9D5B12] shadow-xs'
-                    : 'text-[#6E544E]'
-                }`}
-              >
-                🪙 個人金幣 ({game.coins})
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaySource('treasury')}
-                className={`min-h-[44px] rounded-lg text-xs font-extrabold transition ${
-                  paySource === 'treasury'
-                    ? 'bg-white text-[#256D57] shadow-xs'
-                    : 'text-[#6E544E]'
-                }`}
-              >
-                💞 共同金庫 ({house.treasuryCoins})
-              </button>
-            </div>
-          </section>
-
-          {/* Farm Plot Expansion Card */}
-          <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#D9BFA9] p-3.5 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="text-sm font-extrabold text-[#4A3531]">
-                🌾 農地開墾進度（{house.unlockedFarmPlots} / 8 塊）
-              </h3>
-              <p className="text-[11px] text-[#7D635D] mt-0.5">
-                {nextExpandPlotNumber
-                  ? `可開墾第 ${nextExpandPlotNumber} 塊農地，加快食堂食材與手作家具產出！`
-                  : '已經開墾至全部 8 塊豪華莊園農地！'}
-              </p>
-            </div>
-            {nextExpandPlotNumber ? (
-              <button
-                type="button"
-                disabled={availableYardCoins < nextExpandCost}
-                onClick={() => onExpandFarmPlot(paySource)}
-                className={`min-h-[44px] px-3.5 rounded-2xl text-xs font-extrabold shrink-0 whitespace-nowrap transition ${
-                  availableYardCoins >= nextExpandCost
-                    ? 'bg-[#F8C956] text-[#4A3531] hover:bg-[#F3BE40] active:scale-95'
-                    : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
-                }`}
-              >
-                開墾 ({nextExpandCost} 幣)
-              </button>
-            ) : (
-              <span className="text-xs font-extrabold text-[#256D57] shrink-0">已滿格</span>
-            )}
-          </section>
-
-          {/* Outdoor Farm Decorations */}
-          <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#EFE0D8] p-3.5 space-y-2.5">
-            <div>
-              <h3 className="text-sm font-extrabold text-[#4A3531]">
-                🌼 庭院景觀佈置（圍欄、花圃與招牌）
-              </h3>
-              <p className="text-[11px] text-[#7D635D]">
-                購買後可自由切換擺設，即時呈現在庭院預覽與農場中！
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {FARM_DECORATIONS.map((dec) => {
-                const owned = house.ownedFarmDecorations.includes(dec.id);
-                const active =
-                  house.activeFarmDecor.fenceId === dec.id ||
-                  house.activeFarmDecor.flowerbedId === dec.id ||
-                  house.activeFarmDecor.signId === dec.id;
-                const canBuy = owned || availableYardCoins >= dec.price;
-
-                return (
-                  <article
-                    key={dec.id}
-                    className={`rounded-2xl border p-3 flex flex-col justify-between gap-2 ${
-                      active
-                        ? 'bg-[#FFF3F7] border-[#FF8AA8]'
-                        : owned
-                        ? 'bg-[#F5FBF8] border-[#CBE8DB]'
-                        : 'bg-[#FAF6F2] border-[#E7DCD5]'
-                    }`}
-                  >
-                    <div>
-                      <div className="text-xs font-extrabold text-[#4A3531]">
-                        {dec.emoji} {dec.name}
-                      </div>
-                      <p className="text-[10px] text-[#7D635D] mt-0.5 leading-snug">
-                        {dec.description}
-                      </p>
+                <div className="shrink-0 px-3 pt-3 space-y-2">
+                  {/* Payment Source Toggle */}
+                  <section className="rounded-2xl bg-[#FFF6EA] border border-[#F0D9C0] p-2.5 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-extrabold text-[#7D635D]">
+                      <span>庭院建設付款方式</span>
+                      <span className="tabular-nums">
+                        個人 {game.coins} 幣 · 金庫 {house.treasuryCoins} 幣
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      disabled={!canBuy}
-                      onClick={() => onToggleFarmDecoration(dec.id, paySource)}
-                      className={`w-full min-h-[44px] rounded-xl text-xs font-extrabold transition ${
-                        active
-                          ? 'bg-[#FF7A9E] text-white'
-                          : owned
-                          ? 'bg-white border border-[#B8DFCE] text-[#256D57]'
-                          : canBuy
-                          ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E]'
-                          : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
-                      }`}
-                    >
-                      {active ? '擺設中 · 點擊收起' : owned ? '擺上庭院' : `購買 (${dec.price} 幣)`}
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
+                    <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setPaySource('personal')}
+                        className={`min-h-[44px] rounded-lg text-xs font-extrabold transition ${
+                          paySource === 'personal'
+                            ? 'bg-white text-[#9D5B12] shadow-xs'
+                            : 'text-[#6E544E]'
+                        }`}
+                      >
+                        🪙 個人金幣 ({game.coins})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaySource('treasury')}
+                        className={`min-h-[44px] rounded-lg text-xs font-extrabold transition ${
+                          paySource === 'treasury'
+                            ? 'bg-white text-[#256D57] shadow-xs'
+                            : 'text-[#6E544E]'
+                        }`}
+                      >
+                        💞 共同金庫 ({house.treasuryCoins})
+                      </button>
+                    </div>
+                  </section>
 
-          {/* Farm Upgrades */}
-          <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#CFECE0] p-3.5 space-y-2.5">
-            <div>
-              <h3 className="text-sm font-extrabold text-[#4A3531]">🚿 農園設施升級</h3>
-              <p className="text-[11px] text-[#7D635D]">
-                灑水器、玻璃溫室與小倉庫可大幅提升作物收成效率。
-              </p>
-            </div>
-            <div className="space-y-2">
-              {FARM_UPGRADES.map((upg) => {
-                const curLvl =
-                  upg.id === 'sprinkler'
-                    ? house.farmUpgrades.sprinklerLevel
-                    : upg.id === 'greenhouse'
-                    ? house.farmUpgrades.greenhouseLevel
-                    : house.farmUpgrades.storageLevel;
-                const isMax = curLvl >= upg.maxLevel;
-                const price = upg.prices[curLvl] ?? upg.prices[upg.prices.length - 1];
-                const canUpgrade = !isMax && availableYardCoins >= price;
+                  <div role="group" aria-label="庭院管理分類" className="grid grid-cols-3 gap-1.5 bg-[#F2E5DE] p-1 rounded-2xl">
+                    {([
+                      { id: 'decor', label: '景觀佈置', icon: '🌼' },
+                      { id: 'expansion', label: '農地擴建', icon: '🌾' },
+                      { id: 'upgrades', label: '設施升級', icon: '🚿' },
+                    ] as const).map(({ id, label, icon }) => {
+                      const active = yardManagementSection === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setYardManagementSection(id)}
+                          className={`min-h-[48px] rounded-xl text-[10px] font-extrabold flex flex-col items-center justify-center gap-0.5 transition ${
+                            active ? 'bg-white text-[#D64470] shadow-xs' : 'text-[#6E544E] hover:bg-white/60'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">{icon}</span>
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div
+                  ref={yardManagementContentRef}
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3.5 pt-2 space-y-3.5"
+                >
 
-                return (
-                  <div
-                    key={upg.id}
-                    className="rounded-2xl bg-[#F5FBF8] border border-[#CBE8DB] p-3 flex items-center justify-between gap-2.5"
+                  {/* Farm Plot Expansion Card */}
+                  <section
+                    id="yard-management-panel-expansion"
+                    role="group"
+                    aria-label="農地擴建"
+                    hidden={yardManagementSection !== 'expansion'}
+                    className="rounded-3xl bg-[#FFFDF8] border-2 border-[#D9BFA9] p-3.5 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-[#4A3531]">
-                        {upg.emoji} {upg.name}
-                        {upg.maxLevel > 1 ? ` (Lv.${curLvl}/${upg.maxLevel})` : ''}
-                      </div>
-                      <p className="text-[10px] text-[#6E544E] mt-0.5 leading-snug">
-                        {upg.description}
+                      <h3 className="text-sm font-extrabold text-[#4A3531]">
+                        🌾 農地開墾進度（{house.unlockedFarmPlots} / 8 塊）
+                      </h3>
+                      <p className="text-[11px] text-[#7D635D] mt-0.5">
+                        {nextExpandPlotNumber
+                          ? `可開墾第 ${nextExpandPlotNumber} 塊農地，加快食堂食材與手作家具產出！`
+                          : '已經開墾至全部 8 塊豪華莊園農地！'}
                       </p>
-                      {!isMax && upg.effectSummaries[curLvl] && (
-                        <p className="text-[10px] font-extrabold text-[#1F6B54] mt-0.5">
-                          下一級：{upg.effectSummaries[curLvl]}
-                        </p>
-                      )}
                     </div>
+                    {nextExpandPlotNumber ? (
+                      <button
+                        type="button"
+                        disabled={availableYardCoins < nextExpandCost}
+                        onClick={() => onExpandFarmPlot(paySource)}
+                        className={`min-h-[44px] px-3.5 rounded-2xl text-xs font-extrabold shrink-0 whitespace-nowrap transition ${
+                          availableYardCoins >= nextExpandCost
+                            ? 'bg-[#F8C956] text-[#4A3531] hover:bg-[#F3BE40] active:scale-95'
+                            : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                        }`}
+                      >
+                        開墾 ({nextExpandCost} 幣)
+                      </button>
+                    ) : (
+                      <span className="text-xs font-extrabold text-[#256D57] shrink-0">已滿格</span>
+                    )}
+                  </section>
 
-                    <button
-                      type="button"
-                      disabled={isMax || !canUpgrade}
-                      onClick={() => onUpgradeFarmFacility(upg.id, paySource)}
-                      className={`min-h-[44px] px-3 rounded-xl text-xs font-extrabold shrink-0 whitespace-nowrap transition ${
-                        isMax
-                          ? 'bg-[#E3F5ED] text-[#256D57]'
-                          : canUpgrade
-                          ? 'bg-[#5CC9A7] text-white active:scale-95'
-                          : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
-                      }`}
-                    >
-                      {isMax ? '已啟用' : `${price} 金幣`}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+                  {/* Outdoor Farm Decorations */}
+                  <section
+                    id="yard-management-panel-decor"
+                    role="group"
+                    aria-label="景觀佈置"
+                    hidden={yardManagementSection !== 'decor'}
+                    className="rounded-3xl bg-[#FFFDF8] border-2 border-[#EFE0D8] p-3.5 space-y-2.5"
+                  >
+                    <div>
+                      <h3 className="text-sm font-extrabold text-[#4A3531]">
+                        🌼 庭院景觀佈置（圍欄、花圃與招牌）
+                      </h3>
+                      <p className="text-[11px] text-[#7D635D]">
+                        購買後可自由切換擺設，即時呈現在庭院預覽與農場中！
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FARM_DECORATIONS.map((dec) => {
+                        const owned = house.ownedFarmDecorations.includes(dec.id);
+                        const active =
+                          house.activeFarmDecor.fenceId === dec.id ||
+                          house.activeFarmDecor.flowerbedId === dec.id ||
+                          house.activeFarmDecor.signId === dec.id;
+                        const canBuy = owned || availableYardCoins >= dec.price;
+
+                        return (
+                          <article
+                            key={dec.id}
+                            className={`rounded-2xl border p-3 flex flex-col justify-between gap-2 ${
+                              active
+                                ? 'bg-[#FFF3F7] border-[#FF8AA8]'
+                                : owned
+                                ? 'bg-[#F5FBF8] border-[#CBE8DB]'
+                                : 'bg-[#FAF6F2] border-[#E7DCD5]'
+                            }`}
+                          >
+                            <div>
+                              <div className="text-xs font-extrabold text-[#4A3531]">
+                                {dec.emoji} {dec.name}
+                              </div>
+                              <p className="text-[10px] text-[#7D635D] mt-0.5 leading-snug">
+                                {dec.description}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!canBuy}
+                              onClick={() => onToggleFarmDecoration(dec.id, paySource)}
+                              className={`w-full min-h-[44px] rounded-xl text-xs font-extrabold transition ${
+                                active
+                                  ? 'bg-[#FF7A9E] text-white'
+                                  : owned
+                                  ? 'bg-white border border-[#B8DFCE] text-[#256D57]'
+                                  : canBuy
+                                  ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E]'
+                                  : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                              }`}
+                            >
+                              {active ? '擺設中 · 點擊收起' : owned ? '擺上庭院' : `購買 (${dec.price} 幣)`}
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {/* Farm Upgrades */}
+                  <section
+                    id="yard-management-panel-upgrades"
+                    role="group"
+                    aria-label="設施升級"
+                    hidden={yardManagementSection !== 'upgrades'}
+                    className="rounded-3xl bg-[#FFFDF8] border-2 border-[#CFECE0] p-3.5 space-y-2.5"
+                  >
+                    <div>
+                      <h3 className="text-sm font-extrabold text-[#4A3531]">🚿 農園設施升級</h3>
+                      <p className="text-[11px] text-[#7D635D]">
+                        灑水器、玻璃溫室與小倉庫可大幅提升作物收成效率。
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {FARM_UPGRADES.map((upg) => {
+                        const curLvl =
+                          upg.id === 'sprinkler'
+                            ? house.farmUpgrades.sprinklerLevel
+                            : upg.id === 'greenhouse'
+                            ? house.farmUpgrades.greenhouseLevel
+                            : house.farmUpgrades.storageLevel;
+                        const isMax = curLvl >= upg.maxLevel;
+                        const price = upg.prices[curLvl] ?? upg.prices[upg.prices.length - 1];
+                        const canUpgrade = !isMax && availableYardCoins >= price;
+
+                        return (
+                          <div
+                            key={upg.id}
+                            className="rounded-2xl bg-[#F5FBF8] border border-[#CBE8DB] p-3 flex items-center justify-between gap-2.5"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-xs font-extrabold text-[#4A3531]">
+                                {upg.emoji} {upg.name}
+                                {upg.maxLevel > 1 ? ` (Lv.${curLvl}/${upg.maxLevel})` : ''}
+                              </div>
+                              <p className="text-[10px] text-[#6E544E] mt-0.5 leading-snug">
+                                {upg.description}
+                              </p>
+                              {!isMax && upg.effectSummaries[curLvl] && (
+                                <p className="text-[10px] font-extrabold text-[#1F6B54] mt-0.5">
+                                  下一級：{upg.effectSummaries[curLvl]}
+                                </p>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isMax || !canUpgrade}
+                              onClick={() => onUpgradeFarmFacility(upg.id, paySource)}
+                              className={`min-h-[44px] px-3 rounded-xl text-xs font-extrabold shrink-0 whitespace-nowrap transition ${
+                                isMax
+                                  ? 'bg-[#E3F5ED] text-[#256D57]'
+                                  : canUpgrade
+                                  ? 'bg-[#5CC9A7] text-white active:scale-95'
+                                  : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                              }`}
+                            >
+                              {isMax ? '已啟用' : `${price} 金幣`}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
                 </div>
               </div>
             </div>
