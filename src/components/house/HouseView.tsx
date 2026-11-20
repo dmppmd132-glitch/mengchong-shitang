@@ -17,6 +17,7 @@ import {
   PiggyBank,
   Send,
   ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   Tag,
   Trash2,
@@ -208,6 +209,26 @@ export const HouseView: React.FC<HouseViewProps> = ({
   const [editingHouseName, setEditingHouseName] = useState<boolean>(false);
   const [yardRenameOpen, setYardRenameOpen] = useState<boolean>(false);
   const [houseNameInput, setHouseNameInput] = useState<string>(game.house.houseName);
+  const [yardManagementOpen, setYardManagementOpen] = useState<boolean>(false);
+  const yardManagementTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeYardManagement = useCallback(() => {
+    setYardManagementOpen(false);
+    window.requestAnimationFrame(() => yardManagementTriggerRef.current?.focus());
+  }, []);
+
+  useEffect(() => {
+    if (!yardManagementOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeYardManagement();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [yardManagementOpen, closeYardManagement]);
 
   // Furniture note input
   const [noteInput, setNoteInput] = useState<string>('');
@@ -2228,6 +2249,26 @@ export const HouseView: React.FC<HouseViewProps> = ({
             onGoToFarm={onGoToFarm}
           />
 
+          <button
+            ref={yardManagementTriggerRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={yardManagementOpen}
+            onClick={() => setYardManagementOpen(true)}
+            className="w-full min-h-[52px] rounded-2xl bg-[#FFFDF8] border-2 border-[#E8D8CE] px-4 py-2.5 flex items-center justify-between gap-3 text-left shadow-[0_2px_0_rgba(107,83,68,0.08)] hover:border-[#CFE6D9] transition"
+          >
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-[#E8F8F2] text-[#256D57] inline-flex items-center justify-center shrink-0">
+                <SlidersHorizontal className="w-4 h-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-extrabold text-[#4A3531]">庭院與農場管理</span>
+                <span className="block text-[10px] font-bold text-[#8A726B]">景觀佈置・農地擴建・設施升級</span>
+              </span>
+            </span>
+            <span aria-hidden="true" className="text-lg font-extrabold text-[#8A726B]">›</span>
+          </button>
+
           {/* Storybook Cottage Signboard Rename Modal */}
           {yardRenameOpen && (
             <div
@@ -2283,6 +2324,41 @@ export const HouseView: React.FC<HouseViewProps> = ({
             </div>
           )}
 
+          {yardManagementOpen && (
+            <div
+              className="fixed inset-0 z-[70] bg-[#302628]/55 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="yard-management-title"
+              onClick={closeYardManagement}
+            >
+              <div
+                className="w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden rounded-t-[28px] sm:rounded-[28px] bg-[#FFFDF8] border-2 border-[#6B5344] shadow-[0_8px_0_rgba(107,83,68,0.2)] flex flex-col"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="shrink-0 px-4 pt-4 pb-3 border-b border-[#EFE0D8] bg-[#FFFDF8]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-extrabold tracking-wide text-[#5B9F84]">小屋佈置與農場建設</p>
+                      <h2 id="yard-management-title" className="text-base font-extrabold text-[#4A3531]">
+                        庭院與農場管理
+                      </h2>
+                      <p className="text-[10px] font-bold text-[#8A726B] mt-0.5">
+                        把管理收在這裡，讓庭院留給玩耍與放鬆。
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      autoFocus
+                      onClick={closeYardManagement}
+                      aria-label="關閉庭院與農場管理"
+                      className="min-w-[40px] min-h-[40px] rounded-xl bg-[#F6ECE4] text-[#5A3E36] inline-flex items-center justify-center shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </header>
+                <div className="min-h-0 overflow-y-auto overscroll-contain p-3.5 space-y-3.5">
           {/* Payment Source Toggle */}
           <section className="rounded-2xl bg-[#FFF6EA] border border-[#F0D9C0] p-2.5 space-y-2">
             <div className="flex items-center justify-between text-[11px] font-extrabold text-[#7D635D]">
@@ -2466,6 +2542,10 @@ export const HouseView: React.FC<HouseViewProps> = ({
               })}
             </div>
           </section>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
