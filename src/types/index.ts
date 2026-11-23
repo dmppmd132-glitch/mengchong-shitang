@@ -225,6 +225,7 @@ export interface KitchenRecipe {
   name: string;
   emoji: string;
   description: string;
+  hint?: string;
   ingredients: Partial<Record<IngredientId, number>>;
   bonusGrowth: number;
 }
@@ -575,6 +576,7 @@ export interface NoviceGrowthStats {
 
 export interface EncyclopediaState {
   collectedFoodIds: string[];
+  learnedRecipeIds: string[];
   claimedAccessoryMilestones: number[];
   claimedAccessoryThemeSets: AccessoryTheme[];
   unlockedTitles: TitleId[];

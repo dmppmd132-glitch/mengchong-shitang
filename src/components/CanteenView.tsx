@@ -96,6 +96,7 @@ interface CanteenViewProps {
   onToggleFarmDecoration: (decorId: FarmDecorationId, paySource: PaymentSource) => void;
   onUpdateHouseName: (newName: string) => void;
   initialSection?: CanteenSection;
+  learnedRecipeIds?: string[];
 }
 
 export type CanteenSection = 'shop' | 'farm' | 'kitchen';
@@ -138,6 +139,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onToggleFarmDecoration,
   onUpdateHouseName,
   initialSection = 'shop',
+  learnedRecipeIds = [],
 }) => {
   const [section, setSection] = useState<CanteenSection>(initialSection);
   const [filter, setFilter] = useState<CategoryFilter>('all');
@@ -1346,6 +1348,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             const reqEntries = Object.entries(recipe.ingredients) as [IngredientId, number][];
             const canCook = reqEntries.every(([id, need]) => (ingredients[id] ?? 0) >= need);
             const isFavorite = speciesInfo.favoriteFoodIds.includes(recipe.outputFoodId);
+            const isRecipeLearned = learnedRecipeIds.includes(recipe.id);
             const currentFoodCount = inventory[recipe.outputFoodId] ?? 0;
 
             return (
@@ -1368,11 +1371,22 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                         餐點庫存 {currentFoodCount}
                       </span>
                     </div>
-                    {isFavorite && (
-                      <p className="text-[11px] font-extrabold text-[#D64470] mt-0.5">
-                        ♥ {speciesInfo.shortName}最愛料理
-                      </p>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      {isFavorite && (
+                        <span className="text-[11px] font-extrabold text-[#D64470]">
+                          ♥ {speciesInfo.shortName}最愛料理
+                        </span>
+                      )}
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+                          isRecipeLearned
+                            ? 'bg-[#E5F7EF] text-[#1F6B54]'
+                            : 'bg-[#FFF0D8] text-[#A15B12]'
+                        }`}
+                      >
+                        {isRecipeLearned ? '📖 已收錄食譜' : '✨ 新食譜・製作解鎖圖鑑'}
+                      </span>
+                    </div>
                     <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
                       {recipe.description}
                     </p>

@@ -24,6 +24,7 @@ export function createInitialEncyclopediaState(
 
   return {
     collectedFoodIds: uniqueFoods,
+    learnedRecipeIds: [],
     claimedAccessoryMilestones: [],
     claimedAccessoryThemeSets: [],
     unlockedTitles: [],

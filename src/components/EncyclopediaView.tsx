@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Award, CheckCircle2, Coins, HelpCircle, Home, Sparkles, Utensils } from 'lucide-react';
+import {
+  Award,
+  ChefHat,
+  CheckCircle2,
+  Coins,
+  CookingPot,
+  HelpCircle,
+  Home,
+  Lock,
+  Sparkles,
+  Utensils,
+} from 'lucide-react';
 import {
   ACCESSORIES,
   ACCESSORY_SLOT_LABELS,
@@ -22,7 +33,8 @@ import {
   ROOM_ZONES,
   WALLPAPERS,
 } from '../data/house';
-import { EncyclopediaState, SharedHouse, TitleId } from '../types';
+import { INGREDIENTS, KITCHEN_RECIPES } from '../data/kitchen';
+import { EncyclopediaState, IngredientId, SharedHouse, TitleId } from '../types';
 import {
   getAccessoryObtainLabel,
   getAccessoryRarityMeta,
@@ -34,26 +46,35 @@ import {
   getHouseEncyclopediaCounts,
 } from '../utils/house';
 import { AccessoryPreview } from './AccessoryPreview';
+import { CropIllustration } from './house/FarmIllustrations';
 import { FurnitureGraphic } from './house/FurnitureGraphic';
 
-export type EncyclopediaSection = 'foods' | 'accessories' | 'house';
+export type EncyclopediaSection = 'foods' | 'recipes' | 'accessories' | 'house';
+type RecipeFilter = 'all' | 'learned' | 'locked';
 
 interface EncyclopediaViewProps {
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
   house: SharedHouse;
+  ingredients?: Record<IngredientId, number>;
+  favoriteFoodIds?: string[];
   initialSection?: EncyclopediaSection;
   onSelectTitle?: (titleId: TitleId | null) => void;
+  onGoToKitchen?: () => void;
 }
 
 export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
   encyclopedia,
   unlockedAccessories,
   house,
+  ingredients,
+  favoriteFoodIds = [],
   initialSection = 'foods',
   onSelectTitle,
+  onGoToKitchen,
 }) => {
   const [section, setSection] = useState<EncyclopediaSection>(initialSection);
+  const [recipeFilter, setRecipeFilter] = useState<RecipeFilter>('all');
 
   useEffect(() => {
     setSection(initialSection);
@@ -61,6 +82,12 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
 
   const collectedFoodSet = new Set(encyclopedia.collectedFoodIds);
   const collectedFoodCount = FOODS.filter((f) => collectedFoodSet.has(f.id)).length;
+
+  const learnedRecipeSet = new Set(encyclopedia.learnedRecipeIds ?? []);
+  const learnedRecipeCount = KITCHEN_RECIPES.filter((r) => learnedRecipeSet.has(r.id)).length;
+  const lockedRecipeCount = KITCHEN_RECIPES.length - learnedRecipeCount;
+  const recipeProgressPct = Math.round((learnedRecipeCount / KITCHEN_RECIPES.length) * 100);
+  const foodById = new Map(FOODS.map((f) => [f.id, f]));
 
   const ownedAccessorySet = new Set(unlockedAccessories);
   const collectedAccessoryCount = ACCESSORIES.filter((a) =>
@@ -111,25 +138,47 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
           <Award className="w-6 h-6 text-[#D64470] shrink-0" />
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[11px] font-bold text-[#826862]">食物圖鑑</div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setSection('foods')}
+            className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">🍽️ 食物圖鑑</div>
             <div className="text-xs font-extrabold text-[#D64470] tabular-nums mt-0.5">
               已收集 {collectedFoodCount} / {FOODS.length}
             </div>
-          </div>
-          <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[11px] font-bold text-[#826862]">配件圖鑑</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('recipes')}
+            className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">👩‍🍳 料理食譜圖鑑</div>
+            <div className="text-xs font-extrabold text-[#B84C24] tabular-nums mt-0.5">
+              已學會 {learnedRecipeCount} / {KITCHEN_RECIPES.length}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('accessories')}
+            className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">✨ 配件圖鑑</div>
             <div className="text-xs font-extrabold text-[#256D57] tabular-nums mt-0.5">
               已收集 {collectedAccessoryCount} / {ACCESSORIES.length}
             </div>
-          </div>
-          <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[11px] font-bold text-[#826862]">佈置圖鑑</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('house')}
+            className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">🏡 佈置圖鑑</div>
             <div className="text-xs font-extrabold text-[#9D5B12] tabular-nums mt-0.5">
               已收集 {houseCounts.totalCollected} / {houseCounts.totalItems}
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="space-y-1.5 pt-1">
@@ -176,42 +225,54 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         </div>
       </section>
 
-      <div className="grid grid-cols-3 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-4 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('foods')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'foods'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <Utensils className="w-3.5 h-3.5 shrink-0" />
-          <span>食物 ({collectedFoodCount}/{FOODS.length})</span>
+          <span className="tabular-nums">食物 {collectedFoodCount}/{FOODS.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('recipes')}
+          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'recipes'
+              ? 'bg-white text-[#B84C24] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <ChefHat className="w-3.5 h-3.5 shrink-0" />
+          <span className="tabular-nums">食譜 {learnedRecipeCount}/{KITCHEN_RECIPES.length}</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('accessories')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'accessories'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span>配件 ({collectedAccessoryCount}/{ACCESSORIES.length})</span>
+          <span className="tabular-nums">配件 {collectedAccessoryCount}/{ACCESSORIES.length}</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('house')}
-          className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
+          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'house'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
           <Home className="w-3.5 h-3.5 shrink-0" />
-          <span>佈置 ({houseCounts.totalCollected}/{houseCounts.totalItems})</span>
+          <span className="tabular-nums">佈置 {houseCounts.totalCollected}/{houseCounts.totalItems}</span>
         </button>
       </div>
 
@@ -275,6 +336,302 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
               );
             })}
           </div>
+        </section>
+      )}
+
+      {section === 'recipes' && (
+        <section className="space-y-3">
+          {/* Progress Summary Card */}
+          <div className="rounded-3xl bg-gradient-to-br from-[#FFF6E5] via-[#FFFDF8] to-[#FFEFF4] border-2 border-[#F2DFD3] p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-[#4A3531]">
+                  👩‍🍳 料理食譜圖鑑
+                </h3>
+                <p className="text-[11px] text-[#7D635D] mt-0.5">
+                  在廚房親手合成料理即可學會食譜，查看配方與隱藏提示！
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-[#F0D5C2] text-xs font-extrabold text-[#B84C24] tabular-nums shrink-0">
+                {learnedRecipeCount} / {KITCHEN_RECIPES.length}
+              </span>
+            </div>
+
+            <div className="w-full h-2.5 rounded-full bg-[#EFE3DA] overflow-hidden border border-black/5">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#FF9A6C] to-[#FF7A9E] transition-all duration-300"
+                style={{ width: `${recipeProgressPct}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <div className="grid grid-cols-3 gap-1 bg-[#F2E5DE] p-1 rounded-xl flex-1 min-w-[200px]">
+                {(
+                  [
+                    { key: 'all', label: `全部 (${KITCHEN_RECIPES.length})` },
+                    { key: 'learned', label: `已學會 (${learnedRecipeCount})` },
+                    { key: 'locked', label: `隱藏 (${lockedRecipeCount})` },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setRecipeFilter(tab.key)}
+                    className={`min-h-[34px] rounded-lg px-1.5 text-[11px] font-extrabold transition whitespace-nowrap ${
+                      recipeFilter === tab.key
+                        ? 'bg-white text-[#B84C24] shadow-xs'
+                        : 'text-[#7D635D] hover:text-[#4A3531]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {onGoToKitchen && (
+                <button
+                  type="button"
+                  onClick={onGoToKitchen}
+                  className="min-h-[38px] px-3 rounded-xl bg-[#5CC9A7] text-white text-xs font-extrabold shadow-[0_2px_0_#3BA886] inline-flex items-center gap-1 hover:bg-[#49B895] active:translate-y-0.5 transition shrink-0"
+                >
+                  <CookingPot className="w-3.5 h-3.5" />
+                  <span>去廚房試做</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Recipe List */}
+          {(() => {
+            const visibleRecipes = KITCHEN_RECIPES.filter((r) => {
+              const isLearned = learnedRecipeSet.has(r.id);
+              if (recipeFilter === 'learned') return isLearned;
+              if (recipeFilter === 'locked') return !isLearned;
+              return true;
+            });
+
+            if (visibleRecipes.length === 0) {
+              return (
+                <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#EFE0D8] p-6 text-center space-y-2">
+                  <div className="text-3xl">
+                    {recipeFilter === 'learned' ? '🍳' : '🎉'}
+                  </div>
+                  <p className="text-sm font-extrabold text-[#4A3531]">
+                    {recipeFilter === 'learned'
+                      ? '目前還沒有已學會的食譜喔！'
+                      : '太厲害了！全部隱藏食譜都已經學會了！'}
+                  </p>
+                  <p className="text-xs text-[#7D635D]">
+                    {recipeFilter === 'learned'
+                      ? '切換到「隱藏」分頁查看提示，再到食堂廚房合成第一道料理吧～'
+                      : '你已經掌握了萌寵食堂的所有秘密食譜！'}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2.5">
+                {visibleRecipes.map((recipe) => {
+                  const isLearned = learnedRecipeSet.has(recipe.id);
+                  const reqEntries = Object.entries(recipe.ingredients) as [
+                    IngredientId,
+                    number,
+                  ][];
+                  const usesOvernightCrop = reqEntries.some(
+                    ([id]) => Boolean(INGREDIENTS[id]?.isOvernight)
+                  );
+                  const outputFood = foodById.get(recipe.outputFoodId);
+                  const isFavorite = favoriteFoodIds.includes(recipe.outputFoodId);
+                  const totalUnits = reqEntries.reduce((sum, [, need]) => sum + need, 0);
+                  const canCookNow =
+                    ingredients !== undefined &&
+                    reqEntries.every(([id, need]) => (ingredients[id] ?? 0) >= need);
+
+                  if (!isLearned) {
+                    return (
+                      <article
+                        key={recipe.id}
+                        className="rounded-3xl bg-[#F6EFEA] border-2 border-dashed border-[#DCCBC0] p-3.5 space-y-2.5"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-2xl bg-[#EAE0D9] border border-[#D9CBC1] flex items-center justify-center text-3xl relative shrink-0">
+                            <span
+                              className="grayscale brightness-0 opacity-20 select-none"
+                              aria-hidden="true"
+                            >
+                              {recipe.emoji}
+                            </span>
+                            <Lock className="w-5 h-5 text-[#7F6B64] absolute" />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <h4 className="text-sm font-extrabold text-[#5A443E]">
+                                ??? 隱藏料理食譜
+                              </h4>
+                              <span className="px-2 py-0.5 rounded-lg bg-[#EAE0D9] text-[#76615A] text-[10px] font-extrabold">
+                                尚未解鎖
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <span className="px-2 py-0.5 rounded-lg bg-white/80 border border-[#E2D4CB] text-[10px] font-extrabold text-[#7A5E52] tabular-nums">
+                                需 {reqEntries.length} 種食材（共 {totalUnits} 份）
+                              </span>
+                              {usesOvernightCrop && (
+                                <span className="px-2 py-0.5 rounded-lg bg-[#EFE4FA] border border-[#D4BEEB] text-[10px] font-extrabold text-[#623D85]">
+                                  🌙 含過夜長作物
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="mt-2 rounded-2xl bg-[#FFF9F2] border border-[#EAD7C7] px-3 py-2">
+                              <p className="text-[11px] font-extrabold text-[#9A581B]">
+                                💡 隱藏食譜提示
+                              </p>
+                              <p className="text-xs text-[#6B4F45] mt-0.5 leading-relaxed">
+                                {recipe.hint ?? '收集對應食材並前往食堂廚房合成後即可解鎖！'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {reqEntries.map(([id, need]) => {
+                              const isOvernight = Boolean(INGREDIENTS[id]?.isOvernight);
+                              return (
+                                <span
+                                  key={id}
+                                  className={`px-2 py-1 rounded-xl border text-[11px] font-extrabold tabular-nums ${
+                                    isOvernight
+                                      ? 'bg-[#F5ECF9] border-[#DEC9F2] text-[#664188]'
+                                      : 'bg-[#EDE3DC] border-[#DDD0C7] text-[#7D665E]'
+                                  }`}
+                                >
+                                  {isOvernight ? '🌙 過夜食材' : '❓ 未知食材'} ×{need}
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <span className="text-[11px] font-bold text-[#8A7168]">
+                            廚房製作後收錄
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  return (
+                    <article
+                      key={recipe.id}
+                      className={`rounded-3xl bg-[#FFFDF8] border-2 p-3.5 space-y-2.5 ${
+                        isFavorite ? 'border-[#FFACC3]' : 'border-[#F2DFD5]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-[#FFF3DC] border border-[#F3DCAB] flex items-center justify-center text-3xl shrink-0">
+                          <span aria-hidden="true">{recipe.emoji}</span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
+                                {recipe.name}
+                              </h4>
+                              {outputFood && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-[#F6ECE4] text-[10px] font-extrabold text-[#7D5E52] shrink-0">
+                                  {FOOD_CATEGORY_LABELS[outputFood.category]}
+                                </span>
+                              )}
+                            </div>
+                            <span className="px-2 py-0.5 rounded-lg bg-[#E4F7EE] border border-[#B2E3CF] text-[#1F6B54] text-[10px] font-extrabold inline-flex items-center gap-0.5 shrink-0">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>已學會</span>
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {isFavorite && (
+                              <span className="text-[11px] font-extrabold text-[#D64470]">
+                                ♥ 寶貝最愛料理
+                              </span>
+                            )}
+                            {usesOvernightCrop && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#F3E8FC] text-[#613D84] text-[10px] font-extrabold">
+                                🌙 過夜特製
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-[#7D635D] mt-1 leading-relaxed">
+                            {recipe.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Required Ingredients */}
+                      <div className="rounded-2xl bg-[#FAF4ED] border border-[#EBDAD0] p-2.5 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-extrabold text-[#6E5246]">
+                          <span>🧺 製作所需食材</span>
+                          {ingredients && (
+                            <span
+                              className={
+                                canCookNow ? 'text-[#1F6B54]' : 'text-[#9A715F]'
+                              }
+                            >
+                              {canCookNow ? '✓ 目前食材齊全可製作' : '尚缺部分食材'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {reqEntries.map(([id, need]) => {
+                            const ing = INGREDIENTS[id];
+                            const owned = ingredients?.[id];
+                            const enough = owned !== undefined && owned >= need;
+                            return (
+                              <div
+                                key={id}
+                                className={`rounded-xl border px-2 py-1 inline-flex items-center gap-1.5 text-[11px] font-extrabold tabular-nums ${
+                                  ingredients === undefined
+                                    ? 'bg-white border-[#E7D5C8] text-[#4E3629]'
+                                    : enough
+                                    ? 'bg-[#E9F9F2] border-[#AEE3CD] text-[#1F6B54]'
+                                    : 'bg-white border-[#E7D5C8] text-[#6E544E]'
+                                }`}
+                              >
+                                <CropIllustration cropId={id} stage="mature" size={20} />
+                                <span>{ing.name}</span>
+                                <span className="text-[#B84C24]">×{need}</span>
+                                {owned !== undefined && (
+                                  <span className="text-[10px] opacity-80">
+                                    (庫存 {owned})
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Bonus & Nutrition Strip */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-[#7D635D] px-0.5 tabular-nums">
+                        <span>✨ 合成成長 +{recipe.bonusGrowth}</span>
+                        {outputFood && (
+                          <span>
+                            飽食 +{outputFood.hunger} · 心情 +{outputFood.mood} · 餵食成長 +
+                            {outputFood.growthGain}
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </section>
       )}
 

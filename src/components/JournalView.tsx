@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
+import { getPetSpeciesInfo } from '../data/species';
 import {
   CloudSyncStatus,
   CloudUser,
@@ -83,6 +84,7 @@ interface JournalViewProps {
   onSaveMonthlyRecap?: (recap: MonthlyRecap) => void;
   onShareRecapToBoard?: (recap: MonthlyRecap) => Promise<string | null>;
   onShareTextToBoard?: (title: string, body: string) => Promise<string | null>;
+  onGoToKitchen?: () => void;
 }
 
 interface ChartPoint {
@@ -125,6 +127,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onSaveMonthlyRecap,
   onShareRecapToBoard,
   onShareTextToBoard,
+  onGoToKitchen,
 }) => {
   const [section, setSection] = useState<JournalSection>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
@@ -328,8 +331,11 @@ export const JournalView: React.FC<JournalViewProps> = ({
           encyclopedia={encyclopedia}
           unlockedAccessories={unlockedAccessories}
           house={house}
+          ingredients={game?.ingredients}
+          favoriteFoodIds={getPetSpeciesInfo(pet.species).favoriteFoodIds}
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
+          onGoToKitchen={onGoToKitchen}
         />
       ) : section === 'evolution' ? (
         <EvolutionAtlasView

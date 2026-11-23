@@ -1821,6 +1821,7 @@ export default function App() {
     const canCook = reqEntries.every(([id, need]) => (game.ingredients[id] ?? 0) >= need);
     if (!canCook) return;
 
+    const isNewRecipe = !(game.encyclopedia.learnedRecipeIds ?? []).includes(recipe.id);
     soundFX.levelUp(game.soundEnabled);
     setGame((prev) => {
       const nextIngredients = { ...prev.ingredients };
@@ -1831,6 +1832,10 @@ export default function App() {
       const nextCollectedFoods = prev.encyclopedia.collectedFoodIds.includes(recipe.outputFoodId)
         ? prev.encyclopedia.collectedFoodIds
         : [...prev.encyclopedia.collectedFoodIds, recipe.outputFoodId];
+      const prevLearnedRecipes = prev.encyclopedia.learnedRecipeIds ?? [];
+      const nextLearnedRecipes = prevLearnedRecipes.includes(recipe.id)
+        ? prevLearnedRecipes
+        : [...prevLearnedRecipes, recipe.id];
 
       const draftState: GameState = {
         ...prev,
@@ -1851,6 +1856,7 @@ export default function App() {
         encyclopedia: {
           ...prev.encyclopedia,
           collectedFoodIds: nextCollectedFoods,
+          learnedRecipeIds: nextLearnedRecipes,
         },
       };
       const syncedAcc = syncAllAccessoryProgress(draftState).nextState;
@@ -1868,8 +1874,15 @@ export default function App() {
       });
       return withMem;
     });
-    pushFeedback(`做出 ${recipe.name}！`, recipe.emoji);
-    setSpeech(`香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`);
+    pushFeedback(
+      isNewRecipe ? `解鎖新食譜：${recipe.name}！` : `做出 ${recipe.name}！`,
+      recipe.emoji
+    );
+    setSpeech(
+      isNewRecipe
+        ? `哇～學會新食譜「${recipe.name}」並收錄進圖鑑囉！好想馬上吃一口！`
+        : `香噴噴的「${recipe.name}」出爐囉～好想馬上吃一口！`
+    );
   };
 
   const handleSpendReplayCoins = (cost: number): boolean => {
@@ -3396,6 +3409,7 @@ export default function App() {
                   onToggleFarmDecoration={handleToggleFarmDecoration}
                   onUpdateHouseName={handleUpdateHouseName}
                   initialSection={canteenInitialSection}
+                  learnedRecipeIds={game.encyclopedia.learnedRecipeIds}
                 />
               )}
 
@@ -3487,6 +3501,10 @@ export default function App() {
                   onSaveMonthlyRecap={handleSaveMonthlyRecap}
                   onShareRecapToBoard={handleShareRecapToBoard}
                   onShareTextToBoard={handleShareCoopCardToBoard}
+                  onGoToKitchen={() => {
+                    setCanteenInitialSection('kitchen');
+                    setActiveTab('canteen');
+                  }}
                 />
               )}
 

@@ -105,6 +105,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '手作焦糖布丁',
     emoji: '🍮',
     description: '用香甜玉米與紅蘿蔔慢火熬出天然甜香布丁！',
+    hint: '試著把金黃香甜的玉米粒搭配一點爽脆紅蘿蔔在廚房慢火熬煮～',
     ingredients: {
       corn: 2,
       carrot: 1,
@@ -117,6 +118,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '鮮果水果盒',
     emoji: '🍓',
     description: '現採草莓搭配脆甜紅蘿蔔丁，清爽又繽紛！',
+    hint: '以酸甜鮮紅的莓果為主角，配上一點橘色根莖蔬果讓口感更脆甜！',
     ingredients: {
       strawberry: 2,
       carrot: 1,
@@ -129,6 +131,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '鮮採紅蘿蔔沙拉',
     emoji: '🥗',
     description: '現摘紅蘿蔔加上甜玉米粒，脆口滿分。',
+    hint: '用大量清脆橘色蔬菜為基底，灑入少量金黃玉米粒就完成輕食！',
     ingredients: {
       carrot: 2,
       corn: 1,
@@ -141,6 +144,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '草莓玉米脆餅',
     emoji: '🍪',
     description: '烤得金黃酥脆的草莓風味手工小餅乾。',
+    hint: '金黃玉米搭配一點酸甜草莓一起烘焙，會散發出香酥餅乾味喔！',
     ingredients: {
       corn: 2,
       strawberry: 1,
@@ -153,6 +157,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '金黃南瓜濃湯',
     emoji: '🎃',
     description: '現採南瓜與甜玉米細火慢熬，溫暖又飽足。',
+    hint: '把圓滾滾的秋季金黃瓜果與甜玉米粒一起燉煮，喝起來暖呼呼！',
     ingredients: {
       pumpkin: 2,
       corn: 1,
@@ -165,6 +170,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '藍莓卡士達塔',
     emoji: '🫐',
     description: '爆汁藍莓加上草莓點綴，浪漫下午茶首選。',
+    hint: '集齊深藍與鮮紅兩種莓果，就能烤出香甜不膩的雙莓果塔！',
     ingredients: {
       blueberry: 2,
       strawberry: 1,
@@ -177,6 +183,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '薄荷鮮果聖代',
     emoji: '🍨',
     description: '沁涼薄荷搭配鮮甜藍莓，一口就微笑！',
+    hint: '摘取兩把清涼翠綠的香草葉，搭配深藍色莓果做出沁涼甜品！',
     ingredients: {
       mint: 2,
       blueberry: 1,
@@ -189,6 +196,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '向日葵元氣餐盒',
     emoji: '🌻',
     description: '酥脆葵花籽與南瓜紅蘿蔔雙拼，滿滿陽光活力！',
+    hint: '需要陽光花朵、圓滾南瓜與橘色紅蘿蔔共 3 種作物一起裝盒！',
     ingredients: {
       sunflower: 1,
       pumpkin: 1,
@@ -202,6 +210,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '月光金黃可頌',
     emoji: '🥐',
     description: '用隔夜熟成的月光小麥搭配香甜玉米，現烤出層層酥脆的早安可頌！',
+    hint: '🌙 過夜秘方：睡前種下 6 小時「月光小麥」，早上收成搭配甜玉米烘焙！',
     ingredients: {
       moon_wheat: 2,
       corn: 1,
@@ -214,6 +223,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '早安元氣鬆餅盤',
     emoji: '🥞',
     description: '月光小麥厚煎鬆餅佐新鮮草莓與藍莓，晨間幸福早午餐首選！',
+    hint: '🌙 過夜秘方：用清晨收成的月光小麥搭配草莓與藍莓雙莓果打造豐盛早午餐！',
     ingredients: {
       moon_wheat: 2,
       strawberry: 1,
@@ -227,6 +237,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '晚安熔岩可可蛋糕',
     emoji: '🍰',
     description: '整夜醞釀的濃醇可可加上月光小麥麵香，切開會流出溫暖巧克力醬！',
+    hint: '🌙 過夜秘方：同時集齊「晚安可可（8小時）」與「月光小麥（6小時）」兩種過夜作物才能製作！',
     ingredients: {
       dream_cocoa: 2,
       moon_wheat: 1,
@@ -239,6 +250,7 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     name: '薄荷雲朵熱可可',
     emoji: '☕',
     description: '濃厚晚安可可搭配清新薄荷奶蓋，早上來一杯立刻暖呼呼醒神！',
+    hint: '🌙 過夜秘方：整夜醞釀的晚安可可（8小時）淋上清涼薄荷葉，早安醒神特調！',
     ingredients: {
       dream_cocoa: 2,
       mint: 1,

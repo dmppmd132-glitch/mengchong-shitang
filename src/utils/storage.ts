@@ -14,6 +14,7 @@ import {
 import {
   INGREDIENT_IDS,
   INGREDIENTS,
+  KITCHEN_RECIPES,
   createInitialFarmPlots,
   createInitialIngredients,
 } from '../data/kitchen';
@@ -566,7 +567,11 @@ function asAccessoryTheme(value: unknown): AccessoryTheme | null {
   return null;
 }
 
-function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaState {
+function parseEncyclopedia(
+  raw: unknown,
+  seedFoodIds: string[],
+  cookedCount = 0
+): EncyclopediaState {
   const defaults = createInitialEncyclopediaState(seedFoodIds);
   if (!isRecord(raw)) return defaults;
 
@@ -574,6 +579,19 @@ function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaSta
     ? raw.collectedFoodIds.filter((x): x is string => typeof x === 'string')
     : [];
   const mergedFoods = Array.from(new Set([...defaults.collectedFoodIds, ...rawFoods]));
+
+  const validRecipeIds = new Set(KITCHEN_RECIPES.map((r) => r.id));
+  const learnedRecipeIds = Array.isArray(raw.learnedRecipeIds)
+    ? Array.from(
+        new Set(
+          raw.learnedRecipeIds.filter(
+            (x): x is string => typeof x === 'string' && validRecipeIds.has(x)
+          )
+        )
+      )
+    : cookedCount > 0
+    ? KITCHEN_RECIPES.filter((r) => mergedFoods.includes(r.outputFoodId)).map((r) => r.id)
+    : [];
 
   const claimedAccessoryMilestones = Array.isArray(raw.claimedAccessoryMilestones)
     ? Array.from(
@@ -609,6 +627,7 @@ function parseEncyclopedia(raw: unknown, seedFoodIds: string[]): EncyclopediaSta
 
   return {
     collectedFoodIds: mergedFoods,
+    learnedRecipeIds,
     claimedAccessoryMilestones,
     claimedAccessoryThemeSets,
     unlockedTitles,
@@ -2007,6 +2026,15 @@ export function normalizeGameState(parsed: unknown): GameState | null {
       })
     : [];
 
+  const noviceGrowth = parseNoviceGrowth(
+    parsed.noviceGrowth,
+    formatLocalDate(),
+    parsedFeedLogs.length,
+    seedWeightCount,
+    mergedAccessories.length,
+    seedClaimedDailyCount
+  );
+
   const draft: GameState = {
     version: 2,
     pet,
@@ -2024,15 +2052,8 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     messages: parsePetMessages(parsed.messages),
     soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
     lastSavedAt: now,
-    noviceGrowth: parseNoviceGrowth(
-      parsed.noviceGrowth,
-      formatLocalDate(),
-      parsedFeedLogs.length,
-      seedWeightCount,
-      mergedAccessories.length,
-      seedClaimedDailyCount
-    ),
-    encyclopedia: parseEncyclopedia(parsed.encyclopedia, seedFoodIds),
+    noviceGrowth,
+    encyclopedia: parseEncyclopedia(parsed.encyclopedia, seedFoodIds, noviceGrowth.cookedCount),
     unlockedBackgrounds,
     activeBackground,
     minigameHub: parseMinigameHub(parsed.minigameHub),

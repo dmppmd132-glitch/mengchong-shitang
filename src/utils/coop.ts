@@ -806,6 +806,13 @@ export function cookCoopOrderRecipe(
 
   let nextUnlockedTitles = [...state.encyclopedia.unlockedTitles];
   let nextActiveTitle = state.encyclopedia.activeTitle;
+  const nextCollectedFoodIds = state.encyclopedia.collectedFoodIds.includes(recipe.outputFoodId)
+    ? state.encyclopedia.collectedFoodIds
+    : [...state.encyclopedia.collectedFoodIds, recipe.outputFoodId];
+  const prevLearnedRecipes = state.encyclopedia.learnedRecipeIds ?? [];
+  const nextLearnedRecipeIds = prevLearnedRecipes.includes(recipe.id)
+    ? prevLearnedRecipes
+    : [...prevLearnedRecipes, recipe.id];
 
   // Complete within deadline -> generate identical reward for both partners
   if (isOrderNowCompleted && !order.overdue) {
@@ -869,6 +876,8 @@ export function cookCoopOrderRecipe(
     foods: nextFoodsInventory,
     encyclopedia: {
       ...state.encyclopedia,
+      collectedFoodIds: nextCollectedFoodIds,
+      learnedRecipeIds: nextLearnedRecipeIds,
       unlockedTitles: nextUnlockedTitles,
       activeTitle: nextActiveTitle,
     },
