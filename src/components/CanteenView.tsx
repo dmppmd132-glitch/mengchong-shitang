@@ -80,7 +80,9 @@ interface CanteenViewProps {
   onBuyFood: (food: Food) => void;
   onPlantCrop: (plotId: number, ingredientId: IngredientId) => void;
   onWaterCrop?: (plotId: number) => void;
+  onWaterAllCrops?: () => void;
   onHarvestCrop: (plotId: number) => void;
+  onHarvestAllCrops?: () => void;
   onClaimPuppyTreasure?: () => string | null;
   onCookRecipe: (recipe: KitchenRecipe) => void;
   onOpenMinigame?: () => void;
@@ -120,7 +122,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onBuyFood,
   onPlantCrop,
   onWaterCrop,
+  onWaterAllCrops,
   onHarvestCrop,
+  onHarvestAllCrops,
   onClaimPuppyTreasure,
   onCookRecipe,
   onOpenMinigame,
@@ -256,6 +260,84 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
     burstTimersRef.current.push(tId);
   };
 
+  const handleWaterAllPlots = () => {
+    if (!onWaterAllCrops) return;
+    const targets = farmPlots.filter(
+      (p) =>
+        p.cropId !== null &&
+        !p.watered &&
+        !getCropGrowthState(p, now, yardMoodBuffPeriods).isReady
+    );
+    if (targets.length === 0) return;
+    onWaterAllCrops();
+    const stamp = Date.now();
+    setWaterPourPlotIds((prev) => {
+      const next = { ...prev };
+      targets.forEach((p) => {
+        next[p.id] = stamp;
+      });
+      return next;
+    });
+    const tId = window.setTimeout(() => {
+      setWaterPourPlotIds((prev) => {
+        const next = { ...prev };
+        targets.forEach((p) => {
+          if (next[p.id] === stamp) delete next[p.id];
+        });
+        return next;
+      });
+      burstTimersRef.current = burstTimersRef.current.filter((id) => id !== tId);
+    }, 1100);
+    burstTimersRef.current.push(tId);
+  };
+
+  const handleHarvestAllPlots = () => {
+    if (!onHarvestAllCrops) return;
+    const readyTargets = farmPlots.filter(
+      (p) =>
+        p.cropId !== null &&
+        getCropGrowthState(p, now, yardMoodBuffPeriods).isReady
+    );
+    if (readyTargets.length === 0) return;
+
+    const simQty: Record<string, number> = { ...ingredients };
+    const burstsToAdd: Array<{
+      id: number;
+      plotId: number;
+      text: string;
+      emoji: string;
+      isGolden?: boolean;
+    }> = [];
+    const baseStamp = Date.now();
+    for (const p of readyTargets) {
+      if (!p.cropId) continue;
+      const cur = simQty[p.cropId] ?? 0;
+      if (cur >= storageCap) continue;
+      const crop = INGREDIENTS[p.cropId];
+      const effYield = getEffectiveHarvestYield(crop.harvestYield, house);
+      simQty[p.cropId] = Math.min(storageCap, cur + effYield);
+      const isGolden = Boolean(p.isGolden);
+      burstsToAdd.push({
+        id: baseStamp + p.id * 100 + Math.floor(Math.random() * 90),
+        plotId: p.id,
+        text: isGolden ? `雙倍金幣 +${crop.seedCost * 2}` : `${crop.name} +${effYield}`,
+        emoji: isGolden ? '🌟' : crop.emoji,
+        isGolden,
+      });
+    }
+
+    onHarvestAllCrops();
+    if (burstsToAdd.length > 0) {
+      const addedIds = new Set(burstsToAdd.map((b) => b.id));
+      setHarvestBursts((prev) => [...prev, ...burstsToAdd]);
+      const tId = window.setTimeout(() => {
+        setHarvestBursts((prev) => prev.filter((b) => !addedIds.has(b.id)));
+        burstTimersRef.current = burstTimersRef.current.filter((id) => id !== tId);
+      }, 1350);
+      burstTimersRef.current.push(tId);
+    }
+  };
+
   const speciesInfo = getPetSpeciesInfo(pet.species);
   const items = filter === 'all' ? FOODS : FOODS.filter((f) => f.category === filter);
   const isFull = pet.hunger >= 100;
@@ -264,6 +346,12 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
   const readyCropsCount = farmPlots.filter(
     (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
+  ).length;
+  const waterableCropsCount = farmPlots.filter(
+    (plot) =>
+      plot.cropId !== null &&
+      !plot.watered &&
+      !getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
   ).length;
 
   const nextExpandPlotNumber = house.unlockedFarmPlots < 8 ? house.unlockedFarmPlots + 1 : null;
@@ -745,7 +833,33 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
               <GrassTuftSvg className="absolute right-12 bottom-10 opacity-80" />
 
               {/* Cardless Soil Plots Sitting Directly on Green Meadow Grass */}
-              <section className="relative z-10 px-4 pt-3">
+              <section className="relative z-10 px-4 pt-3 space-y-3">
+                {((waterableCropsCount > 0 && onWaterAllCrops) ||
+                  (readyCropsCount > 0 && onHarvestAllCrops)) && (
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {waterableCropsCount > 0 && onWaterAllCrops && (
+                      <button
+                        type="button"
+                        onClick={handleWaterAllPlots}
+                        className="min-h-[38px] px-3 rounded-2xl bg-gradient-to-b from-[#B3ECFF] to-[#74CEF2] border-2 border-[#6B5344] shadow-[0_3px_0_#4396B8] text-xs font-extrabold text-[#154A63] inline-flex items-center gap-1 hover:brightness-105 active:translate-y-0.5 transition"
+                      >
+                        <span aria-hidden="true">💧</span>
+                        <span>一鍵澆水 ({waterableCropsCount})</span>
+                      </button>
+                    )}
+                    {readyCropsCount > 0 && onHarvestAllCrops && (
+                      <button
+                        type="button"
+                        onClick={handleHarvestAllPlots}
+                        className="min-h-[38px] px-3 rounded-2xl bg-gradient-to-b from-[#86D6B3] to-[#63BA95] border-2 border-[#6B5344] shadow-[0_3px_0_#439070] text-xs font-extrabold text-white inline-flex items-center gap-1 hover:brightness-105 active:translate-y-0.5 transition"
+                      >
+                        <span aria-hidden="true">🧺</span>
+                        <span>一鍵採收 ({readyCropsCount})</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-x-3.5 gap-y-8">
                   {farmPlots.map((plot) => {
                     const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
@@ -966,7 +1080,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                         <h4 className="text-xs font-extrabold text-[#4E3629]">
                           擴建第 {nextExpandPlotNumber} 塊農地
                         </h4>
-                        <p className="text-[10px] font-bold text-[#61493B] mt-0.5">
+                        <p className="text-[11px] font-bold text-[#61493B] mt-0.5">
                           開墾後一起播種採收！
                         </p>
                       </div>
@@ -1098,11 +1212,11 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                         {upg.emoji} {upg.name}
                         {upg.maxLevel > 1 ? ` (Lv.${curLvl}/${upg.maxLevel})` : ''}
                       </div>
-                      <p className="text-[10px] text-[#6E544E] mt-0.5 leading-snug">
+                      <p className="text-[11px] text-[#6E544E] mt-0.5 leading-snug">
                         {upg.description}
                       </p>
                       {!isMax && upg.effectSummaries[curLvl] && (
-                        <p className="text-[10px] font-extrabold text-[#1F6B54] mt-0.5">
+                        <p className="text-[11px] font-extrabold text-[#1F6B54] mt-0.5">
                           下一級：{upg.effectSummaries[curLvl]}
                         </p>
                       )}
@@ -1148,7 +1262,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                         <div className="text-xs font-extrabold text-[#4A3531]">
                           {dec.emoji} {dec.name}
                         </div>
-                        <p className="text-[10px] text-[#7D635D] mt-0.5 leading-snug">
+                        <p className="text-[11px] text-[#7D635D] mt-0.5 leading-snug">
                           {dec.description}
                         </p>
                       </div>

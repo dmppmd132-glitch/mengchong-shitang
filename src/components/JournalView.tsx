@@ -580,7 +580,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
               📸 紀念相簿（小屋合照・穿搭寫真）
             </h2>
             <p className="text-xs text-[#7D635D]">
-              在「更衣室 → 拍照」或「佈置小屋 → 拍照」留下的作品都會收藏在這裡
+              在「衣櫃快拍」、「開心農場」或「家園寫真」拍攝的作品都會收藏在這裡
             </p>
           </div>
           {(onOpenWardrobePhotoMode || onOpenHousePhotoMode) && (
@@ -594,7 +594,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
               className="min-h-[40px] px-3 rounded-2xl bg-[#FFEAF0] border border-[#F5C6D4] text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1 shrink-0 active:scale-95 transition"
             >
               <Camera className="w-3.5 h-3.5" />
-              <span>去拍照</span>
+              <span>拍穿搭照</span>
             </button>
           )}
         </div>

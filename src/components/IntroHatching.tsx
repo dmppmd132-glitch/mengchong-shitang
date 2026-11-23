@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Cloud, Users } from 'lucide-react';
+import { FOODS } from '../data/foods';
 import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
 import { PetSpecies } from '../types';
 import { PiggyCharacter } from './PiggyCharacter';
@@ -72,7 +73,7 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
       <div className="w-full flex flex-col items-center justify-center my-3 space-y-4">
         {!isHatched ? (
           <div className="w-full flex flex-col items-center">
-            <div className="w-full max-w-[330px] mb-3">
+            <div className="w-full max-w-[348px] mb-3">
               <p className="text-xs font-extrabold text-[#6E544E] text-center mb-2">
                 先選擇想孵化的寵物蛋
               </p>
@@ -88,18 +89,35 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
                         setSelectedSpecies(sp);
                         onEggTapSound();
                       }}
-                      className={`min-h-[48px] rounded-2xl px-2 py-2 border-2 text-xs font-extrabold transition flex flex-col items-center justify-center gap-0.5 ${
+                      className={`min-h-[84px] rounded-2xl px-1.5 py-2 border-2 text-xs font-extrabold transition flex flex-col items-center justify-center gap-1 ${
                         active
-                          ? 'bg-white border-[#FF7A9E] text-[#D64470] shadow-xs'
-                          : 'bg-white/65 border-[#F0D5DF] text-[#7D635D] hover:bg-white'
+                          ? 'bg-white border-[#FF7A9E] text-[#D64470] shadow-sm scale-[1.02]'
+                          : 'bg-white/70 border-[#F0D5DF] text-[#7D635D] hover:bg-white'
                       }`}
                     >
-                      <span
-                        className="w-4 h-4 rounded-full border border-[#5A3E36]"
-                        style={{ backgroundColor: info.eggColor }}
+                      <div
+                        className="w-11 h-11 rounded-full flex items-center justify-center border border-[#5A3E36]/20 overflow-hidden"
+                        style={{ backgroundColor: `${info.eggColor}55` }}
                         aria-hidden="true"
-                      />
-                      <span>{info.label}</span>
+                      >
+                        <PiggyCharacter
+                          species={sp}
+                          growth={0}
+                          roundness={26}
+                          action="idle"
+                          equipped={{
+                            head: null,
+                            face: null,
+                            neck: null,
+                            body: null,
+                            held: null,
+                            back: null,
+                          }}
+                          interactive={false}
+                          size={44}
+                        />
+                      </div>
+                      <span className="truncate w-full text-center">{info.label}</span>
                     </button>
                   );
                 })}
@@ -165,11 +183,23 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
               </svg>
             </button>
 
-            <div className="mt-2 text-center space-y-1">
+            <div className="mt-2 text-center space-y-1.5">
               <p className="text-base font-extrabold text-[#4A3531]">
                 {taps === 0 && `輕點${speciesInfo.label}蛋，看看裡面的小夥伴！`}
                 {taps === 1 && '咦！蛋殼輕輕動了一下…'}
                 {taps === 2 && '快破殼了！再點最後一下！'}
+              </p>
+              <p className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-white/80 border border-[#F0D5DF] text-[11px] font-bold text-[#7D635D]">
+                <span>
+                  最愛點心：
+                  {speciesInfo.favoriteFoodIds
+                    .map((fid) => {
+                      const f = FOODS.find((item) => item.id === fid);
+                      return f ? `${f.emoji}${f.name}` : '';
+                    })
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
               </p>
               <p className="text-xs font-bold text-[#856C66] tabular-nums">
                 孵化進度：{taps} / 3 次點擊

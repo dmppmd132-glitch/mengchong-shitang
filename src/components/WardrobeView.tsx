@@ -8,7 +8,6 @@ import {
   Heart,
   Lock,
   RotateCw,
-  Shirt,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -23,13 +22,10 @@ import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
 import {
   Accessory,
   AccessorySlot,
-  EncyclopediaState,
   Pet,
   PetPersonality,
   PetSpecies,
   PetViewDirection,
-  SharedHouse,
-  TitleId,
 } from '../types';
 import {
   getAccessoryObtainLabel,
@@ -38,7 +34,6 @@ import {
 } from '../utils/accessories';
 import { getPetPreference } from '../utils/personality';
 import { AccessoryPreview } from './AccessoryPreview';
-import { EncyclopediaView } from './EncyclopediaView';
 import { PiggyCharacter } from './PiggyCharacter';
 
 interface WardrobeViewProps {
@@ -46,13 +41,12 @@ interface WardrobeViewProps {
   personality: PetPersonality;
   coins: number;
   unlockedAccessories: string[];
-  encyclopedia: EncyclopediaState;
-  house: SharedHouse;
   onToggleEquip: (item: Accessory) => void;
   onBuyAccessory: (item: Accessory) => void;
   onChangeSpecies?: (species: PetSpecies) => void;
-  onSelectTitle?: (titleId: TitleId | null) => void;
   onOpenPhotoStudio?: () => void;
+  onOpenEncyclopedia?: () => void;
+  onOpenGrowthRoadmap?: () => void;
   lastReactionText?: string | null;
 }
 
@@ -61,26 +55,20 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   personality,
   coins,
   unlockedAccessories,
-  encyclopedia,
-  house,
   onToggleEquip,
   onBuyAccessory,
   onChangeSpecies,
-  onSelectTitle,
   onOpenPhotoStudio,
+  onOpenEncyclopedia,
+  onOpenGrowthRoadmap,
   lastReactionText = null,
 }) => {
-  const [viewMode, setViewMode] = useState<'wardrobe' | 'encyclopedia'>('wardrobe');
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
   const [viewDirection, setViewDirection] = useState<PetViewDirection>('front');
   const [isStageCompact, setIsStageCompact] = useState(false);
   const stageCardRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (viewMode !== 'wardrobe') {
-      setIsStageCompact(false);
-      return;
-    }
     const target = stageCardRef.current;
     if (!target || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(
@@ -94,7 +82,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
     );
     observer.observe(target);
     return () => observer.disconnect();
-  }, [viewMode]);
+  }, []);
 
   const directionOptions: Array<{ id: PetViewDirection; label: string }> = [
     { id: 'front', label: '正面' },
@@ -133,43 +121,6 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4 overflow-x-clip">
-      <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
-        <button
-          type="button"
-          onClick={() => setViewMode('wardrobe')}
-          className={`min-h-[44px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
-            viewMode === 'wardrobe'
-              ? 'bg-white text-[#D64470] shadow-xs'
-              : 'text-[#7D635D] hover:text-[#4A3531]'
-          }`}
-        >
-          <Shirt className="w-4 h-4" />
-          <span>穿搭更衣</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setViewMode('encyclopedia')}
-          className={`min-h-[44px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
-            viewMode === 'encyclopedia'
-              ? 'bg-white text-[#256D57] shadow-xs'
-              : 'text-[#7D635D] hover:text-[#4A3531]'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>收集圖鑑</span>
-        </button>
-      </div>
-
-      {viewMode === 'encyclopedia' ? (
-        <EncyclopediaView
-          encyclopedia={encyclopedia}
-          unlockedAccessories={unlockedAccessories}
-          house={house}
-          initialSection="accessories"
-          onSelectTitle={onSelectTitle}
-        />
-      ) : (
-        <>
           <section
             ref={stageCardRef}
             className="rounded-3xl bg-gradient-to-b from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#D2EFE4] p-4 flex flex-col items-center text-center relative"
@@ -183,16 +134,31 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   {primaryTrait.emoji} {primaryTrait.label} · {secondaryTrait.emoji} {secondaryTrait.label}
                 </p>
               </div>
-              {onOpenPhotoStudio && (
-                <button
-                  type="button"
-                  onClick={onOpenPhotoStudio}
-                  className="min-h-[44px] px-3.5 rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center gap-1.5 hover:bg-[#F76890] active:translate-y-0.5 transition shrink-0"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>拍照</span>
-                </button>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onOpenEncyclopedia && (
+                  <button
+                    type="button"
+                    onClick={onOpenEncyclopedia}
+                    className="min-h-[40px] px-2.5 rounded-2xl bg-white/95 border border-[#C6E8DB] text-[#256D57] text-[11px] font-extrabold inline-flex items-center gap-1 hover:bg-white active:scale-95 transition"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                    <span className="tabular-nums">
+                      圖鑑 {unlockedAccessories.length}/{ACCESSORIES.length}
+                    </span>
+                  </button>
+                )}
+                {onOpenPhotoStudio && (
+                  <button
+                    type="button"
+                    onClick={onOpenPhotoStudio}
+                    aria-label="在更衣室拍穿搭照"
+                    className="min-h-[40px] px-3 rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center gap-1 hover:bg-[#F76890] active:translate-y-0.5 transition"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>快拍</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {lastReactionText && (
@@ -312,8 +278,19 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
           </div>
 
           {!slotUnlocked && (
-            <div className="rounded-2xl bg-[#FFF3D1] border border-[#F3CE72] px-4 py-3 text-xs font-bold text-[#7B5610]">
-              「{ACCESSORY_SLOT_LABELS[activeSlot]}」欄位將於成長等級 Lv.2「{lv2Stage.name}」（100 成長值）解鎖！現在可以先預覽與購買喔。
+            <div className="rounded-2xl bg-[#FFF3D1] border border-[#F3CE72] px-4 py-3 flex items-center justify-between gap-2.5 text-xs font-bold text-[#7B5610]">
+              <p className="leading-snug">
+                「{ACCESSORY_SLOT_LABELS[activeSlot]}」欄位將於成長等級 Lv.2「{lv2Stage.name}」（100 成長值）解鎖！現在可以先預覽與購買喔。
+              </p>
+              {onOpenGrowthRoadmap && (
+                <button
+                  type="button"
+                  onClick={onOpenGrowthRoadmap}
+                  className="min-h-[34px] px-2.5 rounded-xl bg-white border border-[#EBC15A] text-[11px] font-extrabold text-[#8A5610] whitespace-nowrap shrink-0 hover:bg-[#FFF9E8] active:scale-95 transition"
+                >
+                  成長路線圖 ›
+                </button>
+              )}
             </div>
           )}
 
@@ -342,14 +319,14 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   <div className="flex flex-col items-center text-center">
                     <div className="w-full flex items-center justify-between gap-1 mb-2">
                       <span
-                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-extrabold inline-flex items-center gap-1 ${rarityMeta.badgeClass}`}
+                        className={`px-2 py-0.5 rounded-lg border text-[11px] font-extrabold inline-flex items-center gap-1 ${rarityMeta.badgeClass}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${rarityMeta.dotClass}`} />
                         <span>{rarityMeta.label}</span>
                       </span>
                       {matchesPersonality && (
                         <span
-                          className="px-1.5 py-0.5 rounded-lg bg-[#FFEAF0] border border-[#F5B9CB] text-[10px] font-extrabold text-[#C43463] inline-flex items-center gap-0.5"
+                          className="px-1.5 py-0.5 rounded-lg bg-[#FFEAF0] border border-[#F5B9CB] text-[11px] font-extrabold text-[#C43463] inline-flex items-center gap-0.5"
                           title="符合寶貝目前個性或最愛穿搭"
                         >
                           <Heart className="w-2.5 h-2.5 fill-[#FF6B9A] text-[#FF6B9A]" />
@@ -368,7 +345,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 
                     {themeDef && (
                       <span
-                        className={`mt-1 px-2 py-0.5 rounded-lg border text-[10px] font-extrabold ${themeDef.badgeClass}`}
+                        className={`mt-1 px-2 py-0.5 rounded-lg border text-[11px] font-extrabold ${themeDef.badgeClass}`}
                       >
                         {themeDef.emoji} {themeDef.name}
                       </span>
@@ -384,7 +361,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                         return (
                           <span
                             key={pid}
-                            className="px-1.5 py-0.5 rounded-md bg-[#FAF2EC] text-[10px] font-bold text-[#6E544E]"
+                            className="px-1.5 py-0.5 rounded-md bg-[#FAF2EC] text-[11px] font-bold text-[#6E544E]"
                           >
                             {pDef.emoji} {pDef.label}
                           </span>
@@ -394,7 +371,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   </div>
 
                   <div className="mt-2.5 space-y-1.5">
-                    <p className="text-[10px] font-bold text-[#8E756E] text-center leading-tight">
+                    <p className="text-[11px] font-bold text-[#8E756E] text-center leading-tight">
                       {getAccessoryObtainLabel(item)}
                     </p>
                     {isOwned ? (
@@ -478,7 +455,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                     <span className="text-xs font-extrabold text-[#4A3531] truncate">
                       {pet.name}即時試穿
                     </span>
-                    <span className="px-1.5 py-0.5 rounded-md bg-[#EBF7F2] text-[10px] font-extrabold text-[#256D57] whitespace-nowrap shrink-0">
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#EBF7F2] text-[11px] font-extrabold text-[#256D57] whitespace-nowrap shrink-0">
                       {directionOptions.find((d) => d.id === viewDirection)?.label ?? '正面'}
                     </span>
                   </div>
@@ -495,11 +472,11 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                     <button
                       type="button"
                       onClick={onOpenPhotoStudio}
-                      aria-label="開啟更衣室拍照"
+                      aria-label="在更衣室拍穿搭照"
                       className="min-h-[36px] px-2.5 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold inline-flex items-center gap-1 shadow-xs hover:bg-[#F76890] active:scale-95 transition"
                     >
                       <Camera className="w-3.5 h-3.5" />
-                      <span>拍照</span>
+                      <span>快拍</span>
                     </button>
                   )}
                   <button
@@ -514,8 +491,6 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
               </div>
             </div>
           )}
-        </>
-      )}
     </div>
   );
 };

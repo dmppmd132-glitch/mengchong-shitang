@@ -339,7 +339,7 @@ export const FoodMemoryMinigameView: React.FC<FoodMemoryMinigameViewProps> = ({
           <p className="text-xs font-extrabold text-[#4A3531] leading-snug">
             {statusMessage}
           </p>
-          <p className="text-[10px] font-bold text-[#8A716B] mt-0.5 tabular-nums">
+          <p className="text-[11px] font-bold text-[#8A716B] mt-0.5 tabular-nums">
             最高連擊 {maxCombo} · 踩到辣椒 {chiliHits} 次 · 全配對完成加碼獎勵！
           </p>
         </div>
@@ -373,7 +373,7 @@ export const FoodMemoryMinigameView: React.FC<FoodMemoryMinigameViewProps> = ({
                     {card.emoji}
                   </span>
                   {card.isFavorite && !card.matched && (
-                    <span className="text-[9px] font-extrabold text-[#B85414] mt-0.5 leading-none">
+                    <span className="text-[11px] font-extrabold text-[#B85414] mt-0.5 leading-none">
                       ♥ 2x
                     </span>
                   )}

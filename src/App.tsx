@@ -1548,6 +1548,157 @@ export default function App() {
     }
   };
 
+  const handleWaterAllCrops = () => {
+    const nowTs = Date.now();
+    const buffs = game.yardMoodBuffPeriods ?? [];
+    const targetIds = new Set(
+      game.farmPlots
+        .filter(
+          (p) =>
+            p.cropId !== null &&
+            p.plantedAt !== null &&
+            !p.watered &&
+            !getCropGrowthState(p, nowTs, buffs).isReady
+        )
+        .map((p) => p.id)
+    );
+    if (targetIds.size === 0) return;
+
+    soundFX.splash(game.soundEnabled);
+    soundFX.heart(game.soundEnabled);
+    triggerHaptic(18);
+
+    setGame((prev) => ({
+      ...prev,
+      farmPlots: prev.farmPlots.map((p) =>
+        targetIds.has(p.id) && p.plantedAt !== null
+          ? { ...p, plantedAt: p.plantedAt - 5000, watered: true }
+          : p
+      ),
+    }));
+    pushFeedback(`一次為 ${targetIds.size} 塊田地澆水 -5秒`, '💧');
+    setSpeech(`一口氣幫 ${targetIds.size} 塊農地澆水囉！等待時間全部減少 5 秒 💧`);
+  };
+
+  const handleHarvestAllCrops = () => {
+    const nowTs = Date.now();
+    const buffs = game.yardMoodBuffPeriods ?? [];
+    const storageCap = getIngredientStorageCap(game.house);
+    const readyPlots = game.farmPlots.filter(
+      (p) =>
+        p.cropId !== null &&
+        p.plantedAt !== null &&
+        getCropGrowthState(p, nowTs, buffs).isReady
+    );
+    if (readyPlots.length === 0) return;
+
+    const simIngredients: Record<IngredientId, number> = { ...game.ingredients };
+    const harvestedIds = new Set<number>();
+    let harvestedCount = 0;
+    let skippedFullCount = 0;
+    let totalGoldenCoins = 0;
+    let firstHarvestedCropName = '';
+    let firstHarvestedCropEmoji = '🌾';
+    let firstHarvestedGain = 0;
+
+    for (const plot of readyPlots) {
+      if (!plot.cropId) continue;
+      const cropInfo = INGREDIENTS[plot.cropId];
+      const curQty = simIngredients[plot.cropId] ?? 0;
+      if (curQty >= storageCap) {
+        skippedFullCount += 1;
+        continue;
+      }
+      const totalYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+      const nextQty = Math.min(storageCap, curQty + totalYield);
+      const actualGain = Math.max(1, nextQty - curQty);
+      simIngredients[plot.cropId] = nextQty;
+      harvestedIds.add(plot.id);
+      harvestedCount += 1;
+      if (!firstHarvestedCropName) {
+        firstHarvestedCropName = cropInfo.name;
+        firstHarvestedCropEmoji = cropInfo.emoji;
+        firstHarvestedGain = actualGain;
+      }
+      if (plot.isGolden) {
+        totalGoldenCoins += cropInfo.seedCost * 2;
+      }
+    }
+
+    if (harvestedCount === 0) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(`倉庫上限已滿 (${storageCap})`, '🏚️');
+      setSpeech(`食材小倉庫已達上限 ${storageCap} 個！先去升級倉庫或到廚房合成料理吧！`);
+      return;
+    }
+
+    if (totalGoldenCoins > 0) {
+      soundFX.levelUp(game.soundEnabled);
+      triggerHaptic(25);
+    } else {
+      soundFX.heart(game.soundEnabled);
+      triggerHaptic(18);
+    }
+
+    setGame((prev) => {
+      const nextIngredients: Record<IngredientId, number> = { ...prev.ingredients };
+      let coinBonus = 0;
+      for (const p of prev.farmPlots) {
+        if (!harvestedIds.has(p.id) || !p.cropId) continue;
+        const info = INGREDIENTS[p.cropId];
+        const totalYield = getEffectiveHarvestYield(info.harvestYield, prev.house);
+        nextIngredients[p.cropId] = Math.min(
+          storageCap,
+          (nextIngredients[p.cropId] ?? 0) + totalYield
+        );
+        if (p.isGolden) {
+          coinBonus += info.seedCost * 2;
+        }
+      }
+
+      const harvestedState: GameState = {
+        ...prev,
+        coins: prev.coins + coinBonus,
+        ingredients: nextIngredients,
+        farmPlots: prev.farmPlots.map((p) =>
+          harvestedIds.has(p.id)
+            ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
+            : p
+        ),
+      };
+      let withMem = recordMonthlyActivity(harvestedState, {
+        interactionLabel: '農場收成',
+      });
+      withMem = recordMemoryEntry(withMem, {
+        uniqueKey: 'farm_harvest_first',
+        type: 'farm',
+        title: `第一次農場收成：${firstHarvestedCropName}`,
+        description: `親手種植的${firstHarvestedCropName}成熟採收 +${firstHarvestedGain}，食材小倉庫大豐收！`,
+        emoji: firstHarvestedCropEmoji,
+        weight: withMem.pet.weight,
+      });
+      return withMem;
+    });
+
+    if (totalGoldenCoins > 0) {
+      pushFeedback(`一鍵採收 ${harvestedCount} 塊 · 黃金金幣 +${totalGoldenCoins}`, '🌟');
+    } else {
+      pushFeedback(`一鍵採收 ${harvestedCount} 塊農地`, '🧺');
+    }
+
+    if (skippedFullCount > 0) {
+      setSpeech(
+        `已採收 ${harvestedCount} 塊農地！另有 ${skippedFullCount} 塊因倉庫滿載先保留在田裡喔～`
+      );
+    } else {
+      setSpeech(
+        `大豐收！一口氣採收了 ${harvestedCount} 塊農地${
+          totalGoldenCoins > 0 ? `，還拿到黃金雙倍金幣 +${totalGoldenCoins} 🪙` : ''
+        }！`
+      );
+    }
+  };
+
   const handleClaimPuppyTreasure = (): string | null => {
     if (!puppyTreasureReady) return null;
     lastPuppyTreasureAtRef.current = Date.now();
@@ -2985,6 +3136,28 @@ export default function App() {
     currentUserId
   ).length;
   const coopBadgeCount = unclaimedCoopRewardsCount + offlinePartnerEventsCount;
+  const [farmClockNow, setFarmClockNow] = useState<number>(() => Date.now());
+  const hasGrowingUnreadyCrops = game.farmPlots.some(
+    (p) =>
+      p.cropId !== null &&
+      !getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+  );
+
+  useEffect(() => {
+    if (!hasGrowingUnreadyCrops) return;
+    setFarmClockNow(Date.now());
+    const timer = window.setInterval(() => {
+      setFarmClockNow(Date.now());
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [hasGrowingUnreadyCrops]);
+
+  const readyCropsCount = game.farmPlots.filter(
+    (p) =>
+      p.cropId !== null &&
+      getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+  ).length;
+
   const claimableHouseCount = game.house.achievedMilestones.filter(
     (id) => !game.house.claimedMilestones.includes(id)
   ).length;
@@ -2999,8 +3172,8 @@ export default function App() {
       : 'bg-[#BBA7A2]';
 
   return (
-    <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-hidden">
-      <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-hidden">
+    <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-clip">
+      <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-clip">
         {!game.pet.hatched ? (
           <>
             <PWAUpdateBanner
@@ -3111,7 +3284,7 @@ export default function App() {
               onDismiss={handleDismissAppUpdate}
             />
 
-            <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <main className="flex-1 overflow-x-clip">
               {activeTab === 'home' && (
                 <HomeView
                   pet={game.pet}
@@ -3191,7 +3364,9 @@ export default function App() {
                   onBuyFood={handleBuyFood}
                   onPlantCrop={handlePlantCrop}
                   onWaterCrop={handleWaterCrop}
+                  onWaterAllCrops={handleWaterAllCrops}
                   onHarvestCrop={handleHarvestCrop}
+                  onHarvestAllCrops={handleHarvestAllCrops}
                   onClaimPuppyTreasure={handleClaimPuppyTreasure}
                   onCookRecipe={handleCookRecipe}
                   onOpenMinigame={() => setMinigameOpen(true)}
@@ -3210,13 +3385,16 @@ export default function App() {
                   personality={game.personality}
                   coins={game.coins}
                   unlockedAccessories={game.accessories}
-                  encyclopedia={game.encyclopedia}
-                  house={game.house}
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
                   onChangeSpecies={handleChangeSpecies}
-                  onSelectTitle={handleSelectTitle}
                   onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe')}
+                  onOpenEncyclopedia={() => {
+                    setJournalInitialSection('encyclopedia');
+                    setJournalEncyclopediaSection('accessories');
+                    setActiveTab('journal');
+                  }}
+                  onOpenGrowthRoadmap={() => setGrowthRoadmapOpen(true)}
                   lastReactionText={wardrobeReactionText}
                 />
               )}
@@ -3326,6 +3504,8 @@ export default function App() {
                 setActiveTab(tab);
               }}
               claimableHouseCount={claimableHouseCount}
+              readyCropsCount={readyCropsCount}
+              unreadMessagesCount={unreadMessagesCount}
             />
 
             <LevelUpModal

@@ -6,6 +6,8 @@ interface BottomTabBarProps {
   activeTab: TabKey;
   onChange: (tab: TabKey) => void;
   claimableHouseCount?: number;
+  readyCropsCount?: number;
+  unreadMessagesCount?: number;
 }
 
 const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -20,6 +22,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   activeTab,
   onChange,
   claimableHouseCount = 0,
+  readyCropsCount = 0,
+  unreadMessagesCount = 0,
 }) => {
   return (
     <nav
@@ -29,7 +33,22 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       <div className="grid grid-cols-5 items-center h-16 px-2">
         {TABS.map(({ key, label, icon: Icon }) => {
           const isActive = activeTab === key;
-          const badgeCount = key === 'house' ? claimableHouseCount : 0;
+          const badgeCount =
+            key === 'house'
+              ? claimableHouseCount
+              : key === 'canteen'
+              ? readyCropsCount
+              : key === 'home' && !isActive
+              ? unreadMessagesCount
+              : 0;
+          const badgeColorClass =
+            key === 'canteen' ? 'bg-[#3BA886]' : 'bg-[#FF5A87]';
+          const badgeAria =
+            key === 'canteen'
+              ? `${badgeCount} 塊成熟作物可採收`
+              : key === 'home'
+              ? `${badgeCount} 則未讀留言`
+              : `${badgeCount} 項待領取獎勵`;
           return (
             <button
               key={key}
@@ -48,8 +67,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
               </span>
               {badgeCount > 0 && (
                 <span
-                  aria-label={`${badgeCount} 項待領取獎勵`}
-                  className="absolute top-1.5 right-3 min-w-[16px] h-4 px-1 rounded-full bg-[#FF5A87] text-white text-[10px] font-extrabold flex items-center justify-center tabular-nums"
+                  aria-label={badgeAria}
+                  className={`absolute top-1.5 right-3 min-w-[16px] h-4 px-1 rounded-full ${badgeColorClass} text-white text-[10px] font-extrabold flex items-center justify-center tabular-nums`}
                 >
                   {badgeCount}
                 </span>
