@@ -2,7 +2,7 @@ import { PetSpecies } from '../types';
 
 let audioCtx: AudioContext | null = null;
 
-function getCtx(): AudioContext | null {
+export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!audioCtx) {
     const AudioContextClass =
@@ -16,6 +16,10 @@ function getCtx(): AudioContext | null {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;
+}
+
+function getCtx(): AudioContext | null {
+  return getSharedAudioContext();
 }
 
 function playTone(
@@ -125,13 +129,13 @@ export const soundFX = {
   },
   rhythmPerfect(enabled: boolean) {
     if (!enabled) return;
-    playTone(659.25, 0.08, 'triangle', 0.08, 0);
-    playTone(880.0, 0.12, 'triangle', 0.08, 0.05);
+    playTone(659.25, 0.08, 'triangle', 0.085, 0); // E5
+    playTone(1046.5, 0.13, 'triangle', 0.075, 0.04); // C6
   },
   rhythmGood(enabled: boolean) {
     if (!enabled) return;
-    playTone(523.25, 0.09, 'sine', 0.07, 0);
-    playTone(659.25, 0.09, 'sine', 0.06, 0.05);
+    playTone(523.25, 0.08, 'sine', 0.07, 0); // C5
+    playTone(783.99, 0.09, 'sine', 0.055, 0.04); // G5
   },
   dash(enabled: boolean) {
     if (!enabled) return;
@@ -140,9 +144,12 @@ export const soundFX = {
   },
   combo(enabled: boolean, streak: number) {
     if (!enabled) return;
-    const base = 523.25 + Math.min(6, Math.max(0, streak - 1)) * 55;
-    playTone(base, 0.08, 'triangle', 0.075, 0);
-    playTone(base * 1.25, 0.11, 'triangle', 0.08, 0.05);
+    // C-major pentatonic climb so consecutive hits harmonize cleanly with the BGM
+    const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+    const idx = Math.min(pentatonic.length - 1, Math.max(0, streak - 1));
+    const base = pentatonic[idx];
+    playTone(base, 0.08, 'triangle', 0.08, 0);
+    playTone(base * 1.5, 0.11, 'sine', 0.06, 0.045);
   },
 };
 

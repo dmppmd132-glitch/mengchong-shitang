@@ -99,9 +99,9 @@ export const MINIGAMES: MinigameConfig[] = [
     name: '豬豬節奏跳跳',
     emoji: '🎵',
     category: 'rhythm',
-    description: '跟著輕快節拍在音符與愛心進入判定圈時點擊螢幕，累積 Perfect 連擊一起熱舞！',
-    goalText: '40 秒內抓準圖示進入圓圈時點擊，累積 Perfect 高連擊！',
-    controlsHint: '單手點擊下方紫色節拍區或軌道圖示',
+    description: '跟著歡樂背景音樂的節拍，在音符與愛心對準判定圈時點擊螢幕，累積 Perfect 連擊一起熱舞！',
+    goalText: '40 秒內跟著音樂節奏抓準時機點擊，累積 Perfect 高連擊！',
+    controlsHint: '聽著音樂倒數後，單手點擊下方紫色節拍按鈕',
     durationSeconds: 40,
     rewardRuleSummary: '心情 +10～20 · 親密度 +2～5 · 金幣 12～70',
     unlockCondition: 'Lv.1 起開放 · 納入每日輪替池',
@@ -360,8 +360,8 @@ export const MINIGAME_TUTORIALS: Record<MinigameId, MinigameTutorialStep[]> = {
     },
     {
       emoji: '🎵',
-      title: '2. 單手點擊下方節拍區',
-      instruction: '點擊紫色節拍按鈕抓出 Perfect，連續 Perfect 會累積高分 Combo！',
+      title: '2. 跟著音樂與倒數點擊',
+      instruction: '開場 4 拍預備倒數後音樂主旋律就會響起，配合鼓點與軌道拍線點擊更準確！',
     },
     {
       emoji: '💃',
