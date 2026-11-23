@@ -231,7 +231,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               )}
             </div>
             <p className="text-xs text-[#826862] mt-0.5 tabular-nums">
-              體重 {pet.weight.toFixed(1)} kg · {roundnessTier.label} · 親密值 {pet.intimacy}
+              體重 {pet.weight.toFixed(1)} kg · {roundnessTier.label}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -306,7 +306,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
-      <section className="grid grid-cols-2 gap-2.5" aria-label="小豬狀態數值">
+      <section className="grid grid-cols-2 gap-2.5" aria-label={`${speciesInfo.shortName}狀態數值`}>
         {STAT_CONFIG.map(({ key, label, barColor, trackColor }) => {
           const val = pet[key];
           return (
@@ -460,8 +460,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <section className="grid grid-cols-4 gap-2" aria-label="照護互動按鈕">
         <button
           type="button"
-          onClick={() => setFoodDrawerOpen(true)}
-          className="min-h-[60px] flex flex-col items-center justify-center gap-1 rounded-2xl bg-[#FF7A9E] text-white font-extrabold text-xs shadow-[0_3px_0_#D9577B] hover:bg-[#F56990] active:translate-y-0.5 transition"
+          onClick={() => setFoodDrawerOpen((prev) => !prev)}
+          aria-expanded={foodDrawerOpen}
+          className={`min-h-[60px] flex flex-col items-center justify-center gap-1 rounded-2xl bg-[#FF7A9E] text-white font-extrabold text-xs shadow-[0_3px_0_#D9577B] hover:bg-[#F56990] active:translate-y-0.5 transition ${
+            foodDrawerOpen ? 'ring-2 ring-offset-2 ring-[#FF7A9E] ring-offset-[#FFF8ED]' : ''
+          }`}
         >
           <UtensilsCrossed className="w-5 h-5" />
           <span>食堂</span>
@@ -495,179 +498,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
-      {onOpenHouse && house && (
-        <HomeHousePreview pet={pet} house={house} onOpenHouse={onOpenHouse} />
-      )}
-
-      {sharedRoom && onOpenCoopGames && (
-        <button
-          type="button"
-          onClick={onOpenCoopGames}
-          className="w-full min-h-[52px] rounded-2xl bg-gradient-to-r from-[#FFF0F5] via-[#FFF6DF] to-[#E8F8F2] border-2 border-[#F3C8D7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:brightness-[0.99] active:scale-[0.99] transition text-left"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#FFE3EE] text-[#D64470] flex items-center justify-center shrink-0">
-              <HeartHandshake className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-extrabold text-[#4A3531]">
-                  合作遊戲 · 雙人佈置＆農場接力
-                </span>
-                {coopBadgeCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-lg bg-[#D64470] text-white text-[10px] font-extrabold tabular-nums">
-                    {coopBadgeCount} 待領/新動態
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-[#7D635D] truncate">
-                90 秒一起布置房間、接力完成每日農場訂單，領相同獎勵＆默契稱號！
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
-            玩合作 ›
-          </span>
-        </button>
-      )}
-
-      {onOpenMinigame && (
-        <button
-          type="button"
-          onClick={onOpenMinigame}
-          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#F2D9A5] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF8E8] active:scale-[0.99] transition text-left"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#FFF3D1] text-[#9D5B12] flex items-center justify-center shrink-0">
-              <Gamepad2 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <span className="block text-xs font-extrabold text-[#4A3531]">
-                小遊戲中心 · 每日輪替賺金幣
-              </span>
-              <p className="text-[11px] text-[#7D635D] truncate">
-                蘋果 / 薯條接接樂、泥巴澡、藏食偵探、節奏跳跳，每日開放 3 款！
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">
-            開始玩 ›
-          </span>
-        </button>
-      )}
-
-      {onOpenNoviceGrowth && (
-        <button
-          type="button"
-          onClick={onOpenNoviceGrowth}
-          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#C7EAE0] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#F3FCF8] active:scale-[0.99] transition text-left"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#E3F7F0] text-[#256D57] flex items-center justify-center shrink-0">
-              <Sprout className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-extrabold text-[#4A3531]">
-                  新手 7 天成長之路
-                </span>
-                {noviceClaimableCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-lg bg-[#3BA886] text-white text-[10px] font-extrabold">
-                    可領獎勵
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-[#7D635D] truncate">
-                完成每日目標拿金幣、配件、限定背景與一週紀念圍兜
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-[#256D57] whitespace-nowrap shrink-0">
-            查看 ›
-          </span>
-        </button>
-      )}
-
-      {onOpenMessageBoard && (
-        <button
-          type="button"
-          onClick={onOpenMessageBoard}
-          className="w-full min-h-[50px] rounded-2xl bg-[#FFFDF8] border-2 border-[#F4DFD7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF5F8] active:scale-[0.99] transition text-left"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#FFEAF0] text-[#D64470] flex items-center justify-center shrink-0">
-              <MessageCircleHeart className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-extrabold text-[#4A3531]">萌寵留言板與貼圖</span>
-                {unreadMessagesCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-lg bg-[#FF5A87] text-white text-[10px] font-extrabold tabular-nums">
-                    {unreadMessagesCount} 則新訊息
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-[#7D635D] truncate">
-                {latestMessage
-                  ? `${latestMessage.authorName}：${
-                      latestMessage.stickerId
-                        ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
-                        : ''
-                    }${latestMessage.content.replace(/\[photo:[^\]]+\]/g, '📸 小屋合照').trim()}`
-                  : '傳送可愛貼圖或悄悄話給夥伴'}
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
-            打開 ›
-          </span>
-        </button>
-      )}
-
-      {onOpenMemories && (
-        <button
-          type="button"
-          onClick={onOpenMemories}
-          className="w-full min-h-[50px] rounded-2xl bg-gradient-to-r from-[#FFF4EC] to-[#FFFDF8] border-2 border-[#F4DFD7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:bg-[#FFF5EE] active:scale-[0.99] transition text-left"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#FFF3D8] text-[#9D5B12] flex items-center justify-center shrink-0">
-              <BookHeart className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-extrabold text-[#4A3531]">
-                📖 照片牆與回憶冊
-              </div>
-              <p className="text-[11px] text-[#7D635D] truncate">
-                回味時間軸、照片牆、成長里程碑與本月回顧卡
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-extrabold text-[#9D5B12] whitespace-nowrap shrink-0">
-            打開 ›
-          </span>
-        </button>
-      )}
-
       {foodDrawerOpen && (
-        <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#FAD5E0] p-4 shadow-lg space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-extrabold text-[#4A3531]">{pet.name}點餐區</h3>
-              <p className="text-[11px] text-[#826862]">點擊食物餵食，或長按拖曳到{speciesInfo.shortName}身上</p>
+        <section
+          aria-label={`${pet.name}點餐區`}
+          className="rounded-3xl bg-[#FFFDF8] border-2 border-[#FAD5E0] p-3.5 shadow-md space-y-2.5"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-extrabold text-[#4A3531]">{pet.name}點餐區</h3>
+              <p className="text-[11px] text-[#826862] truncate">
+                點擊食物餵食，或長按拖曳到上方{speciesInfo.shortName}身上
+              </p>
             </div>
             <button
               type="button"
               onClick={() => setFoodDrawerOpen(false)}
               aria-label="關閉食堂選單"
-              className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full bg-[#F7ECE6] text-[#5A3E36] hover:bg-[#EEDCD3]"
+              className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full bg-[#F7ECE6] text-[#5A3E36] hover:bg-[#EEDCD3] shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {pet.hunger >= 100 && (
-            <div className="rounded-2xl bg-[#FFEAF0] border border-[#F5B4C6] px-3 py-2 text-xs font-extrabold text-[#B83B64] text-center">
+            <div className="rounded-2xl bg-[#FFEAF0] border border-[#F5B4C6] px-3 py-1.5 text-xs font-extrabold text-[#B83B64] text-center">
               {pet.name}已經吃飽了！
             </div>
           )}
@@ -678,7 +532,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategory(cat)}
-                className={`min-h-[38px] rounded-xl text-xs font-extrabold transition ${
+                className={`min-h-[34px] rounded-xl text-xs font-extrabold transition ${
                   selectedCategory === cat
                     ? 'bg-white text-[#D64470] shadow-xs'
                     : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -708,18 +562,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     setDraggingFoodId(null);
                     setIsDropOver(false);
                   }}
-                  className={`flex flex-col items-center rounded-2xl bg-[#FFF7EC] border p-2.5 text-center ${
+                  className={`flex flex-col items-center rounded-2xl bg-[#FFF7EC] border p-2 text-center ${
                     isFavorite ? 'border-[#FF9AB8]' : 'border-[#F3DFD7]'
                   }`}
                 >
-                  <span className="text-3xl leading-none my-1" aria-hidden="true">
+                  <span className="text-2xl leading-none my-0.5" aria-hidden="true">
                     {food.emoji}
                   </span>
                   <span className="text-xs font-extrabold text-[#4A3531] truncate w-full">
                     {food.name}
                   </span>
                   <span className="text-[11px] font-bold text-[#826862] tabular-nums">
-                    {isFavorite ? '♥ 最愛 · ' : isDisliked ? '💭 不太愛 · ' : ''}庫存 {count}
+                    {isFavorite ? '♥ 最愛 · ' : isDisliked ? '💭 · ' : ''}庫存 {count}
                   </span>
                   <button
                     type="button"
@@ -729,7 +583,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         onFeed(food);
                       }
                     }}
-                    className={`mt-2 w-full min-h-[36px] rounded-xl text-xs font-extrabold transition ${
+                    className={`mt-1.5 w-full min-h-[34px] rounded-xl text-xs font-extrabold transition ${
                       count <= 0
                         ? 'bg-[#EAE0DA] text-[#9E8B85] cursor-not-allowed'
                         : isFull
@@ -750,12 +604,166 @@ export const HomeView: React.FC<HomeViewProps> = ({
               setFoodDrawerOpen(false);
               onGoToCanteen();
             }}
-            className="w-full min-h-[42px] rounded-2xl bg-[#E8F8F2] border border-[#AEE4D1] text-xs font-extrabold text-[#256D57] hover:bg-[#D8F3E9] transition"
+            className="w-full min-h-[38px] rounded-2xl bg-[#E8F8F2] border border-[#AEE4D1] text-xs font-extrabold text-[#256D57] hover:bg-[#D8F3E9] transition"
           >
             前往「食堂商店」購買更多美食
           </button>
-        </div>
+        </section>
       )}
+
+      {onOpenHouse && house && (
+        <HomeHousePreview pet={pet} house={house} onOpenHouse={onOpenHouse} />
+      )}
+
+      {(sharedRoom && onOpenCoopGames) ||
+      onOpenMinigame ||
+      onOpenNoviceGrowth ||
+      onOpenMessageBoard ||
+      onOpenMemories ? (
+        <section className="grid grid-cols-2 gap-2.5" aria-label="快捷功能中心">
+          {sharedRoom && onOpenCoopGames && (
+            <button
+              type="button"
+              onClick={onOpenCoopGames}
+              className="col-span-2 min-h-[54px] rounded-2xl bg-gradient-to-r from-[#FFF0F5] via-[#FFF6DF] to-[#E8F8F2] border-2 border-[#F3C8D7] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:brightness-[0.99] active:scale-[0.99] transition text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-[#FFE3EE] text-[#D64470] flex items-center justify-center shrink-0">
+                  <HeartHandshake className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-[#4A3531]">
+                      雙人合作遊戲
+                    </span>
+                    {coopBadgeCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-lg bg-[#D64470] text-white text-[10px] font-extrabold tabular-nums">
+                        {coopBadgeCount} 待領
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#7D635D] truncate">
+                    雙人房間佈置＆每日農場接力訂單
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+                玩合作 ›
+              </span>
+            </button>
+          )}
+
+          {onOpenMinigame && (
+            <button
+              type="button"
+              onClick={onOpenMinigame}
+              className="rounded-2xl bg-[#FFFDF8] border-2 border-[#F2D9A5] p-3 flex flex-col justify-between gap-2 hover:bg-[#FFF8E8] active:scale-[0.98] transition text-left min-h-[92px]"
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FFF3D1] text-[#9D5B12] flex items-center justify-center shrink-0">
+                  <Gamepad2 className="w-4 h-4" />
+                </div>
+                <span className="text-[11px] font-extrabold text-[#9D5B12]">開始 ›</span>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                  小遊戲中心
+                </div>
+                <p className="text-[11px] text-[#7D635D] truncate mt-0.5">
+                  每日輪替賺金幣
+                </p>
+              </div>
+            </button>
+          )}
+
+          {onOpenNoviceGrowth && (
+            <button
+              type="button"
+              onClick={onOpenNoviceGrowth}
+              className="rounded-2xl bg-[#FFFDF8] border-2 border-[#C7EAE0] p-3 flex flex-col justify-between gap-2 hover:bg-[#F3FCF8] active:scale-[0.98] transition text-left min-h-[92px]"
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="w-8 h-8 rounded-xl bg-[#E3F7F0] text-[#256D57] flex items-center justify-center shrink-0">
+                  <Sprout className="w-4 h-4" />
+                </div>
+                {noviceClaimableCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-lg bg-[#3BA886] text-white text-[10px] font-extrabold">
+                    可領獎勵
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-extrabold text-[#256D57]">查看 ›</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                  新手 7 天成長
+                </div>
+                <p className="text-[11px] text-[#7D635D] truncate mt-0.5">
+                  拿金幣與限定配件
+                </p>
+              </div>
+            </button>
+          )}
+
+          {onOpenMessageBoard && (
+            <button
+              type="button"
+              onClick={onOpenMessageBoard}
+              className="rounded-2xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-3 flex flex-col justify-between gap-2 hover:bg-[#FFF5F8] active:scale-[0.98] transition text-left min-h-[92px]"
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FFEAF0] text-[#D64470] flex items-center justify-center shrink-0">
+                  <MessageCircleHeart className="w-4 h-4" />
+                </div>
+                {unreadMessagesCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-lg bg-[#FF5A87] text-white text-[10px] font-extrabold tabular-nums">
+                    {unreadMessagesCount} 新
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-extrabold text-[#B83B64]">打開 ›</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                  留言板與貼圖
+                </div>
+                <p className="text-[11px] text-[#7D635D] truncate mt-0.5">
+                  {latestMessage
+                    ? `${latestMessage.authorName}：${
+                        latestMessage.stickerId
+                          ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
+                          : ''
+                      }${latestMessage.content.replace(/\[photo:[^\]]+\]/g, '📸 合照').trim()}`
+                    : '傳送貼圖與悄悄話'}
+                </p>
+              </div>
+            </button>
+          )}
+
+          {onOpenMemories && (
+            <button
+              type="button"
+              onClick={onOpenMemories}
+              className="rounded-2xl bg-gradient-to-br from-[#FFF4EC] to-[#FFFDF8] border-2 border-[#F4DFD7] p-3 flex flex-col justify-between gap-2 hover:bg-[#FFF5EE] active:scale-[0.98] transition text-left min-h-[92px]"
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FFF3D8] text-[#9D5B12] flex items-center justify-center shrink-0">
+                  <BookHeart className="w-4 h-4" />
+                </div>
+                <span className="text-[11px] font-extrabold text-[#9D5B12]">回味 ›</span>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                  照片牆與回憶冊
+                </div>
+                <p className="text-[11px] text-[#7D635D] truncate mt-0.5">
+                  寫真集與本月回顧
+                </p>
+              </div>
+            </button>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 };
