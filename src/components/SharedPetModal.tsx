@@ -113,7 +113,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
         setErrorMsg(err);
       } else {
         setInviteInput('');
-        setInfoMsg('成功加入共養小屋，現在可以一起照顧這隻小豬囉！');
+        setInfoMsg('成功加入共養小屋，現在可以一起照顧這隻萌寵囉！');
       }
     } finally {
       setSubmitting(false);
@@ -204,7 +204,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
             <div className="rounded-2xl bg-[#FFF6E5] border border-[#F3DCB0] p-3.5 text-xs text-[#6E544E] leading-relaxed space-y-1.5">
               <p className="font-extrabold text-[#8A5A12] text-sm">尚未啟用雲端共養服務</p>
               <p>
-                兩人共養需要透過 Supabase 即時同步小豬狀態，請先設定{' '}
+                兩人共養需要透過 Supabase 即時同步萌寵狀態，請先設定{' '}
                 <code className="font-bold">VITE_SUPABASE_URL</code> 與{' '}
                 <code className="font-bold">VITE_SUPABASE_ANON_KEY</code>，並於 SQL Editor 執行最新{' '}
                 <code className="font-bold">supabase/schema.sql</code>。
@@ -223,7 +223,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
             <div className="rounded-2xl bg-[#FFF3F6] border border-[#F5CBD8] p-4 space-y-1.5">
               <p className="text-sm font-extrabold text-[#B83B64]">請先登入雲端帳號</p>
               <p className="text-xs text-[#6E544E] leading-relaxed">
-                登入後即可建立屬於兩人的「共養小屋」取得 6 碼邀請碼，或輸入夥伴的邀請碼一起餵食與打扮小豬。
+                登入後即可建立屬於兩人的「共養小屋」取得 6 碼邀請碼，或輸入夥伴的邀請碼一起餵食與打扮萌寵。
               </p>
             </div>
             <button
@@ -356,7 +356,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
             ) : (
               <div className="rounded-2xl bg-[#FFF3F6] border border-[#F5B4C6] p-3 space-y-2.5">
                 <p className="text-xs font-bold text-[#A82A4F] leading-relaxed">
-                  確定要退出共養嗎？退出後您會切回單人本機／個人雲端存檔，目前的小豬會保留給另一位夥伴（若無人則解散）。
+                  確定要退出共養嗎？退出後您會切回單人本機／個人雲端存檔，目前的萌寵會保留給另一位夥伴（若無人則解散）。
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -408,7 +408,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
                 </>
               ) : (
                 <p className="text-xs text-[#856C66] leading-relaxed">
-                  先孵化並為你的小豬命名後就能建立共養小屋；或者直接用下方「方式二」輸入夥伴的邀請碼！
+                  先孵化並為你的萌寵命名後就能建立共養小屋；或者直接用下方「方式二」輸入夥伴的邀請碼！
                 </p>
               )}
             </section>
@@ -436,12 +436,12 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
                   className="w-full min-h-[46px] rounded-2xl bg-[#5CC9A7] text-white font-extrabold text-sm shadow-[0_3px_0_#3BA886] hover:bg-[#4DBE9B] active:translate-y-0.5 transition flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>加入對方的共養小豬</span>
+                  <span>加入對方的共養萌寵</span>
                 </button>
               </form>
               {localHatched && (
                 <p className="text-[11px] text-[#5B7A70] leading-relaxed">
-                  加入後將切換為兩人的共養小豬；你原本的單人進度仍安全保存在個人雲端存檔中。
+                  加入後將切換為兩人的共養萌寵；你原本的單人進度仍安全保存在個人雲端存檔中。
                 </p>
               )}
             </section>

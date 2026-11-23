@@ -213,7 +213,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </span>
               {activeTitleDef && (
                 <span
-                  className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg border text-[10px] font-extrabold ${activeTitleDef.badgeClass}`}
+                  className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg border text-[11px] font-extrabold ${activeTitleDef.badgeClass}`}
                 >
                   <span aria-hidden="true">{activeTitleDef.emoji}</span>
                   <span>{activeTitleDef.name}</span>
@@ -223,7 +223,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <button
                   type="button"
                   onClick={onOpenPersonality}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#FFF3D8] border border-[#F2CE6D] text-[10px] font-extrabold text-[#8A5610] hover:bg-[#FFE9BE] active:scale-95 transition"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#FFF3D8] border border-[#F2CE6D] text-[11px] font-extrabold text-[#8A5610] hover:bg-[#FFE9BE] active:scale-95 transition"
                 >
                   <span>{getPersonalitySummaryLabel(personality)}</span>
                   <span className="opacity-70">›</span>
@@ -282,7 +282,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <span>成長進度</span>
               {careBalanced && (
-                <span className="text-[10px] font-extrabold text-[#1F6B54]">
+                <span className="text-[11px] font-extrabold text-[#1F6B54]">
                   · ✨ 元氣滿分 +25%
                 </span>
               )}
@@ -366,7 +366,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <button
             type="button"
             onClick={onOpenDialogueHistory}
-            className="absolute left-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/88 border border-[#EAD4DC] text-[10px] font-extrabold text-[#6E544E] inline-flex items-center gap-1 hover:bg-white transition"
+            className="absolute left-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/88 border border-[#EAD4DC] text-[11px] font-extrabold text-[#6E544E] inline-flex items-center gap-1 hover:bg-white transition"
           >
             {weather && <span aria-hidden="true">{weather.emoji}</span>}
             {weather && <span>{weather.label}</span>}
@@ -384,7 +384,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 activeBackground === 'starlight_garden' ? 'default' : 'starlight_garden'
               )
             }
-            className="absolute right-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/85 border border-[#E6D6E8] text-[10px] font-extrabold text-[#5E478C] hover:bg-white transition"
+            className="absolute right-3 top-3 z-20 px-2.5 py-1 rounded-xl bg-white/85 border border-[#E6D6E8] text-[11px] font-extrabold text-[#5E478C] hover:bg-white transition"
           >
             {activeBackground === 'starlight_garden' ? '🌌 星光花園' : '☀️ 暖陽食堂'}
           </button>

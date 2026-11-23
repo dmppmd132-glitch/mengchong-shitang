@@ -191,42 +191,42 @@ export const MonthlyRecapCard: React.FC<MonthlyRecapCardProps> = ({
       {/* 8 Monthly Highlight Metrics */}
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">🍽️ 本月最愛食物</div>
+          <div className="text-[11px] font-bold text-[#8A716B]">🍽️ 本月最愛食物</div>
           <div className="text-xs font-extrabold text-[#4A3531] mt-0.5 truncate">
             {activeRecap.favoriteFoodName}
           </div>
         </div>
 
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">💞 本月最常互動</div>
+          <div className="text-[11px] font-bold text-[#8A716B]">💞 本月最常互動</div>
           <div className="text-xs font-extrabold text-[#4A3531] mt-0.5 truncate">
             {activeRecap.topInteractionLabel}
           </div>
         </div>
 
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">🎀 本月最愛配件</div>
+          <div className="text-[11px] font-bold text-[#8A716B]">🎀 本月最愛配件</div>
           <div className="text-xs font-extrabold text-[#4A3531] mt-0.5 truncate">
             {activeRecap.favoriteAccessoryName}
           </div>
         </div>
 
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">⚖️ 本月體重變化</div>
+          <div className="text-[11px] font-bold text-[#8A716B]">⚖️ 本月體重變化</div>
           <div className="text-xs font-extrabold text-[#B83B64] mt-0.5 tabular-nums">
             {weightDeltaLabel}
           </div>
         </div>
 
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">✨ 本月成長值增加</div>
+          <div className="text-[11px] font-bold text-[#8A716B]">✨ 本月成長值增加</div>
           <div className="text-xs font-extrabold text-[#1F6B54] mt-0.5 tabular-nums">
             +{activeRecap.growthGained} 成長值
           </div>
         </div>
 
         <div className="rounded-2xl bg-white/90 border border-[#F1DFD6] px-3 py-2">
-          <div className="text-[10px] font-bold text-[#8A716B]">
+          <div className="text-[11px] font-bold text-[#8A716B]">
             💌 共養留言 / 合作任務
           </div>
           <div className="text-xs font-extrabold text-[#4A3531] mt-0.5 tabular-nums">
@@ -243,7 +243,7 @@ export const MonthlyRecapCard: React.FC<MonthlyRecapCardProps> = ({
             <span>本月精選封面照</span>
           </span>
           {coverPhoto && (
-            <span className="text-[10px] font-bold text-[#8A716B] truncate max-w-[160px]">
+            <span className="text-[11px] font-bold text-[#8A716B] truncate max-w-[160px]">
               {coverPhoto.title}
             </span>
           )}
@@ -259,7 +259,7 @@ export const MonthlyRecapCard: React.FC<MonthlyRecapCardProps> = ({
 
         {monthPhotos.length > 1 && (
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-[#7D635D]">
+            <p className="text-[11px] font-bold text-[#7D635D]">
               切換本月回顧封面照：
             </p>
             <div className="flex flex-wrap gap-1.5">

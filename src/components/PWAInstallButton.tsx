@@ -59,7 +59,7 @@ export const PWAInstallButton: React.FC = () => {
               <ol className="mt-4 space-y-2.5 text-sm text-[#5E4742] leading-relaxed">
                 <li>1. 點擊 Safari 下方工具列的「分享」圖示（方形向上箭頭）。</li>
                 <li>2. 往下滑動選單，選擇「加入主畫面」。</li>
-                <li>3. 點擊右上角「新增」，即可像原生 App 一樣隨時照顧小豬！</li>
+                <li>3. 點擊右上角「新增」，即可像原生 App 一樣隨時照顧萌寵！</li>
               </ol>
               <button
                 type="button"

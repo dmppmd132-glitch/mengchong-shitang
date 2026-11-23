@@ -96,7 +96,8 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
     }
   };
 
-  const stage = getGrowthStage(pet.growth);
+  const stage = getGrowthStage(pet.growth, pet.species);
+  const lv2Stage = getGrowthStage(100, pet.species);
   const slotUnlocked = stage.unlockedSlots.includes(activeSlot);
   const slotItems = ACCESSORIES.filter((a) => a.slot === activeSlot);
   const petPref = getPetPreference(pet.species);
@@ -282,7 +283,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
 
           {!slotUnlocked && (
             <div className="rounded-2xl bg-[#FFF3D1] border border-[#F3CE72] px-4 py-3 text-xs font-bold text-[#7B5610]">
-              「{ACCESSORY_SLOT_LABELS[activeSlot]}」欄位將於成長等級 Lv.2「圓滾小豬」（100 成長值）解鎖！現在可以先預覽與購買喔。
+              「{ACCESSORY_SLOT_LABELS[activeSlot]}」欄位將於成長等級 Lv.2「{lv2Stage.name}」（100 成長值）解鎖！現在可以先預覽與購買喔。
             </div>
           )}
 

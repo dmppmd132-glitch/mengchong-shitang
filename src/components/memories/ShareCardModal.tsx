@@ -69,7 +69,7 @@ export const ShareCardModal: React.FC<ShareCardModalProps> = ({
         setNotice(
           sharedRoom
             ? '已同步分享紀念卡給共養夥伴與留言板！'
-            : '已將紀念卡分享到小豬留言板！'
+            : '已將紀念卡分享到萌寵留言板！'
         );
       }
     } finally {

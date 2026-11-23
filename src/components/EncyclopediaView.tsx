@@ -113,19 +113,19 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
 
         <div className="grid grid-cols-3 gap-2 text-xs">
           <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[10px] font-bold text-[#826862]">食物圖鑑</div>
+            <div className="text-[11px] font-bold text-[#826862]">食物圖鑑</div>
             <div className="text-xs font-extrabold text-[#D64470] tabular-nums mt-0.5">
               已收集 {collectedFoodCount} / {FOODS.length}
             </div>
           </div>
           <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[10px] font-bold text-[#826862]">配件圖鑑</div>
+            <div className="text-[11px] font-bold text-[#826862]">配件圖鑑</div>
             <div className="text-xs font-extrabold text-[#256D57] tabular-nums mt-0.5">
               已收集 {collectedAccessoryCount} / {ACCESSORIES.length}
             </div>
           </div>
           <div className="rounded-2xl bg-white/85 border border-[#F2E0D6] px-2.5 py-2">
-            <div className="text-[10px] font-bold text-[#826862]">佈置圖鑑</div>
+            <div className="text-[11px] font-bold text-[#826862]">佈置圖鑑</div>
             <div className="text-xs font-extrabold text-[#9D5B12] tabular-nums mt-0.5">
               已收集 {houseCounts.totalCollected} / {houseCounts.totalItems}
             </div>
@@ -161,12 +161,12 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                       <span className="truncate">{def.name}</span>
                     </span>
                     {isActive && (
-                      <span className="text-[10px] font-extrabold text-[#D64470] shrink-0">
+                      <span className="text-[11px] font-extrabold text-[#D64470] shrink-0">
                         佩戴中
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] font-bold mt-0.5 opacity-85 leading-snug">
+                  <p className="text-[11px] font-bold mt-0.5 opacity-85 leading-snug">
                     {isUnlocked ? def.description : def.unlockCondition}
                   </p>
                 </button>
@@ -261,13 +261,13 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                   <h4 className="mt-2 text-xs font-extrabold text-[#4A3531]">
                     {collected ? food.name : '???'}
                   </h4>
-                  <span className="text-[10px] font-bold text-[#8B716A] mt-0.5">
+                  <span className="text-[11px] font-bold text-[#8B716A] mt-0.5">
                     {collected
                       ? FOOD_CATEGORY_LABELS[food.category]
                       : '餵食或料理後解鎖'}
                   </span>
                   {collected && (
-                    <p className="mt-1 text-[10px] text-[#7D635D] leading-snug">
+                    <p className="mt-1 text-[11px] text-[#7D635D] leading-snug">
                       {food.description}
                     </p>
                   )}
@@ -442,11 +442,11 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                 >
                   <div className="w-full flex items-center justify-between gap-1 mb-1.5">
                     <span
-                      className={`px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold ${rarityMeta.badgeClass}`}
+                      className={`px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold ${rarityMeta.badgeClass}`}
                     >
                       {rarityMeta.label}
                     </span>
-                    <span className="text-[9px] font-bold text-[#8B716A]">
+                    <span className="text-[10px] font-bold text-[#8B716A]">
                       {ACCESSORY_SLOT_LABELS[item.slot]}
                     </span>
                   </div>
@@ -475,12 +475,12 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                   </h4>
                   {themeDef && (
                     <span
-                      className={`mt-0.5 px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold ${themeDef.badgeClass}`}
+                      className={`mt-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold ${themeDef.badgeClass}`}
                     >
                       {themeDef.emoji} {themeDef.name}
                     </span>
                   )}
-                  <p className="mt-1 text-[10px] text-[#7D635D] leading-snug">
+                  <p className="mt-1 text-[11px] text-[#7D635D] leading-snug">
                     {collected ? item.description : getAccessoryObtainLabel(item)}
                   </p>
                 </article>
@@ -573,10 +573,10 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                     <h4 className="mt-2 text-xs font-extrabold text-[#4A3531]">
                       {collected ? item.name : '???'}
                     </h4>
-                    <span className="text-[10px] font-bold text-[#8B716A] mt-0.5">
+                    <span className="text-[11px] font-bold text-[#8B716A] mt-0.5">
                       {ROOM_ZONES[item.zone].name} · {FURNITURE_CATEGORY_LABELS[item.category]}
                     </span>
-                    <p className="mt-1 text-[10px] text-[#7D635D] leading-snug">
+                    <p className="mt-1 text-[11px] text-[#7D635D] leading-snug">
                       {collected
                         ? item.description
                         : item.craftIngredients
@@ -685,7 +685,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                     <h4 className="text-xs font-extrabold text-[#4A3531]">
                       {collected ? `${u.name} Lv.${lvl}` : '???（農場設施）'}
                     </h4>
-                    <p className="text-[10px] text-[#7D635D] leading-snug">
+                    <p className="text-[11px] text-[#7D635D] leading-snug">
                       {collected ? u.description : '於「食堂 → 農場」升級建造'}
                     </p>
                   </article>
@@ -707,7 +707,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                     <h4 className="text-xs font-extrabold text-[#4A3531]">
                       {collected ? dec.name : '???（農場裝飾）'}
                     </h4>
-                    <p className="text-[10px] text-[#7D635D] leading-snug">
+                    <p className="text-[11px] text-[#7D635D] leading-snug">
                       {collected ? dec.description : '於「食堂 → 農場」購買佈置'}
                     </p>
                   </article>

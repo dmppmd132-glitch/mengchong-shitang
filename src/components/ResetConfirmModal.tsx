@@ -86,7 +86,7 @@ export const ResetConfirmModal: React.FC<ResetConfirmModalProps> = ({
               最後確認：無法復原喔！
             </h2>
             <p className="mt-2 text-center text-sm text-[#6E544E] leading-relaxed">
-              這項操作會永久清空本機存檔中的所有紀錄，確定要重新開始養一隻新小豬嗎？
+              這項操作會永久清空本機存檔中的所有紀錄，確定要重新開始養一隻新萌寵嗎？
             </p>
             <div className="mt-5 grid grid-cols-2 gap-2.5">
               <button

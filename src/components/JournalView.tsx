@@ -656,7 +656,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
         {weightLogs.length === 0 ? (
           <p className="py-6 text-center text-xs text-[#8D746E]">
-            目前還沒有紀錄喔，餵小豬吃飯或手動量體重就會自動記在手帳裡！
+            目前還沒有紀錄喔，餵 {pet.name} 吃飯或手動量體重就會自動記在手帳裡！
           </p>
         ) : (
           <div className="divide-y divide-[#F4E6DF]">
@@ -724,7 +724,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
       {onOpenMessageBoard && (
         <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-extrabold text-[#4A3531]">小豬留言板與貼圖</h2>
+            <h2 className="text-sm font-extrabold text-[#4A3531]">萌寵留言板與貼圖</h2>
             <p className="text-xs text-[#7D635D] mt-0.5 truncate">
               目前已累積 {messageCount} 則留言與可愛貼圖
             </p>
@@ -747,7 +747,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
             <p className="text-xs text-[#7D635D] mt-0.5 truncate">
               {sharedRoom
                 ? `共養中 · 邀請碼 ${sharedRoom.inviteCode}`
-                : '產生邀請碼或輸入夥伴邀請碼一起養小豬'}
+                : '產生邀請碼或輸入夥伴邀請碼一起照顧萌寵'}
             </p>
           </div>
           <button
@@ -793,7 +793,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-extrabold text-[#4A3531]">存檔與重置管理</h2>
-          <p className="text-xs text-[#7D635D] mt-0.5">想重新孵化一隻新小豬時可重置存檔</p>
+          <p className="text-xs text-[#7D635D] mt-0.5">想重新孵化一隻新萌寵時可重置存檔</p>
         </div>
         <button
           type="button"

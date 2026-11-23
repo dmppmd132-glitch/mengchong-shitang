@@ -113,12 +113,12 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 id="message-board-title" className="text-base font-extrabold text-[#4A3531] truncate">
-                {petName}的小豬留言板
+                {petName}的萌寵留言板
               </h2>
               <p className="text-[11px] font-bold text-[#7D635D] truncate">
                 {sharedRoom
                   ? '兩人共養即時同步中 · 傳貼圖給夥伴'
-                  : '寫下照顧悄悄話，或貼上可愛小豬貼圖'}
+                  : '寫下照顧悄悄話，或貼上可愛萌寵貼圖'}
               </p>
             </div>
           </div>
@@ -146,7 +146,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
               <p className="text-xs text-[#7D635D] max-w-[240px] leading-relaxed">
                 {sharedRoom
                   ? '選一張可愛貼圖或寫一句話，夥伴手機上會馬上收到通知。'
-                  : '替小豬留下第一則照顧日記或貼圖吧！'}
+                  : `替${petName}留下第一則照顧日記或貼圖吧！`}
               </p>
             </div>
           ) : (
@@ -248,7 +248,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
           <div className="px-3.5 py-2.5 bg-[#FFFDF8] border-t border-[#F4DFD7] shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-extrabold text-[#7D635D]">
-                選擇可愛小豬貼圖
+                選擇可愛貼圖
               </span>
               {activeStickerInfo && (
                 <button
@@ -329,7 +329,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                 setText(e.target.value);
                 if (localError) setLocalError('');
               }}
-              placeholder="輸入給小豬或夥伴的話…"
+              placeholder={`輸入給${petName}或夥伴的話…`}
               className="flex-1 min-w-0 min-h-[44px] rounded-2xl bg-white border border-[#EED9D0] px-3.5 text-base font-medium text-[#4A3531] placeholder:text-xs placeholder:text-[#BBA7A2] focus:outline-none focus:border-[#FF7A9E]"
             />
 

@@ -198,7 +198,7 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
             <div className="rounded-2xl bg-[#FFF6E5] border border-[#F3DCB0] p-3.5 text-xs text-[#6E544E] leading-relaxed space-y-1.5">
               <p className="font-extrabold text-[#8A5A12] text-sm">目前為本機存檔模式</p>
               <p>
-                你的小豬與體重紀錄已安全儲存在此裝置的 <code className="font-bold">localStorage</code>，離線也能正常遊玩。
+                你的萌寵與體重紀錄已安全儲存在此裝置的 <code className="font-bold">localStorage</code>，離線也能正常遊玩。
               </p>
               <p>
                 若要開啟跨裝置雲端同步，請於部署環境或 <code className="font-bold">.env</code> 設定{' '}
@@ -218,9 +218,9 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
         ) : user && pendingCloudSave ? (
           <div className="space-y-3.5">
             <div className="rounded-2xl bg-[#FFF6E5] border border-[#F3DCB0] p-3.5 space-y-1">
-              <p className="text-sm font-extrabold text-[#8A5A12]">發現雲端有另一份小豬存檔！</p>
+              <p className="text-sm font-extrabold text-[#8A5A12]">發現雲端有另一份萌寵存檔！</p>
               <p className="text-xs text-[#6E544E] leading-relaxed">
-                帳號 <span className="font-bold">{user.email}</span> 已存有小豬進度，請選擇要保留哪一份：
+                帳號 <span className="font-bold">{user.email}</span> 已存有萌寵進度，請選擇要保留哪一份：
               </p>
             </div>
 
@@ -429,7 +429,7 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
                 className="w-full min-h-[48px] rounded-2xl bg-[#FF7A9E] text-white font-extrabold text-base shadow-[0_4px_0_#D9577B] hover:bg-[#F76890] active:translate-y-0.5 transition flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{mode === 'login' ? '登入並同步小豬' : '建立雲端帳號'}</span>
+                <span>{mode === 'login' ? '登入並同步萌寵' : '建立雲端帳號'}</span>
               </button>
             </form>
 
