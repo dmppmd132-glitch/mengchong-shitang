@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowUp,
   Camera,
   Check,
   Coins,
@@ -143,11 +144,33 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const [waterPourPlotIds, setWaterPourPlotIds] = useState<Record<number, number>>({});
   const [puppyHappy, setPuppyHappy] = useState<boolean>(false);
   const [puppyRewardText, setPuppyRewardText] = useState<string | null>(null);
+  const [isBannerCompact, setIsBannerCompact] = useState<boolean>(false);
   const burstTimersRef = useRef<number[]>([]);
+  const bannerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setSection(initialSection);
   }, [initialSection]);
+
+  useEffect(() => {
+    if (section === 'farm') {
+      setIsBannerCompact(false);
+      return;
+    }
+    const target = bannerRef.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsBannerCompact(!entry.isIntersecting);
+      },
+      {
+        rootMargin: '-56px 0px 0px 0px',
+        threshold: 0.15,
+      }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [section]);
 
   const hasGrowingCrops = farmPlots.some((p) => p.cropId !== null);
   const activeBuffExpiresAt = getActiveYardBuffExpiresAt(yardMoodBuffPeriods, now);
@@ -250,7 +273,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
-      <section className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#FFF6DA] border-2 border-[#F5DFD7] p-3.5 flex items-center gap-3">
+      <section
+        ref={bannerRef}
+        className="rounded-3xl bg-gradient-to-r from-[#FFEAF0] to-[#FFF6DA] border-2 border-[#F5DFD7] p-3.5 flex items-center gap-3"
+      >
         <div className="shrink-0">
           <PiggyCharacter
             species={pet.species}
@@ -1235,6 +1261,53 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
               </article>
             );
           })}
+        </div>
+      )}
+      {isBannerCompact && (section === 'shop' || section === 'kitchen') && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pt-1.5 z-20 pointer-events-none">
+          <div className="pointer-events-auto rounded-2xl bg-[#FFFDF8]/95 backdrop-blur-md border-2 border-[#F5DFD7] shadow-lg px-3 py-2 flex items-center gap-2.5">
+            <div className="shrink-0 rounded-2xl bg-gradient-to-b from-[#FFEAF0] to-[#FFF6DA] border border-[#F3D7DF] p-0.5">
+              <PiggyCharacter
+                species={pet.species}
+                growth={pet.growth}
+                roundness={pet.roundness}
+                action={action}
+                equipped={pet.accessories}
+                flyingFoodEmoji={flyingFoodEmoji}
+                interactive={false}
+                size={54}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-extrabold text-[#4A3531] truncate">
+                  {section === 'kitchen' ? '萌寵廚房 · 食材庫存' : `${pet.name}的食堂桌`}
+                </span>
+                <span className="text-[11px] font-extrabold text-[#D64470] tabular-nums shrink-0">
+                  飽食 {pet.hunger}%
+                </span>
+              </div>
+              {section === 'kitchen' ? (
+                <p className="text-[11px] font-bold text-[#7A540E] truncate tabular-nums mt-0.5">
+                  {INGREDIENT_IDS.map((id) => `${INGREDIENTS[id].emoji}${ingredients[id] ?? 0}`).join(
+                    ' · '
+                  )}
+                </p>
+              ) : (
+                <p className="text-[11px] font-bold text-[#6E544E] truncate mt-0.5">
+                  {isFull ? `${pet.name}已經吃飽了！` : speech || speciesInfo.greeting}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              aria-label="回到食堂頂部"
+              className="min-h-[36px] min-w-[36px] rounded-xl bg-[#F3EAE5] text-[#5A3E36] flex items-center justify-center hover:bg-[#E7DBD4] active:scale-95 transition shrink-0"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

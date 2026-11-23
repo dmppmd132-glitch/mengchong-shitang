@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowUp,
   BookOpen,
   Camera,
   Check,
@@ -72,6 +73,28 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   const [viewMode, setViewMode] = useState<'wardrobe' | 'encyclopedia'>('wardrobe');
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
   const [viewDirection, setViewDirection] = useState<PetViewDirection>('front');
+  const [isStageCompact, setIsStageCompact] = useState(false);
+  const stageCardRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (viewMode !== 'wardrobe') {
+      setIsStageCompact(false);
+      return;
+    }
+    const target = stageCardRef.current;
+    if (!target || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsStageCompact(!entry.isIntersecting);
+      },
+      {
+        rootMargin: '-56px 0px 0px 0px',
+        threshold: 0.12,
+      }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [viewMode]);
 
   const directionOptions: Array<{ id: PetViewDirection; label: string }> = [
     { id: 'front', label: '正面' },
@@ -100,12 +123,16 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   const lv2Stage = getGrowthStage(100, pet.species);
   const slotUnlocked = stage.unlockedSlots.includes(activeSlot);
   const slotItems = ACCESSORIES.filter((a) => a.slot === activeSlot);
+  const equippedInActiveSlotId = pet.accessories[activeSlot];
+  const equippedInActiveSlot = equippedInActiveSlotId
+    ? ACCESSORIES.find((a) => a.id === equippedInActiveSlotId) ?? null
+    : null;
   const petPref = getPetPreference(pet.species);
   const primaryTrait = PERSONALITY_DEFINITIONS[personality.primary];
   const secondaryTrait = PERSONALITY_DEFINITIONS[personality.secondary];
 
   return (
-    <div className="px-4 pt-3 pb-24 space-y-4 overflow-x-hidden">
+    <div className="px-4 pt-3 pb-24 space-y-4 overflow-x-clip">
       <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
@@ -143,7 +170,10 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
         />
       ) : (
         <>
-          <section className="rounded-3xl bg-gradient-to-b from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#D2EFE4] p-4 flex flex-col items-center text-center relative">
+          <section
+            ref={stageCardRef}
+            className="rounded-3xl bg-gradient-to-b from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#D2EFE4] p-4 flex flex-col items-center text-center relative"
+          >
             <div className="w-full flex items-center justify-between gap-2">
               <div className="text-left min-w-0">
                 <h2 className="text-base font-extrabold text-[#4A3531] truncate">
@@ -213,7 +243,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   );
                 })}
               </div>
-              <p className="mt-1 text-[10px] font-bold text-[#7D635D]">
+              <p className="mt-1 text-[11px] font-bold text-[#7D635D]">
                 點擊寵物或方向按鈕可轉身查看背部翅膀與配件
               </p>
             </div>
@@ -419,6 +449,71 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
               );
             })}
           </div>
+
+          {isStageCompact && (
+            <div className="fixed top-14 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pt-1.5 z-20 pointer-events-none">
+              <div className="pointer-events-auto rounded-2xl bg-[#FFFDF8]/95 backdrop-blur-md border-2 border-[#BCE8D7] shadow-lg px-3 py-2 flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCycleDirection}
+                  aria-label="點擊讓寵物轉方向查看穿搭"
+                  className="relative shrink-0 rounded-2xl bg-[#EAF9F3] border border-[#CBECE0] p-1 active:scale-95 transition"
+                >
+                  <PiggyCharacter
+                    species={pet.species}
+                    growth={pet.growth}
+                    roundness={pet.roundness}
+                    action="idle"
+                    equipped={pet.accessories}
+                    interactive={false}
+                    viewDirection={viewDirection}
+                    size={62}
+                  />
+                  <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-white border border-[#CBECE0] shadow-xs flex items-center justify-center text-[#256D57]">
+                    <RotateCw className="w-3 h-3" />
+                  </span>
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-extrabold text-[#4A3531] truncate">
+                      {pet.name}即時試穿
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#EBF7F2] text-[10px] font-extrabold text-[#256D57] whitespace-nowrap shrink-0">
+                      {directionOptions.find((d) => d.id === viewDirection)?.label ?? '正面'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-bold text-[#7D635D] truncate mt-0.5">
+                    {lastReactionText
+                      ? lastReactionText
+                      : equippedInActiveSlot
+                      ? `${ACCESSORY_SLOT_LABELS[activeSlot]}：${equippedInActiveSlot.name}`
+                      : `${ACCESSORY_SLOT_LABELS[activeSlot]}：尚未穿戴`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {onOpenPhotoStudio && (
+                    <button
+                      type="button"
+                      onClick={onOpenPhotoStudio}
+                      aria-label="開啟更衣室拍照"
+                      className="min-h-[36px] px-2.5 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold inline-flex items-center gap-1 shadow-xs hover:bg-[#F76890] active:scale-95 transition"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>拍照</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    aria-label="回到更衣室頂部"
+                    className="min-h-[36px] min-w-[36px] rounded-xl bg-[#F3EAE5] text-[#5A3E36] flex items-center justify-center hover:bg-[#E7DBD4] active:scale-95 transition"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

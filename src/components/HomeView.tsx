@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Bath,
   BookHeart,
@@ -163,6 +163,149 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [draggingFoodId, setDraggingFoodId] = useState<string | null>(null);
   const [isDropOver, setIsDropOver] = useState(false);
   const [petDirection, setPetDirection] = useState<PetViewDirection>('front');
+  const [pointerDrag, setPointerDrag] = useState<{
+    food: Food;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const stageRef = useRef<HTMLElement | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const dragCandidateRef = useRef<{
+    food: Food;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+  } | null>(null);
+  const activePointerDragRef = useRef<{
+    food: Food;
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const onFeedRef = useRef(onFeed);
+  onFeedRef.current = onFeed;
+
+  const isPointInsideStage = (clientX: number, clientY: number) => {
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    const pad = 12;
+    return (
+      clientX >= rect.left - pad &&
+      clientX <= rect.right + pad &&
+      clientY >= rect.top - pad &&
+      clientY <= rect.bottom + pad
+    );
+  };
+
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    const handleWindowPointerMove = (e: PointerEvent) => {
+      const active = activePointerDragRef.current;
+      if (active && e.pointerId === active.pointerId) {
+        const next = { ...active, x: e.clientX, y: e.clientY };
+        activePointerDragRef.current = next;
+        setPointerDrag({ food: active.food, x: e.clientX, y: e.clientY });
+        setIsDropOver(isPointInsideStage(e.clientX, e.clientY));
+        return;
+      }
+
+      const candidate = dragCandidateRef.current;
+      if (candidate && e.pointerId === candidate.pointerId) {
+        candidate.lastX = e.clientX;
+        candidate.lastY = e.clientY;
+        const dist = Math.hypot(e.clientX - candidate.startX, e.clientY - candidate.startY);
+        if (dist > 10) {
+          clearHoldTimer();
+          dragCandidateRef.current = null;
+        }
+      }
+    };
+
+    const handleWindowPointerEnd = (e: PointerEvent) => {
+      const candidate = dragCandidateRef.current;
+      if (candidate && e.pointerId === candidate.pointerId) {
+        clearHoldTimer();
+        dragCandidateRef.current = null;
+      }
+
+      const active = activePointerDragRef.current;
+      if (active && e.pointerId === active.pointerId) {
+        const droppedOnStage =
+          e.type === 'pointerup' && isPointInsideStage(e.clientX, e.clientY);
+        const droppedFood = active.food;
+        activePointerDragRef.current = null;
+        setPointerDrag(null);
+        setIsDropOver(false);
+        if (droppedOnStage) {
+          onFeedRef.current(droppedFood);
+        }
+      }
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerEnd);
+    window.addEventListener('pointercancel', handleWindowPointerEnd);
+    return () => {
+      clearHoldTimer();
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerEnd);
+      window.removeEventListener('pointercancel', handleWindowPointerEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pointerDrag) return;
+    const preventTouchScroll = (e: TouchEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('touchmove', preventTouchScroll, { passive: false });
+    return () => {
+      window.removeEventListener('touchmove', preventTouchScroll);
+    };
+  }, [Boolean(pointerDrag)]);
+
+  const handleFoodPointerDown = (e: React.PointerEvent<HTMLDivElement>, food: Food) => {
+    if (e.pointerType === 'mouse') return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    clearHoldTimer();
+    dragCandidateRef.current = {
+      food,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+    };
+    holdTimerRef.current = window.setTimeout(() => {
+      const candidate = dragCandidateRef.current;
+      if (!candidate || candidate.pointerId !== e.pointerId) return;
+      dragCandidateRef.current = null;
+      holdTimerRef.current = null;
+      const next = {
+        food: candidate.food,
+        pointerId: candidate.pointerId,
+        x: candidate.lastX,
+        y: candidate.lastY,
+      };
+      activePointerDragRef.current = next;
+      setPointerDrag({ food: next.food, x: next.x, y: next.y });
+      setIsDropOver(isPointInsideStage(next.x, next.y));
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(12);
+      }
+    }, 160);
+  };
 
   const petDirectionOrder: PetViewDirection[] = ['front', 'flipped', 'right', 'back', 'left'];
   const petDirectionLabels: Record<PetViewDirection, string> = {
@@ -345,13 +488,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
       )}
 
       <section
+        ref={stageRef}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDropOver(true);
         }}
         onDragLeave={() => setIsDropOver(false)}
         onDrop={handleDropOnPiggy}
-        className={`relative rounded-3xl ${stageBgConfig.stageClass} border-2 border-[#F5DFD7] px-3.5 pt-12 pb-4 flex flex-col items-center justify-center min-h-[276px] overflow-hidden`}
+        className={`relative rounded-3xl ${stageBgConfig.stageClass} border-2 px-3.5 pt-12 pb-4 flex flex-col items-center justify-center min-h-[276px] overflow-hidden transition-colors ${
+          isDropOver
+            ? 'border-[#FF7A9E] ring-4 ring-[#FF7A9E]/20'
+            : pointerDrag || draggingFoodId
+            ? 'border-[#F5A3B8]'
+            : 'border-[#F5DFD7]'
+        }`}
       >
         {activeBackground === 'starlight_garden' && (
           <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
@@ -550,11 +700,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
               const pref = evaluateFoodPreference(pet.species, food.id);
               const isFavorite = pref === 'favorite';
               const isDisliked = pref === 'disliked';
+              const isBeingPointerDragged = pointerDrag?.food.id === food.id;
               return (
                 <div
                   key={food.id}
                   draggable={count > 0 && !isFull}
                   onDragStart={(e) => {
+                    if (activePointerDragRef.current) {
+                      e.preventDefault();
+                      return;
+                    }
                     e.dataTransfer.setData('text/plain', food.id);
                     setDraggingFoodId(food.id);
                   }}
@@ -562,8 +717,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     setDraggingFoodId(null);
                     setIsDropOver(false);
                   }}
-                  className={`flex flex-col items-center rounded-2xl bg-[#FFF7EC] border p-2 text-center ${
-                    isFavorite ? 'border-[#FF9AB8]' : 'border-[#F3DFD7]'
+                  onPointerDown={
+                    count > 0 && !isFull
+                      ? (e) => handleFoodPointerDown(e, food)
+                      : undefined
+                  }
+                  className={`flex flex-col items-center rounded-2xl bg-[#FFF7EC] border p-2 text-center select-none transition ${
+                    isBeingPointerDragged
+                      ? 'border-[#FF7A9E] opacity-55 scale-95'
+                      : isFavorite
+                      ? 'border-[#FF9AB8]'
+                      : 'border-[#F3DFD7]'
                   }`}
                 >
                   <span className="text-2xl leading-none my-0.5" aria-hidden="true">
@@ -764,6 +928,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </section>
       ) : null}
+
+      {pointerDrag && (
+        <div
+          className="fixed z-50 pointer-events-none -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1"
+          style={{ left: pointerDrag.x, top: pointerDrag.y }}
+          aria-hidden="true"
+        >
+          <div
+            className={`w-16 h-16 rounded-full flex items-center justify-center text-4xl shadow-xl border-2 transition-transform ${
+              isDropOver
+                ? 'bg-[#FFEAF0] border-[#FF7A9E] scale-115'
+                : 'bg-[#FFFDF8] border-[#F5C6D4] scale-105'
+            }`}
+          >
+            {pointerDrag.food.emoji}
+          </div>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold shadow-xs whitespace-nowrap ${
+              isDropOver ? 'bg-[#FF7A9E] text-white' : 'bg-[#4A3531]/85 text-white'
+            }`}
+          >
+            {isDropOver ? `放開餵食 ${pet.name}` : `拖到${speciesInfo.shortName}身上`}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
