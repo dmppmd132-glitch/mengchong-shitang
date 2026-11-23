@@ -8,6 +8,8 @@ export const INGREDIENT_IDS: IngredientId[] = [
   'blueberry',
   'mint',
   'sunflower',
+  'moon_wheat',
+  'dream_cocoa',
 ];
 
 export const INGREDIENTS: Record<IngredientId, IngredientInfo> = {
@@ -73,6 +75,26 @@ export const INGREDIENTS: Record<IngredientId, IngredientInfo> = {
     seedCost: 10,
     harvestYield: 2,
     description: '充滿朝氣的陽光花朵，可作元氣便當與陽光花盆佈置！',
+  },
+  moon_wheat: {
+    id: 'moon_wheat',
+    name: '月光小麥',
+    emoji: '🌾',
+    growSeconds: 21600,
+    seedCost: 18,
+    harvestYield: 4,
+    isOvernight: true,
+    description: '沐浴月色慢慢熟成的金黃麥穗，睡前種下、早上起床就能大豐收！',
+  },
+  dream_cocoa: {
+    id: 'dream_cocoa',
+    name: '晚安可可',
+    emoji: '🍫',
+    growSeconds: 28800,
+    seedCost: 24,
+    harvestYield: 4,
+    isOvernight: true,
+    description: '需要整夜細心醞釀的濃郁可可果實，睡一覺醒來就能烘焙早安甜點！',
   },
 };
 
@@ -174,6 +196,55 @@ export const KITCHEN_RECIPES: KitchenRecipe[] = [
     },
     bonusGrowth: 12,
   },
+  {
+    id: 'recipe_moon_croissant',
+    outputFoodId: 'moon_croissant',
+    name: '月光金黃可頌',
+    emoji: '🥐',
+    description: '用隔夜熟成的月光小麥搭配香甜玉米，現烤出層層酥脆的早安可頌！',
+    ingredients: {
+      moon_wheat: 2,
+      corn: 1,
+    },
+    bonusGrowth: 16,
+  },
+  {
+    id: 'recipe_morning_brunch_plate',
+    outputFoodId: 'morning_brunch_plate',
+    name: '早安元氣鬆餅盤',
+    emoji: '🥞',
+    description: '月光小麥厚煎鬆餅佐新鮮草莓與藍莓，晨間幸福早午餐首選！',
+    ingredients: {
+      moon_wheat: 2,
+      strawberry: 1,
+      blueberry: 1,
+    },
+    bonusGrowth: 18,
+  },
+  {
+    id: 'recipe_dream_cocoa_cake',
+    outputFoodId: 'dream_cocoa_cake',
+    name: '晚安熔岩可可蛋糕',
+    emoji: '🍰',
+    description: '整夜醞釀的濃醇可可加上月光小麥麵香，切開會流出溫暖巧克力醬！',
+    ingredients: {
+      dream_cocoa: 2,
+      moon_wheat: 1,
+    },
+    bonusGrowth: 20,
+  },
+  {
+    id: 'recipe_cocoa_mint_latte',
+    outputFoodId: 'cocoa_mint_latte',
+    name: '薄荷雲朵熱可可',
+    emoji: '☕',
+    description: '濃厚晚安可可搭配清新薄荷奶蓋，早上來一杯立刻暖呼呼醒神！',
+    ingredients: {
+      dream_cocoa: 2,
+      mint: 1,
+    },
+    bonusGrowth: 16,
+  },
 ];
 
 export function createInitialIngredients(): Record<IngredientId, number> {
@@ -185,6 +256,8 @@ export function createInitialIngredients(): Record<IngredientId, number> {
     blueberry: 1,
     mint: 1,
     sunflower: 1,
+    moon_wheat: 0,
+    dream_cocoa: 0,
   };
 }
 

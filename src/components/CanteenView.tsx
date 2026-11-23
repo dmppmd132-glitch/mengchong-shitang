@@ -40,9 +40,13 @@ import {
   getIngredientStorageCap,
 } from '../utils/house';
 import {
+  formatCropDurationLabel,
+  formatRemainingTime,
+  formatWaterBoostLabel,
   getActiveYardBuffExpiresAt,
   getCropGrowthState,
   getExpectedCropDurationMs,
+  getWaterBoostMs,
 } from '../utils/farmGrowth';
 import { PiggyCharacter } from './PiggyCharacter';
 import { YardMoodBuffBadge } from './house/YardMoodBuffBadge';
@@ -145,7 +149,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const [harvestBursts, setHarvestBursts] = useState<
     Array<{ id: number; plotId: number; text: string; emoji: string; isGolden?: boolean }>
   >([]);
-  const [waterPourPlotIds, setWaterPourPlotIds] = useState<Record<number, number>>({});
+  const [waterPourPlotIds, setWaterPourPlotIds] = useState<
+    Record<number, { stamp: number; label: string }>
+  >({});
   const [puppyHappy, setPuppyHappy] = useState<boolean>(false);
   const [puppyRewardText, setPuppyRewardText] = useState<string | null>(null);
   const [isBannerCompact, setIsBannerCompact] = useState<boolean>(false);
@@ -202,12 +208,16 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
   const handleWaterPlot = (plotId: number) => {
     if (!onWaterCrop) return;
+    const target = farmPlots.find((p) => p.id === plotId);
+    const boostLabel = target
+      ? `${formatWaterBoostLabel(getWaterBoostMs(target.durationMs))}!`
+      : '-5s!';
     onWaterCrop(plotId);
     const stamp = Date.now();
-    setWaterPourPlotIds((prev) => ({ ...prev, [plotId]: stamp }));
+    setWaterPourPlotIds((prev) => ({ ...prev, [plotId]: { stamp, label: boostLabel } }));
     const tId = window.setTimeout(() => {
       setWaterPourPlotIds((prev) => {
-        if (prev[plotId] !== stamp) return prev;
+        if (prev[plotId]?.stamp !== stamp) return prev;
         const next = { ...prev };
         delete next[plotId];
         return next;
@@ -274,7 +284,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
     setWaterPourPlotIds((prev) => {
       const next = { ...prev };
       targets.forEach((p) => {
-        next[p.id] = stamp;
+        next[p.id] = {
+          stamp,
+          label: `${formatWaterBoostLabel(getWaterBoostMs(p.durationMs))}!`,
+        };
       });
       return next;
     });
@@ -282,7 +295,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
       setWaterPourPlotIds((prev) => {
         const next = { ...prev };
         targets.forEach((p) => {
-          if (next[p.id] === stamp) delete next[p.id];
+          if (next[p.id]?.stamp === stamp) delete next[p.id];
         });
         return next;
       });
@@ -712,10 +725,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 <div className="relative z-10 space-y-2.5">
                   <div className="px-0.5">
                     <h3 className="text-sm sm:text-base font-extrabold text-[#4E3629] leading-snug">
-                      選擇要種植的種子（7 種作物）
+                      選擇要種植的種子（{INGREDIENT_IDS.length} 種作物）
                     </h3>
                     <p className="text-[11px] font-bold text-[#7A5E4E] mt-0.5">
-                      新作物可製作限定美食與手作家具！點選作物後點擊空田地播種。
+                      快熟作物隨時收成，🌙 過夜作物可睡前種下、早上起床大豐收！
                     </p>
                   </div>
 
@@ -735,6 +748,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                           ) / 1000
                         )
                       );
+                      const durationLabel = formatCropDurationLabel(effectiveSec);
                       return (
                         <button
                           key={id}
@@ -743,6 +757,8 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                           className={`relative min-h-[82px] rounded-[14px] p-1.5 text-center transition flex flex-col items-center justify-center gap-0.5 active:translate-y-0.5 ${
                             active
                               ? 'bg-[#CCF0E4] border-[2.2px] border-[#5BB493] shadow-[0_0_10px_rgba(118,200,165,0.55),0_3px_0_#7AC4A8] text-[#215B46]'
+                              : info.isOvernight
+                              ? 'bg-gradient-to-b from-[#F4E8FA] to-[#E6D4F2] border-[2px] border-[#6B5344] shadow-[0_3px_0_#B79AC9] text-[#4A2E5E] hover:brightness-[1.02]'
                               : 'bg-gradient-to-b from-[#F8E9D0] to-[#EED5B1] border-[2px] border-[#6B5344] shadow-[0_3px_0_#C9A982] text-[#4E3629] hover:brightness-[1.02]'
                           }`}
                         >
@@ -752,6 +768,16 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                               className="pointer-events-none absolute inset-[3px] rounded-[10px] border-[1.5px] border-dashed border-[#5DB392]"
                               aria-hidden="true"
                             />
+                          )}
+
+                          {/* Overnight Moon Badge */}
+                          {info.isOvernight && (
+                            <span
+                              className="absolute top-1 left-1 z-10 rounded-md bg-[#6B488C]/90 px-1 py-[1px] text-[9px] font-extrabold text-[#FFF8D6] leading-tight pointer-events-none"
+                              aria-label="過夜長作物"
+                            >
+                              🌙過夜
+                            </span>
                           )}
 
                           {/* Subtle Hand-Drawn Wood Grain Lines on Wooden Plaques */}
@@ -790,12 +816,14 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                                   ? 'text-[#C83D68]'
                                   : active
                                   ? 'text-[#256D53]'
+                                  : info.isOvernight
+                                  ? 'text-[#613E7C]'
                                   : 'text-[#6E513F]'
                               }`}
                             >
                               {freeCount > 0
-                                ? `🎁免費×${freeCount} · ${effectiveSec}秒`
-                                : `${info.seedCost}幣 · ${effectiveSec}秒`}
+                                ? `🎁免費×${freeCount} · ${durationLabel}`
+                                : `${info.seedCost}幣 · ${durationLabel}`}
                             </span>
                           </div>
                         </button>
@@ -864,9 +892,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                   {farmPlots.map((plot) => {
                     const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
                     const growth = getCropGrowthState(plot, now, yardMoodBuffPeriods);
-                    const remainingSec = crop
-                      ? Math.max(0, Math.ceil(growth.remainingMs / 1000))
-                      : 0;
+                    const remainingLabel = crop ? formatRemainingTime(growth.remainingMs) : '';
                     const isReady = crop !== null && growth.isReady;
                     const progressPct = crop ? growth.progressPercent : 0;
                     const seedInfo = INGREDIENTS[selectedSeed];
@@ -876,8 +902,11 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       ? getEffectiveHarvestYield(crop.harvestYield, house)
                       : 2;
                     const isGoldenMature = isReady && Boolean(plot.isGolden);
-                    const isWateringNow = Boolean(waterPourPlotIds[plot.id]);
+                    const waterPour = waterPourPlotIds[plot.id];
+                    const isWateringNow = Boolean(waterPour);
                     const canWater = crop !== null && !isReady && !plot.watered && Boolean(onWaterCrop);
+                    const waterBoostMs = crop ? getWaterBoostMs(plot.durationMs) : 5000;
+                    const waterBoostLabel = formatWaterBoostLabel(waterBoostMs);
                     const plotBursts = harvestBursts.filter((b) => b.plotId === plot.id);
                     const growthStage: 'sprout' | 'growing' | 'mature' = isReady
                       ? 'mature'
@@ -902,23 +931,25 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                         ))}
 
                         {/* Pouring Water & Floating Hearts Overlay When Watered */}
-                        {isWateringNow && <WateringPourOverlaySvg />}
+                        {isWateringNow && (
+                          <WateringPourOverlaySvg boostLabel={waterPour?.label} />
+                        )}
 
                         {/* Top-Left Tilted Wooden Plot Sign Stake */}
                         <div className="absolute -top-4 left-2 z-20">
                           <WoodenPlotSignSvg label={`田地 #${plot.id + 1}`} />
                         </div>
 
-                        {/* Interactive Watering Can / Droplet Button Beside Growing Plot (1x Per Crop, -5s) */}
+                        {/* Interactive Watering Can / Droplet Button Beside Growing Plot (1x Per Crop) */}
                         {canWater && (
                           <button
                             type="button"
                             onClick={() => handleWaterPlot(plot.id)}
-                            aria-label={`為田地 #${plot.id + 1} 澆水減少 5 秒`}
+                            aria-label={`為田地 #${plot.id + 1} 澆水加速 (${waterBoostLabel})`}
                             className="absolute -top-3.5 -right-1 z-20 min-w-[44px] min-h-[44px] px-2 rounded-full bg-gradient-to-b from-[#B3ECFF] to-[#74CEF2] border-2 border-[#6B5344] shadow-[0_3px_0_#4396B8] inline-flex items-center justify-center gap-0.5 text-[10px] font-extrabold text-[#154A63] hover:brightness-105 active:translate-y-0.5 transition"
                           >
                             <WateringButtonIconSvg />
-                            <span>-5s</span>
+                            <span>{waterBoostLabel}</span>
                           </button>
                         )}
 
@@ -1001,7 +1032,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                               ) : (
                                 <div className="w-full max-w-[112px] space-y-1 mt-0.5">
                                   <p className="text-[10px] font-extrabold text-[#462E20] tabular-nums">
-                                    剩餘 {remainingSec} 秒
+                                    剩餘 {remainingLabel}
                                   </p>
                                   <div className="w-full h-2 rounded-full bg-[#FFF6E6] border-[1.5px] border-[#6B5344] overflow-hidden">
                                     <div
@@ -1127,7 +1158,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 每種儲存上限 {storageCap} 份
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {INGREDIENT_IDS.map((id) => {
                 const info = INGREDIENTS[id];
                 const qty = ingredients[id] ?? 0;

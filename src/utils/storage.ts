@@ -333,7 +333,9 @@ function asIngredientId(value: unknown): IngredientId | null {
     value === 'pumpkin' ||
     value === 'blueberry' ||
     value === 'mint' ||
-    value === 'sunflower'
+    value === 'sunflower' ||
+    value === 'moon_wheat' ||
+    value === 'dream_cocoa'
   ) {
     return value;
   }

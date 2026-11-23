@@ -190,7 +190,9 @@ export type IngredientId =
   | 'pumpkin'
   | 'blueberry'
   | 'mint'
-  | 'sunflower';
+  | 'sunflower'
+  | 'moon_wheat'
+  | 'dream_cocoa';
 
 export interface IngredientInfo {
   id: IngredientId;
@@ -200,6 +202,7 @@ export interface IngredientInfo {
   seedCost: number;
   harvestYield: number;
   description: string;
+  isOvernight?: boolean;
 }
 
 export interface CropPlot {

@@ -31,6 +31,46 @@ export const FEED_REACTION_BY_FOOD_ID: Record<string, FeedingReactionRule> = {
     expression: 'sparkle',
     particleEmojis: ['🍕', '🧀', '💖'],
   },
+  moon_croissant: {
+    speeches: [
+      '剛出爐的月光金黃可頌好酥脆～奶油和麥香在嘴巴裡散開了！',
+      '睡一覺收成的月光小麥做成可頌真的太幸福啦，早安活力滿格！',
+    ],
+    feedbackText: '早安麥香超酥脆！',
+    feedbackEmoji: '🥐',
+    expression: 'sparkle',
+    particleEmojis: ['🥐', '🌾', '✨'],
+  },
+  morning_brunch_plate: {
+    speeches: [
+      '蓬鬆鬆餅配草莓藍莓！這份早安早午餐也太豪華了吧～',
+      '每一口都吃得到月光小麥與鮮果的甜美，今天肯定超幸運！',
+    ],
+    feedbackText: '早安鬆餅大滿足！',
+    feedbackEmoji: '🥞',
+    expression: 'happyTongue',
+    particleEmojis: ['🥞', '🍓', '💖'],
+  },
+  dream_cocoa_cake: {
+    speeches: [
+      '哇～切開熔岩可可蛋糕還會爆漿！整夜等待完全值得了！',
+      '濃郁晚安可可化在舌尖上，心情像飛上雲端一樣快樂～',
+    ],
+    feedbackText: '可可熔岩太幸福！',
+    feedbackEmoji: '🍰',
+    expression: 'sparkle',
+    particleEmojis: ['🍰', '🍫', '🩷'],
+  },
+  cocoa_mint_latte: {
+    speeches: [
+      '暖呼呼的可可配上清涼薄荷奶蓋，喝完立刻精神百倍！',
+      '香濃又清爽的薄荷熱可可，最喜歡和你一起度過的早晨了！',
+    ],
+    feedbackText: '可可暖心又醒神！',
+    feedbackEmoji: '☕',
+    expression: 'wink',
+    particleEmojis: ['☕', '🌿', '✨'],
+  },
 };
 
 export const FEED_REACTION_BY_CATEGORY: Record<FoodCategory, FeedingReactionRule> = {

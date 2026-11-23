@@ -106,3 +106,46 @@ export function getCropGrowthState(
     isReady: remainingWorkMs <= 0,
   };
 }
+
+export function formatCropDurationLabel(totalSeconds: number): string {
+  const safeSec = Math.max(1, Math.round(totalSeconds));
+  if (safeSec >= 3600) {
+    const hours = Math.floor(safeSec / 3600);
+    const mins = Math.floor((safeSec % 3600) / 60);
+    return mins > 0 ? `${hours}時${mins}分` : `${hours}小時`;
+  }
+  if (safeSec >= 60) {
+    const mins = Math.floor(safeSec / 60);
+    const secs = safeSec % 60;
+    return secs > 0 ? `${mins}分${secs}秒` : `${mins}分`;
+  }
+  return `${safeSec}秒`;
+}
+
+export function formatRemainingTime(remainingMs: number): string {
+  const totalSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  if (totalSec >= 3600) {
+    const hours = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    return `${hours}時${String(mins).padStart(2, '0')}分`;
+  }
+  if (totalSec >= 60) {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}分${String(secs).padStart(2, '0')}秒`;
+  }
+  return `${totalSec} 秒`;
+}
+
+export function getWaterBoostMs(durationMs: number): number {
+  return Math.max(5000, Math.round(Math.max(0, durationMs) * 0.1));
+}
+
+export function formatWaterBoostLabel(boostMs: number): string {
+  const sec = Math.max(1, Math.round(boostMs / 1000));
+  if (sec >= 60) {
+    const mins = Math.round(sec / 60);
+    return `-${mins}分`;
+  }
+  return `-${sec}s`;
+}

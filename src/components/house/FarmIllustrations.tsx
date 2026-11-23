@@ -64,6 +64,10 @@ export const CropIllustration: React.FC<CropIllustrationProps> = ({
         ? '#FFF7FA'
         : cropId === 'sunflower'
         ? '#FFE066'
+        : cropId === 'moon_wheat'
+        ? '#FFE885'
+        : cropId === 'dream_cocoa'
+        ? '#C27A54'
         : cropId === 'blueberry'
         ? '#9DB6F7'
         : cropId === 'pumpkin' || cropId === 'carrot'
@@ -469,6 +473,121 @@ export const CropIllustration: React.FC<CropIllustrationProps> = ({
           />
         </svg>
       );
+
+    case 'moon_wheat':
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 64 64"
+          fill="none"
+          className={className}
+          aria-hidden="true"
+        >
+          {/* Moonlight Crescent Accent */}
+          <path
+            d="M15 11C11.5 11.8 9.8 15.2 11 18.6C12.2 21.8 15.8 23.2 19 21.8C16.2 21.5 14.3 19.3 14.3 16.5C14.3 14.1 15.5 12 17.6 11.1C16.7 10.9 15.8 10.8 15 11Z"
+            fill="#FFF099"
+            stroke={COCOA}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <circle cx="49" cy="14" r="1.8" fill="#FFF3AA" stroke={COCOA} strokeWidth="1" />
+          {/* Wheat Stalks */}
+          <path d="M26 53L22 20M32 54V13M38 53L42 20" stroke="#D69C38" strokeWidth="2.6" strokeLinecap="round" />
+          {/* Left Stalk Grains */}
+          <ellipse cx="19" cy="25" rx="3.4" ry="5.5" transform="rotate(-24 19 25)" fill="#F9D569" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="24" cy="29" rx="3.4" ry="5.2" transform="rotate(14 24 29)" fill="#F3C54D" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="20" cy="34" rx="3.2" ry="5" transform="rotate(-18 20 34)" fill="#F9D569" stroke={COCOA} strokeWidth="1.8" />
+          {/* Center Stalk Grains */}
+          <ellipse cx="32" cy="14" rx="3.6" ry="6" fill="#FFE07D" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="28" cy="21" rx="3.4" ry="5.2" transform="rotate(-18 28 21)" fill="#F9D569" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="36" cy="21" rx="3.4" ry="5.2" transform="rotate(18 36 21)" fill="#F3C54D" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="29" cy="30" rx="3.2" ry="5" transform="rotate(-15 29 30)" fill="#FFE07D" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="35" cy="30" rx="3.2" ry="5" transform="rotate(15 35 30)" fill="#F9D569" stroke={COCOA} strokeWidth="1.8" />
+          {/* Right Stalk Grains */}
+          <ellipse cx="45" cy="25" rx="3.4" ry="5.5" transform="rotate(24 45 25)" fill="#F9D569" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="40" cy="29" rx="3.4" ry="5.2" transform="rotate(-14 40 29)" fill="#F3C54D" stroke={COCOA} strokeWidth="1.8" />
+          <ellipse cx="44" cy="34" rx="3.2" ry="5" transform="rotate(18 44 34)" fill="#FFE07D" stroke={COCOA} strokeWidth="1.8" />
+          {/* Cute Cream-Mint Ribbon Tie */}
+          <path d="M25 46Q32 49 39 46L37 51Q32 53 27 51Z" fill="#7CD4B2" stroke={COCOA} strokeWidth="1.9" strokeLinejoin="round" />
+          <circle cx="32" cy="48.5" r="2.6" fill="#A6EBD0" stroke={COCOA} strokeWidth="1.5" />
+        </svg>
+      );
+
+    case 'dream_cocoa':
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 64 64"
+          fill="none"
+          className={className}
+          aria-hidden="true"
+        >
+          {/* Leaves */}
+          <path
+            d="M31 20C22 12 13 12 12 19C16 24 23 25 31 20Z"
+            fill="#73CE86"
+            stroke={COCOA}
+            strokeWidth="2.1"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M34 20C43 12 52 12 53 19C49 24 42 25 34 20Z"
+            fill="#5EBA72"
+            stroke={COCOA}
+            strokeWidth="2.1"
+            strokeLinejoin="round"
+          />
+          {/* Stem */}
+          <path d="M32 18V11" stroke={COCOA} strokeWidth="2.6" strokeLinecap="round" />
+          {/* Main Ribbed Cocoa Pod */}
+          <path
+            d="M32 18C42 18 48 27 46 39C44 48 37 55 32 56C27 55 20 48 18 39C16 27 22 18 32 18Z"
+            fill="#A66041"
+            stroke={COCOA}
+            strokeWidth="2.3"
+            strokeLinejoin="round"
+          />
+          {/* Cocoa Pod Highlight & Ribs */}
+          <path
+            d="M27 20C23 27 23 42 29 53M37 20C41 27 41 42 35 53"
+            stroke="#7F4329"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M24 28C23.5 32 24 37 25 40"
+            stroke="#D69473"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+          {/* Two Cute Front Cocoa Beans */}
+          <ellipse
+            cx="23"
+            cy="49"
+            rx="6"
+            ry="4.2"
+            transform="rotate(-16 23 49)"
+            fill="#7D442B"
+            stroke={COCOA}
+            strokeWidth="1.9"
+          />
+          <ellipse
+            cx="41"
+            cy="49"
+            rx="6"
+            ry="4.2"
+            transform="rotate(16 41 49)"
+            fill="#8F5136"
+            stroke={COCOA}
+            strokeWidth="1.9"
+          />
+          {/* Tiny Star Accent */}
+          <circle cx="49" cy="29" r="2" fill="#FFE680" stroke={COCOA} strokeWidth="1" />
+        </svg>
+      );
   }
 };
 
@@ -762,7 +881,9 @@ export const WateringButtonIconSvg: React.FC = () => (
 );
 
 /* Pouring Water + Floating Hearts Overlay on Plot After Watering */
-export const WateringPourOverlaySvg: React.FC = () => (
+export const WateringPourOverlaySvg: React.FC<{ boostLabel?: string }> = ({
+  boostLabel = '-5秒!',
+}) => (
   <div
     className="pointer-events-none absolute inset-x-0 -top-6 bottom-0 z-30 flex flex-col items-center justify-start overflow-visible"
     aria-hidden="true"
@@ -816,7 +937,7 @@ export const WateringPourOverlaySvg: React.FC = () => (
     {/* Floating Hearts */}
     <div className="animate-float-up -mt-4 flex items-center gap-1.5 rounded-full bg-[#FFF0F5]/95 border-2 border-[#6B5344] px-2.5 py-0.5 text-[11px] font-extrabold text-[#D64470] shadow-xs">
       <span>💕</span>
-      <span>-5秒!</span>
+      <span>{boostLabel}</span>
     </div>
   </div>
 );

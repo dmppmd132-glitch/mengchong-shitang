@@ -71,6 +71,8 @@ export function createZeroWarehouse(): Record<IngredientId, number> {
     blueberry: 0,
     mint: 0,
     sunflower: 0,
+    moon_wheat: 0,
+    dream_cocoa: 0,
   };
 }
 

@@ -12,6 +12,7 @@ import {
   IngredientId,
   KitchenRecipe,
 } from '../../types';
+import { formatRemainingTime } from '../../utils/farmGrowth';
 
 interface CoopFarmRelayGameProps {
   game: GameState;
@@ -184,7 +185,7 @@ export const CoopFarmRelayGame: React.FC<CoopFarmRelayGameProps> = ({
             農夫收成自動進庫 · 主廚隨時取用
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {INGREDIENT_IDS.map((ingId) => {
             const info = INGREDIENTS[ingId];
             const qty = game.coop.sharedWarehouse[ingId] ?? 0;
@@ -296,9 +297,9 @@ export const CoopFarmRelayGame: React.FC<CoopFarmRelayGameProps> = ({
               const elapsed = plot.plantedAt ? nowMs - plot.plantedAt : 0;
               const isReady =
                 cropInfo !== null && plot.plantedAt !== null && elapsed >= plot.durationMs;
-              const remaining =
+              const remainingMs =
                 cropInfo !== null && plot.plantedAt !== null
-                  ? Math.max(0, Math.ceil((plot.durationMs - elapsed) / 1000))
+                  ? Math.max(0, plot.durationMs - elapsed)
                   : 0;
               const pct =
                 cropInfo && plot.durationMs > 0
@@ -344,7 +345,7 @@ export const CoopFarmRelayGame: React.FC<CoopFarmRelayGameProps> = ({
                       ) : (
                         <>
                           <span className="text-[10px] font-bold text-[#8A5610] tabular-nums">
-                            成長中 {remaining}s
+                            成長中 {formatRemainingTime(remainingMs)}
                           </span>
                           <div className="w-full h-1.5 rounded-full bg-[#E8DCD2] overflow-hidden">
                             <div

@@ -166,7 +166,13 @@ import {
   toggleFavoriteMemory,
 } from './utils/memories';
 import { evaluateAllNoviceDays, getLocalDateString } from './utils/noviceGrowth';
-import { getCropGrowthState, getExpectedCropDurationMs } from './utils/farmGrowth';
+import {
+  formatCropDurationLabel,
+  formatWaterBoostLabel,
+  getCropGrowthState,
+  getExpectedCropDurationMs,
+  getWaterBoostMs,
+} from './utils/farmGrowth';
 import {
   applyPersonalityDevelopment,
   evaluateAccessoryPreference,
@@ -1451,10 +1457,11 @@ export default function App() {
           prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
       },
     }));
+    const durationText = formatCropDurationLabel(effectiveSec);
     setSpeech(
       hasFreeSeed
-        ? `用免費種子種下${info.name}囉，再等 ${effectiveSec} 秒就可以收成了！`
-        : `種下${info.name}種子囉，再等 ${effectiveSec} 秒就可以收成了！`
+        ? `用免費種子種下${info.name}囉，再等 ${durationText}就可以收成了！`
+        : `種下${info.name}種子囉，再等 ${durationText}就可以收成了！`
     );
   };
 
@@ -1465,6 +1472,9 @@ export default function App() {
     if (getCropGrowthState(targetPlot, Date.now(), game.yardMoodBuffPeriods ?? []).isReady) return;
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
+    const boostMs = getWaterBoostMs(targetPlot.durationMs);
+    const boostLabel = formatWaterBoostLabel(boostMs);
+    const boostDurationText = formatCropDurationLabel(Math.round(boostMs / 1000));
     soundFX.splash(game.soundEnabled);
     soundFX.heart(game.soundEnabled);
     triggerHaptic(15);
@@ -1473,12 +1483,12 @@ export default function App() {
       ...prev,
       farmPlots: prev.farmPlots.map((p) =>
         p.id === plotId && p.plantedAt !== null
-          ? { ...p, plantedAt: p.plantedAt - 5000, watered: true }
+          ? { ...p, plantedAt: p.plantedAt - boostMs, watered: true }
           : p
       ),
     }));
-    pushFeedback(`${cropInfo.name} 澆水加速 -5 秒`, '💧');
-    setSpeech(`幫${cropInfo.name}澆水囉！等待時間立刻減少 5 秒 💧`);
+    pushFeedback(`${cropInfo.name} 澆水加速 ${boostLabel}`, '💧');
+    setSpeech(`幫${cropInfo.name}澆水囉！等待時間立刻減少 ${boostDurationText} 💧`);
   };
 
   const handleHarvestCrop = (plotId: number) => {
@@ -1551,18 +1561,28 @@ export default function App() {
   const handleWaterAllCrops = () => {
     const nowTs = Date.now();
     const buffs = game.yardMoodBuffPeriods ?? [];
-    const targetIds = new Set(
-      game.farmPlots
-        .filter(
-          (p) =>
-            p.cropId !== null &&
-            p.plantedAt !== null &&
-            !p.watered &&
-            !getCropGrowthState(p, nowTs, buffs).isReady
-        )
-        .map((p) => p.id)
+    const targetPlots = game.farmPlots.filter(
+      (p) =>
+        p.cropId !== null &&
+        p.plantedAt !== null &&
+        !p.watered &&
+        !getCropGrowthState(p, nowTs, buffs).isReady
     );
+    const targetIds = new Set(targetPlots.map((p) => p.id));
     if (targetIds.size === 0) return;
+
+    const maxBoostMs = targetPlots.reduce(
+      (max, p) => Math.max(max, getWaterBoostMs(p.durationMs)),
+      5000
+    );
+    const minBoostMs = targetPlots.reduce(
+      (min, p) => Math.min(min, getWaterBoostMs(p.durationMs)),
+      maxBoostMs
+    );
+    const summaryLabel =
+      maxBoostMs === minBoostMs
+        ? formatWaterBoostLabel(maxBoostMs)
+        : `最多 ${formatWaterBoostLabel(maxBoostMs)}`;
 
     soundFX.splash(game.soundEnabled);
     soundFX.heart(game.soundEnabled);
@@ -1572,12 +1592,12 @@ export default function App() {
       ...prev,
       farmPlots: prev.farmPlots.map((p) =>
         targetIds.has(p.id) && p.plantedAt !== null
-          ? { ...p, plantedAt: p.plantedAt - 5000, watered: true }
+          ? { ...p, plantedAt: p.plantedAt - getWaterBoostMs(p.durationMs), watered: true }
           : p
       ),
     }));
-    pushFeedback(`一次為 ${targetIds.size} 塊田地澆水 -5秒`, '💧');
-    setSpeech(`一口氣幫 ${targetIds.size} 塊農地澆水囉！等待時間全部減少 5 秒 💧`);
+    pushFeedback(`一次為 ${targetIds.size} 塊田地澆水 ${summaryLabel}`, '💧');
+    setSpeech(`一口氣幫 ${targetIds.size} 塊農地澆水囉！全部作物都加速成長 💧`);
   };
 
   const handleHarvestAllCrops = () => {
