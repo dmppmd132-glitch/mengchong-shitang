@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Cloud, Coins, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { CheckSquare, Cloud, Coins, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenSection, CanteenView } from './components/CanteenView';
@@ -3069,12 +3069,35 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setResetModalOpen(true)}
-                  aria-label="重置遊戲"
-                  title="重置遊戲"
-                  className="min-h-[38px] min-w-[38px] rounded-xl bg-[#FFE9EF] text-[#C4315B] flex items-center justify-center hover:bg-[#FFD9E3] transition"
+                  onClick={() => {
+                    if (activeTab === 'quests') {
+                      setActiveTab('home');
+                    } else {
+                      setQuestsInitialSection('daily');
+                      setActiveTab('quests');
+                    }
+                  }}
+                  aria-label={
+                    claimableQuestsCount > 0
+                      ? `任務與成長中心（${claimableQuestsCount} 項待領取獎勵）`
+                      : '任務與成長中心'
+                  }
+                  title="每日任務與新手成長"
+                  className={`relative min-h-[38px] min-w-[38px] rounded-xl flex items-center justify-center transition ${
+                    activeTab === 'quests'
+                      ? 'bg-[#FFEBF0] text-[#D64470] ring-1 ring-[#F5B4C6]'
+                      : 'bg-[#FFF3D8] text-[#9D5B12] hover:bg-[#FFE9BE]'
+                  }`}
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <CheckSquare className="w-4 h-4" />
+                  {claimableQuestsCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#FF5A87] text-white text-[10px] font-extrabold flex items-center justify-center tabular-nums shadow-xs"
+                    >
+                      {claimableQuestsCount}
+                    </span>
+                  )}
                 </button>
               </div>
             </header>
@@ -3279,6 +3302,7 @@ export default function App() {
                   onClaimNoviceDay={handleClaimNoviceDay}
                   onSelectBackground={handleSelectBackground}
                   initialSection={questsInitialSection}
+                  onBackHome={() => setActiveTab('home')}
                 />
               )}
             </main>
@@ -3301,7 +3325,6 @@ export default function App() {
                 }
                 setActiveTab(tab);
               }}
-              claimableQuestsCount={claimableQuestsCount}
               claimableHouseCount={claimableHouseCount}
             />
 

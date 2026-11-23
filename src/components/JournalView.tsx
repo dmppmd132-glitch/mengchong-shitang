@@ -264,61 +264,61 @@ export const JournalView: React.FC<JournalViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('journal')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[11.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'journal'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <NotebookPen className="w-3.5 h-3.5 shrink-0" />
-          <span>手帳</span>
+          <NotebookPen className="w-4 h-4 shrink-0" />
+          <span>體重</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('evolution')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[11.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'evolution'
               ? 'bg-white text-[#C44569] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+          <TrendingUp className="w-4 h-4 shrink-0" />
           <span>進化</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('memories')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[11.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'memories'
               ? 'bg-white text-[#B83B64] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <BookHeart className="w-3.5 h-3.5 shrink-0" />
+          <BookHeart className="w-4 h-4 shrink-0" />
           <span>回憶冊</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('personality')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[11.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'personality'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+          <Sparkles className="w-4 h-4 shrink-0" />
           <span>個性</span>
         </button>
         <button
           type="button"
           onClick={() => setSection('encyclopedia')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[11.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'encyclopedia'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5 shrink-0" />
+          <BookOpen className="w-4 h-4 shrink-0" />
           <span>圖鑑</span>
         </button>
       </div>

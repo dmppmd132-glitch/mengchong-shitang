@@ -973,7 +973,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
       {/* 5 Section Sub-Navigation */}
       <nav
         aria-label="家園分區導覽"
-        className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1 rounded-2xl"
+        className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl"
       >
         {(
           [
@@ -994,7 +994,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`relative min-h-[44px] rounded-xl text-[11px] font-extrabold flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap shrink-0 ${
+              className={`relative min-h-[46px] rounded-xl text-[11.5px] font-extrabold flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap shrink-0 ${
                 active
                   ? 'bg-white text-[#D64470] shadow-xs'
                   : 'text-[#6E544E] hover:text-[#4A3531]'

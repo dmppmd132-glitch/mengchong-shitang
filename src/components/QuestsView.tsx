@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarHeart, CheckCircle2, Coins, Gift, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarHeart, CheckCircle2, Coins, Gift, Sparkles } from 'lucide-react';
 import { getFoodById } from '../data/foods';
 import { DailyTask, GameState, StageBackgroundId } from '../types';
 import { evaluateAllNoviceDays } from '../utils/noviceGrowth';
@@ -15,6 +15,7 @@ interface QuestsViewProps {
   handleClaimNoviceDay?: (day: number) => void;
   onSelectBackground?: (bg: StageBackgroundId) => void;
   initialSection?: 'daily' | 'growth';
+  onBackHome?: () => void;
 }
 
 export const QuestsView: React.FC<QuestsViewProps> = ({
@@ -27,6 +28,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
   handleClaimNoviceDay,
   onSelectBackground,
   initialSection = 'daily',
+  onBackHome,
 }) => {
   const [section, setSection] = useState<'daily' | 'growth'>(initialSection);
 
@@ -41,6 +43,19 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
+      {onBackHome && (
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onBackHome}
+            className="min-h-[36px] px-3 rounded-xl bg-[#FFFDF8] border border-[#F0DDD5] text-xs font-extrabold text-[#5A3E36] inline-flex items-center gap-1 hover:bg-[#FFF3EC] active:scale-95 transition"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>返回首頁</span>
+          </button>
+          <span className="text-xs font-extrabold text-[#7D635D]">任務與成長中心</span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
