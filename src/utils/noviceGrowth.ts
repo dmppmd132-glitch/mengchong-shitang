@@ -1,5 +1,6 @@
 import { NOVICE_GROWTH_DAYS, NoviceDayConfig } from '../data/noviceGrowth';
 import { GameState, NoviceGrowthStats } from '../types';
+import { getActivePet } from './pets';
 
 export const NOVICE_GROWTH_STORAGE_KEY = 'mengchong_novice_growth_v1';
 
@@ -79,11 +80,15 @@ export function evaluateNoviceGoalProgress(
   hasSharedRoom: boolean
 ): number {
   const stats = game.noviceGrowth;
-  const equippedCount = Object.values(game.pet.accessories).filter(Boolean).length;
+  const activePet = getActivePet(game);
+  const maxEquipped = Math.max(
+    ...game.pets.map((p) => Object.values(p.accessories).filter(Boolean).length),
+    Object.values(activePet.accessories).filter(Boolean).length
+  );
 
   switch (goalId) {
     case 'hatch_and_name':
-      return game.pet.hatched && game.pet.name.trim().length > 0 ? 1 : 0;
+      return game.pets.some((p) => p.hatched && p.name.trim().length > 0) ? 1 : 0;
     case 'feed_1':
       return Math.min(target, Math.max(stats.feedCount, game.feedLogs.length));
     case 'pet_3':
@@ -114,14 +119,14 @@ export function evaluateNoviceGoalProgress(
         Math.max(stats.boughtAccessoryCount, game.accessories.length > 4 ? 1 : 0)
       );
     case 'equip_2':
-      return Math.min(target, equippedCount);
+      return Math.min(target, maxEquipped);
     case 'daily_tasks_3':
     case 'daily_tasks_5':
       return Math.min(target, stats.completedDailyTasksCount);
     case 'walk_1':
       return Math.min(target, stats.walkCount);
     case 'reach_lv2':
-      return game.pet.level >= 2 ? 1 : 0;
+      return game.pets.some((p) => p.level >= 2) ? 1 : 0;
     case 'feed_favorite_1':
       return Math.min(target, stats.fedFavoriteCount);
     case 'shared_room_1':

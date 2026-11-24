@@ -158,6 +158,21 @@ export const SPECIES_BATH_REACTIONS: Record<
     speech: '汪汪！水珠全甩飛，毛毛澎鬆好舒服！',
     animClass: 'animate-pet-watershake',
   },
+  cat: {
+    actionLabel: '小貓細心舔毛擦臉',
+    speech: '喵嗚～洗完香噴噴，優雅的毛髮一塵不染！',
+    animClass: 'animate-pet-earshake',
+  },
+  duck: {
+    actionLabel: '小鴨快樂拍翅膀玩水',
+    speech: '嘎嘎～水花濺起來超涼爽，最愛泡泡浴了！',
+    animClass: 'animate-pet-watershake',
+  },
+  hamster: {
+    actionLabel: '小倉鼠沙浴滾滾中',
+    speech: '吱吱～搓搓小臉把灰塵都洗掉，變身蓬鬆小圓球！',
+    animClass: 'animate-pet-roll',
+  },
 };
 
 export const SPECIES_RHYTHM_REACTIONS: Record<
@@ -177,6 +192,21 @@ export const SPECIES_RHYTHM_REACTIONS: Record<
   dog: {
     danceLabel: '小狗全力搖尾巴',
     speech: '汪汪！尾巴跟音樂一樣完美對拍！',
+    animClass: 'animate-pet-tailwag',
+  },
+  cat: {
+    danceLabel: '小貓優雅踩貓步',
+    speech: '喵嗚～每一步都精準踏在最時髦的節拍上！',
+    animClass: 'animate-pet-wiggle',
+  },
+  duck: {
+    danceLabel: '小鴨搖擺拍翅膀',
+    speech: '嘎嘎！左右搖擺跳起鴨鴨快樂舞！',
+    animClass: 'animate-pet-hop',
+  },
+  hamster: {
+    danceLabel: '小倉鼠快腳踏步中',
+    speech: '吱吱！小短腿跟著節奏噠噠噠踩個不停！',
     animClass: 'animate-pet-tailwag',
   },
 };

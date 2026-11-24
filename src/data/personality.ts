@@ -165,6 +165,63 @@ export const PET_PREFERENCES: Record<PetSpecies, PetPreference> = {
     dislikedToyIds: ['toy_mirror'],
     dislikedFurnitureIds: ['strawberry_lace_bed', 'cloud_gauze_curtain'],
   },
+  cat: {
+    species: 'cat',
+    favoriteFoodIds: ['caramel_pudding', 'blueberry_tart', 'cocoa_mint_latte'],
+    favoriteToyIds: ['toy_mirror', 'toy_throw_pillow'],
+    favoriteFurnitureIds: [
+      'strawberry_lace_bed',
+      'cloud_gauze_curtain',
+      'starlight_window',
+    ],
+    favoriteAccessoryIds: [
+      'pink_bow',
+      'crystal_crown',
+      'bell_collar',
+      'starlight_spark_pin',
+    ],
+    dislikedFoodIds: ['carrot_salad', 'veggie_porridge'],
+    dislikedToyIds: ['toy_frisbee'],
+    dislikedFurnitureIds: ['camp_picnic_table', 'camp_trail_sign'],
+  },
+  duck: {
+    species: 'duck',
+    favoriteFoodIds: ['fruit_box', 'pumpkin_soup', 'morning_brunch_plate'],
+    favoriteToyIds: ['toy_rainbow_ball', 'toy_mini_tent'],
+    favoriteFurnitureIds: [
+      'camp_picnic_table',
+      'sunflower_vase',
+      'monstera_pot',
+    ],
+    favoriteAccessoryIds: [
+      'sprout_clip',
+      'mint_bell_tie',
+      'bee_honey_wings',
+      'sunflower_badge',
+    ],
+    dislikedFoodIds: ['pepperoni_pizza', 'cheese_burger'],
+    dislikedToyIds: ['toy_mirror'],
+    dislikedFurnitureIds: ['bakery_snack_rack', 'cloud_dessert_tower'],
+  },
+  hamster: {
+    species: 'hamster',
+    favoriteFoodIds: ['butter_cookie', 'sunflower_bento', 'dried_fruit'],
+    favoriteToyIds: ['toy_throw_pillow', 'toy_mini_tent'],
+    favoriteFurnitureIds: [
+      'fluffy_cotton_pillow',
+      'cloud_puff_pillow',
+      'bakery_snack_rack',
+    ],
+    favoriteAccessoryIds: [
+      'mini_mushroom_hat',
+      'visitor_acorn_charm',
+      'carrot_scarf',
+      'strawberry_clip',
+    ],
+    dislikedFoodIds: ['pumpkin_soup', 'mint_parfait'],
+    dislikedToyIds: ['toy_frisbee'],
+    dislikedFurnitureIds: ['starlight_window', 'camp_trail_sign'],
+  },
 };
 
 export const SPECIES_INITIAL_PERSONALITY_DEFAULTS: Record<
@@ -217,6 +274,48 @@ export const SPECIES_INITIAL_PERSONALITY_DEFAULTS: Record<
       shy: 8,
     },
   },
+  cat: {
+    primary: 'elegant',
+    secondary: 'curious',
+    baseScores: {
+      elegant: 26,
+      curious: 20,
+      sleepy: 16,
+      mischievous: 13,
+      clingy: 11,
+      shy: 10,
+      greedy: 9,
+      lively: 8,
+    },
+  },
+  duck: {
+    primary: 'lively',
+    secondary: 'curious',
+    baseScores: {
+      lively: 26,
+      curious: 21,
+      clingy: 15,
+      mischievous: 13,
+      greedy: 12,
+      elegant: 10,
+      sleepy: 9,
+      shy: 7,
+    },
+  },
+  hamster: {
+    primary: 'greedy',
+    secondary: 'shy',
+    baseScores: {
+      greedy: 26,
+      shy: 21,
+      curious: 16,
+      sleepy: 14,
+      clingy: 12,
+      lively: 10,
+      mischievous: 8,
+      elegant: 7,
+    },
+  },
 };
 
 export type PersonalityCareTrigger =
@@ -252,6 +351,18 @@ export const DISLIKED_FOOD_SPEECHES: Record<PetSpecies, string[]> = {
     '嗚… 味道好淡喔汪，雖然不太喜歡，但主人給的我還是會吃完！',
     '汪… 下次想要大口吃肉肉便當或漢堡啦～不過謝謝你！',
   ],
+  cat: [
+    '喵… 這道味道對本喵來說太清淡了點，不過看在你的份上就小口吃掉吧。',
+    '唔喵… 下次換焦糖布丁或藍莓塔會更合本喵的優雅胃口喔！',
+  ],
+  duck: [
+    '嘎… 有點太油膩了呢，小鴨還是比較喜歡新鮮水果或熱湯嘎～',
+    '唔嘎… 雖然不是最愛，但謝謝你替我準備食物！',
+  ],
+  hamster: [
+    '吱… 這個吃起來濕濕黏黏的，還是酥脆餅乾更棒，但謝謝你的心意！',
+    '唔吱… 這個沒辦法塞進腮幫子囤起來呢，下次想吃手工餅乾～',
+  ],
 };
 
 export const FAVORITE_FOOD_SPEECHES: Record<PetSpecies, string[]> = {
@@ -267,6 +378,18 @@ export const FAVORITE_FOOD_SPEECHES: Record<PetSpecies, string[]> = {
     '汪嗚！！最喜歡的香氣來了！尾巴搖到變成螺旋槳啦！',
     '太幸福了汪！這是我心中第一名的超級料理！',
   ],
+  cat: [
+    '喵嗚～！！這股甜美滋味真是絕品，本喵決定今天就當最黏人的貓咪！',
+    '眼睛閃閃發亮喵！最懂本喵口味的果然還是你～',
+  ],
+  duck: [
+    '嘎呼！！太香太爽口啦，兩隻小翅膀開心地拍個不停！',
+    '這味道簡直像在陽光池塘野餐一樣幸福滿分嘎嘎！',
+  ],
+  hamster: [
+    '吱吱！！香酥又可口，臉頰塞得滿滿滿超幸福！',
+    '兩隻小手捧著吃不停吱！這是我最愛的囤糧冠軍！',
+  ],
 };
 
 export const FAVORITE_ITEM_BUBBLE_SPEECHES: Record<PetSpecies, string[]> = {
@@ -281,6 +404,18 @@ export const FAVORITE_ITEM_BUBBLE_SPEECHES: Record<PetSpecies, string[]> = {
   dog: [
     '汪汪！這是我最愛的玩具！快陪我一起玩吧！',
     '眼睛亮晶晶！看到最喜歡的球球和飛盤就停不下來汪！',
+  ],
+  cat: [
+    '喵～在軟綿紗簾和鏡子前面整理毛毛最優雅了！',
+    '發現本喵最喜歡的角落，要悄悄霸佔這裡午睡囉喵～',
+  ],
+  duck: [
+    '嘎嘎！花瓶跟野餐桌旁邊好像在辦陽光派對一樣開心！',
+    '這是我最喜歡的角落，坐在這裡等新朋友一定很棒嘎！',
+  ],
+  hamster: [
+    '吱吱！軟綿綿抱枕跟點心架旁邊真是黃金寶座！',
+    '躲進小帳篷跟抱枕堆裡，最有安全感了吱～',
   ],
 };
 

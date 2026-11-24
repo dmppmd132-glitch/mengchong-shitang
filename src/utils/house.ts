@@ -54,6 +54,8 @@ import {
   applyPersonalityDevelopment,
   evaluateItemPreference,
 } from './personality';
+import { maybeGrantCatPhotoMemoryCard } from './memories';
+import { getActivePet, updateActivePet } from './pets';
 
 export type PaymentSource = 'personal' | 'treasury';
 
@@ -223,7 +225,7 @@ export function syncHouseProgress(state: GameState): {
   const notices: string[] = [];
   let house = state.house;
   let coins = state.coins;
-  let growth = state.pet.growth;
+  let growthDelta = 0;
   let unlockedTitles: TitleId[] = [...state.encyclopedia.unlockedTitles];
   let activeTitle = state.encyclopedia.activeTitle;
 
@@ -241,7 +243,7 @@ export function syncHouseProgress(state: GameState): {
     const bonusCoins = newFurnitureMilestones.length * FURNITURE_MILESTONE_COINS;
     const bonusGrowth = newFurnitureMilestones.length * FURNITURE_MILESTONE_GROWTH;
     coins += bonusCoins;
-    growth += bonusGrowth;
+    growthDelta += bonusGrowth;
     house = {
       ...house,
       claimedFurnitureMilestones: [
@@ -300,16 +302,23 @@ export function syncHouseProgress(state: GameState): {
 
   const nextAchieved = Array.from(achievedSet);
 
+  const withGrowth =
+    growthDelta > 0
+      ? updateActivePet(state, (pet) => {
+          const nextGrowth = pet.growth + growthDelta;
+          return {
+            ...pet,
+            growth: nextGrowth,
+            level: getGrowthStage(nextGrowth).level,
+          };
+        })
+      : state;
+
   const nextState: GameState = {
-    ...state,
+    ...withGrowth,
     coins,
-    pet: {
-      ...state.pet,
-      growth,
-      level: getGrowthStage(growth).level,
-    },
     encyclopedia: {
-      ...state.encyclopedia,
+      ...withGrowth.encyclopedia,
       unlockedTitles,
       activeTitle,
     },
@@ -1067,16 +1076,18 @@ export function completeActiveSharedGoal(state: GameState): HouseActionOutcome {
     };
   }
 
-  const nextGrowth = state.pet.growth + goal.rewardGrowthBonus;
-  const draft: GameState = {
-    ...state,
-    coins: state.coins + goal.rewardCoinsBonus,
-    farmPlots: nextPlots,
-    pet: {
-      ...state.pet,
+  const withGoalGrowth = updateActivePet(state, (pet) => {
+    const nextGrowth = pet.growth + goal.rewardGrowthBonus;
+    return {
+      ...pet,
       growth: nextGrowth,
       level: getGrowthStage(nextGrowth).level,
-    },
+    };
+  });
+  const draft: GameState = {
+    ...withGoalGrowth,
+    coins: withGoalGrowth.coins + goal.rewardCoinsBonus,
+    farmPlots: nextPlots,
     house: curHouse,
   };
 
@@ -1102,19 +1113,21 @@ export function claimSharedMilestoneReward(
   const def = SHARED_MILESTONES.find((m) => m.id === milestoneId);
   if (!def) return { nextState: state, ok: false, error: '找不到里程碑定義' };
 
-  const nextGrowth = state.pet.growth + def.rewardGrowth;
+  const withMilestoneGrowth = updateActivePet(state, (pet) => {
+    const nextGrowth = pet.growth + def.rewardGrowth;
+    return {
+      ...pet,
+      growth: nextGrowth,
+      level: getGrowthStage(nextGrowth).level,
+    };
+  });
   return {
     nextState: {
-      ...state,
-      coins: state.coins + def.rewardCoins,
-      pet: {
-        ...state.pet,
-        growth: nextGrowth,
-        level: getGrowthStage(nextGrowth).level,
-      },
+      ...withMilestoneGrowth,
+      coins: withMilestoneGrowth.coins + def.rewardCoins,
       house: {
-        ...state.house,
-        claimedMilestones: [...state.house.claimedMilestones, milestoneId],
+        ...withMilestoneGrowth.house,
+        claimedMilestones: [...withMilestoneGrowth.house.claimedMilestones, milestoneId],
       },
     },
     ok: true,
@@ -1133,6 +1146,7 @@ export function saveRoomSnapshotPhoto(
     frameId?: PhotoFrame;
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
+  const activePet = getActivePet(state);
   const latestNote = state.house.furnitureNotes[0]?.content;
   const fallbackTitle = `${state.house.houseName}紀念照`.slice(0, 20);
   const cleanTitle = params.title.trim().slice(0, 20) || fallbackTitle;
@@ -1141,12 +1155,13 @@ export function saveRoomSnapshotPhoto(
     title: cleanTitle,
     caption:
       params.caption.trim().slice(0, 60) ||
-      `${state.pet.name}在溫暖的小窩裡留下可愛身影！`,
+      `${activePet.name}在溫暖的小窩裡留下可愛身影！`,
     createdAt: Date.now(),
     houseName: state.house.houseName,
-    species: state.pet.species,
-    petName: state.pet.name,
-    equipped: { ...state.pet.accessories },
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: { ...activePet.accessories },
     poseId: params.poseId,
     wallpaperId: state.house.roomLayout.wallpaperId,
     flooringId: state.house.roomLayout.flooringId,
@@ -1157,7 +1172,7 @@ export function saveRoomSnapshotPhoto(
     stickers: params.stickers ? params.stickers.slice(0, 6) : [],
     filterId: params.filterId,
     frameId: params.frameId,
-    weightAtCapture: state.pet.weight,
+    weightAtCapture: activePet.weight,
     likes: [],
     comments: [],
   };
@@ -1171,7 +1186,8 @@ export function saveRoomSnapshotPhoto(
   };
 
   const synced = syncHouseProgress(draft);
-  return { nextState: synced.nextState, photo };
+  const withCatBonus = maybeGrantCatPhotoMemoryCard(synced.nextState);
+  return { nextState: withCatBonus.nextState, photo };
 }
 
 export type HousePetReactionType = 'sleep' | 'play';

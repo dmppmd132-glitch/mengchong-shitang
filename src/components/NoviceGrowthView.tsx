@@ -148,7 +148,7 @@ export const NoviceGrowthView: React.FC<NoviceGrowthViewProps> = ({
                       <span>
                         {g.label}
                         {g.id === 'reach_lv2' && !g.done
-                          ? `（目前成長值 ${Math.min(100, game.pet.growth)} / 100）`
+                          ? `（目前最高成長值 ${Math.min(100, Math.max(...game.pets.map((p) => p.growth), 0))} / 100）`
                           : ''}
                       </span>
                     </span>

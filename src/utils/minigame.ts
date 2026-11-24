@@ -21,6 +21,7 @@ import {
   MinigameWeeklyChallengeId,
 } from '../types/minigame';
 import { syncAllAccessoryProgress } from './accessories';
+import { getActivePet, updateActivePet } from './pets';
 
 function clampNum(val: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, val));
@@ -430,28 +431,34 @@ export function settleMinigameOutcome(
     syncedHub.weeklyClaimedIds
   );
 
-  const nextGrowth = prev.pet.growth + reward.growth;
+  const activePet = getActivePet(prev);
   const nextIngredients = { ...prev.ingredients };
   if (reward.ingredientReward) {
     const { id, qty } = reward.ingredientReward;
-    nextIngredients[id] = (nextIngredients[id] ?? 0) + qty;
+    const hamsterBonus =
+      activePet.species === 'hamster' && Math.random() < 0.12 ? 1 : 0;
+    nextIngredients[id] = (nextIngredients[id] ?? 0) + qty + hamsterBonus;
   }
 
-  const nextState: GameState = {
-    ...prev,
-    coins: prev.coins + reward.coins,
-    ingredients: nextIngredients,
-    pet: {
-      ...prev.pet,
-      mood: clampStatValue(prev.pet.mood + reward.mood),
-      cleanliness: clampStatValue(prev.pet.cleanliness + reward.cleanliness),
-      intimacy: prev.pet.intimacy + reward.intimacy,
+  const withPetUpdated = updateActivePet(prev, (pet) => {
+    const nextGrowth = pet.growth + reward.growth;
+    return {
+      ...pet,
+      mood: clampStatValue(pet.mood + reward.mood),
+      cleanliness: clampStatValue(pet.cleanliness + reward.cleanliness),
+      intimacy: pet.intimacy + reward.intimacy,
       growth: nextGrowth,
       level: getGrowthStage(nextGrowth).level,
-    },
+    };
+  });
+
+  const nextState: GameState = {
+    ...withPetUpdated,
+    coins: withPetUpdated.coins + reward.coins,
+    ingredients: nextIngredients,
     noviceGrowth: {
-      ...prev.noviceGrowth,
-      minigameCount: prev.noviceGrowth.minigameCount + 1,
+      ...withPetUpdated.noviceGrowth,
+      minigameCount: withPetUpdated.noviceGrowth.minigameCount + 1,
     },
     minigameHub: {
       ...syncedHub,
@@ -519,15 +526,17 @@ export function claimWeeklyMinigameChallenge(
     unlockedChampionBadge = true;
   }
 
-  const nextGrowth = prev.pet.growth + challenge.rewardGrowth;
-  const nextState: GameState = {
-    ...prev,
-    coins: prev.coins + challenge.rewardCoins,
-    pet: {
-      ...prev.pet,
+  const withChallengeGrowth = updateActivePet(prev, (pet) => {
+    const nextGrowth = pet.growth + challenge.rewardGrowth;
+    return {
+      ...pet,
       growth: nextGrowth,
       level: getGrowthStage(nextGrowth).level,
-    },
+    };
+  });
+  const nextState: GameState = {
+    ...withChallengeGrowth,
+    coins: withChallengeGrowth.coins + challenge.rewardCoins,
     minigameHub: {
       ...syncedHub,
       weeklyClaimedIds: nextClaimedIds,

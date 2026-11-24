@@ -21,6 +21,7 @@ import { ShareCardModal } from './components/memories/ShareCardModal';
 import { MessageBoardModal } from './components/MessageBoardModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PersonalityProfileModal } from './components/PersonalityProfileView';
+import { PetListView } from './components/pets/PetListView';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { QuestsView } from './components/QuestsView';
@@ -45,6 +46,7 @@ import { ROOM_ITEM_BY_ID } from './data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
 import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
+import { PET_PREFERENCES } from './data/personality';
 import {
   TOUCH_ZONE_META,
   getPetSpeciesInfo,
@@ -81,6 +83,7 @@ import {
   CloudUser,
   DialogueLine,
   DialogueSettings,
+  FamilyTaskId,
   FarmDecorationId,
   FarmUpgradeId,
   FeedLog,
@@ -167,6 +170,7 @@ import {
 import {
   evaluateAndSyncMilestones,
   evaluateAndSyncSharedMemories,
+  maybeGrantCatPhotoMemoryCard,
   recordMemoryEntry,
   recordMonthlyActivity,
   saveDialogueToMemories,
@@ -186,8 +190,24 @@ import {
 } from './utils/farmGrowth';
 import {
   applyPersonalityDevelopment,
+  createInitialPetPersonality,
   evaluateAccessoryPreference,
 } from './utils/personality';
+import {
+  adoptNewPet,
+  claimFamilyDailyTaskReward,
+  claimPetSlotReward,
+  evaluatePetSlots,
+  getActivePet,
+  getActivePetAbilityBonus,
+  getDefaultWeightForSpecies,
+  getPetDisplayPersonality,
+  incrementFamilyTaskProgress,
+  switchActivePet,
+  syncFamilyDailyTasks,
+  updateActivePet,
+  updatePetById,
+} from './utils/pets';
 import { ShareCardPayload } from './utils/shareCardCanvas';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
 import { soundFX, triggerHaptic } from './utils/sound';
@@ -306,13 +326,19 @@ export default function App() {
     dismissUpdate: handleDismissAppUpdate,
   } = usePWAUpdate();
 
+  const activePet = getActivePet(game);
+  const activePersonality = getPetDisplayPersonality(game, activePet);
+  const activeAbility = getActivePetAbilityBonus(game);
+  const petSlotsSummary = evaluatePetSlots(game, Boolean(sharedRoom));
+
   const actionTimerRef = useRef<number | null>(null);
   const feedPhaseTimerRef = useRef<number | null>(null);
+  const prevActivePetIdRef = useRef<string>(activePet.id);
   const prevStageLevelRef = useRef<number>(
-    getGrowthStage(game.pet.growth, game.pet.species).level
+    getGrowthStage(activePet.growth, activePet.species).level
   );
   const prevPrestigeStarsRef = useRef<number>(
-    getPrestigeStarInfo(game.pet.growth).stars
+    getPrestigeStarInfo(activePet.growth).stars
   );
   const gameRef = useRef<GameState>(game);
   const skipNextCloudUploadRef = useRef<boolean>(false);
@@ -400,13 +426,15 @@ export default function App() {
 
   const applyCloudStateLocally = useCallback((cloudState: GameState, customSpeech?: string) => {
     skipNextCloudUploadRef.current = true;
+    const cloudActive = getActivePet(cloudState);
+    prevActivePetIdRef.current = cloudActive.id;
     prevStageLevelRef.current = getGrowthStage(
-      cloudState.pet.growth,
-      cloudState.pet.species
+      cloudActive.growth,
+      cloudActive.species
     ).level;
-    prevPrestigeStarsRef.current = getPrestigeStarInfo(cloudState.pet.growth).stars;
+    prevPrestigeStarsRef.current = getPrestigeStarInfo(cloudActive.growth).stars;
     setGame(cloudState);
-    setSpeech(customSpeech ?? `歡迎回來，${cloudState.pet.name}！`);
+    setSpeech(customSpeech ?? `歡迎回來，${cloudActive.name}！`);
   }, []);
 
   const syncAfterSignIn = useCallback(
@@ -420,9 +448,10 @@ export default function App() {
         setSharedRoom(sharedRes.room);
         lastSharedUpdatedAtRef.current = sharedRes.room.updatedAt;
         if (sharedRes.state) {
+          const sharedActive = getActivePet(sharedRes.state);
           applyCloudStateLocally(
             sharedRes.state,
-            `回到與夥伴共養的「${sharedRes.state.pet.name}」身邊囉！`
+            `回到與夥伴共養的「${sharedActive.name}」身邊囉！`
           );
         }
         setPendingCloudSave(null);
@@ -443,9 +472,10 @@ export default function App() {
       }
 
       const currentLocal = gameRef.current;
+      const localActive = getActivePet(currentLocal);
 
       if (cloudState) {
-        if (!currentLocal.pet.hatched) {
+        if (!localActive.hatched) {
           applyCloudStateLocally(cloudState);
           setSyncStatus('synced');
           setLastSyncedAt(updatedAt);
@@ -471,7 +501,7 @@ export default function App() {
         return;
       }
 
-      if (currentLocal.pet.hatched) {
+      if (localActive.hatched) {
         const uploaded = await upsertCloudSave(user.id, currentLocal);
         if (uploaded.error) {
           setSyncStatus('error');
@@ -563,21 +593,24 @@ export default function App() {
         lastSharedUpdatedAtRef.current = remoteRoom.updatedAt;
         setLastSyncedAt(remoteRoom.updatedAt);
         setSyncStatus('synced');
-        const mergedState = mergeCoopRemoteState(gameRef.current, remoteState);
+        const mergedState = mergeCoopRemoteState(gameRef.current, remoteState, cloudUser.id);
+        const mergedActive = getActivePet(mergedState);
         const partnerFedNow = remoteState.feedLogs.length > gameRef.current.feedLogs.length;
         const withPartnerFeedMem = partnerFedNow
           ? recordMemoryEntry(mergedState, {
               uniqueKey: 'coop_partner_first_feed',
+              petId: 'pet_1',
               type: 'coop',
-              title: `夥伴第一次餵食 ${mergedState.pet.name}`,
-              description: `共養夥伴細心照顧 ${mergedState.pet.name}，一起分享美味時光！`,
+              title: `夥伴第一次餵食 ${mergedActive.name}`,
+              description: `共養夥伴細心照顧 ${mergedActive.name}，一起分享美味時光！`,
               emoji: '🍱',
               isShared: true,
             })
           : mergedState;
         const evaluatedDialogue = evaluateAndSelectDialogue(withPartnerFeedMem, cloudUser.id);
         const nextMerged: GameState = { ...withPartnerFeedMem, dialogue: evaluatedDialogue };
-        applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMerged.pet.name}與小屋！`);
+        const nextMergedActive = getActivePet(nextMerged);
+        applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMergedActive.name}與小屋！`);
         const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了共養空間！', emoji: '💞' }]);
         window.setTimeout(() => {
@@ -602,7 +635,7 @@ export default function App() {
         ) {
           lastSharedUpdatedAtRef.current = res.room.updatedAt;
           setLastSyncedAt(res.room.updatedAt);
-          const mergedState = mergeCoopRemoteState(gameRef.current, res.state);
+          const mergedState = mergeCoopRemoteState(gameRef.current, res.state, cloudUser.id);
           const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
           applyCloudStateLocally({ ...mergedState, dialogue: evaluatedDialogue });
         }
@@ -717,7 +750,7 @@ export default function App() {
   }, [cloudUser, sharedRoom?.id]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !cloudUser || pendingCloudSave || !game.pet.hatched) {
+    if (!isSupabaseConfigured || !cloudUser || pendingCloudSave || !activePet.hatched) {
       return;
     }
 
@@ -772,8 +805,15 @@ export default function App() {
   }, [game, cloudUser, pendingCloudSave, sharedRoom]);
 
   useEffect(() => {
-    const currentStage = getGrowthStage(game.pet.growth, game.pet.species);
-    const currentStars = getPrestigeStarInfo(game.pet.growth).stars;
+    const currentStage = getGrowthStage(activePet.growth, activePet.species);
+    const currentStars = getPrestigeStarInfo(activePet.growth).stars;
+
+    if (prevActivePetIdRef.current !== activePet.id) {
+      prevActivePetIdRef.current = activePet.id;
+      prevStageLevelRef.current = currentStage.level;
+      prevPrestigeStarsRef.current = currentStars;
+      return;
+    }
 
     if (currentStage.level > prevStageLevelRef.current) {
       const reward = STAGE_LEVEL_REWARDS[currentStage.level];
@@ -783,6 +823,7 @@ export default function App() {
       setLevelUpRewardText(reward?.rewardText ?? null);
 
       setGame((prev) => {
+        const prevActive = getActivePet(prev);
         const nextFoods =
           reward?.foodId && reward.foodQty
             ? {
@@ -802,13 +843,14 @@ export default function App() {
         };
         if (currentStage.level >= 2) {
           next = recordMemoryEntry(next, {
-            uniqueKey: `growth_lv_${currentStage.level}`,
+            uniqueKey: `growth_lv_${prevActive.id}_${currentStage.level}`,
+            petId: prevActive.id,
             type: 'growth',
-            title: `成長至 Lv.${currentStage.level}「${currentStage.name}」！`,
-            description: `${prev.pet.name}邁入全新成長階段，獲得祝賀禮 ${reward?.rewardText ?? ''}！`,
+            title: `${prevActive.name}成長至 Lv.${currentStage.level}「${currentStage.name}」！`,
+            description: `${prevActive.name}邁入全新成長階段，獲得祝賀禮 ${reward?.rewardText ?? ''}！`,
             emoji: '✨',
             level: currentStage.level,
-            weight: prev.pet.weight,
+            weight: prevActive.weight,
           });
         }
         return syncAllAccessoryProgress(next).nextState;
@@ -820,6 +862,7 @@ export default function App() {
       setLevelUpRewardText(`+${PRESTIGE_STAR_REWARD_COINS} 金幣`);
 
       setGame((prev) => {
+        const prevActive = getActivePet(prev);
         const next: GameState = {
           ...prev,
           coins: prev.coins + PRESTIGE_STAR_REWARD_COINS,
@@ -829,24 +872,25 @@ export default function App() {
           }),
         };
         return recordMemoryEntry(next, {
-          uniqueKey: `growth_prestige_star_${currentStars}`,
+          uniqueKey: `growth_prestige_star_${prevActive.id}_${currentStars}`,
+          petId: prevActive.id,
           type: 'growth',
-          title: `達成 Lv.4 閃耀星等 ★${currentStars}！`,
-          description: `細心陪伴讓 ${prev.pet.name} 獲得閃耀 ★${currentStars} 榮譽，獲贈 +${PRESTIGE_STAR_REWARD_COINS} 金幣！`,
+          title: `${prevActive.name}達成 Lv.4 閃耀星等 ★${currentStars}！`,
+          description: `細心陪伴讓 ${prevActive.name} 獲得閃耀 ★${currentStars} 榮譽，獲贈 +${PRESTIGE_STAR_REWARD_COINS} 金幣！`,
           emoji: '🌟',
           level: 4,
-          weight: prev.pet.weight,
+          weight: prevActive.weight,
         });
       });
     }
 
     prevStageLevelRef.current = currentStage.level;
     prevPrestigeStarsRef.current = currentStars;
-  }, [game.pet.growth, game.pet.species, game.soundEnabled]);
+  }, [activePet.id, activePet.growth, activePet.species, game.soundEnabled]);
 
   // 自動評估 12 項里程碑、8 項共養共同回憶（支援離線後恢復同步雙端通知）與月末/月初月度回顧卡
   useEffect(() => {
-    if (!game.pet.hatched) return;
+    if (!activePet.hatched) return;
     const activeMsgs = sharedRoom ? sharedMessages : game.messages;
     let nextState = game;
 
@@ -890,10 +934,10 @@ export default function App() {
 
   // 啟動與回到頁面時評估一次對話氣泡（含昨日最愛食物回顧 / 急迫需求 / 時間問候）
   useEffect(() => {
-    if (!game.pet.hatched) return;
+    if (!activePet.hatched) return;
     const evaluateNow = () => {
       setGame((prev) => {
-        if (!prev.pet.hatched) return prev;
+        if (!getActivePet(prev).hatched) return prev;
         const nextDialogue = evaluateAndSelectDialogue(prev, currentUserId);
         return nextDialogue === prev.dialogue
           ? prev
@@ -906,23 +950,31 @@ export default function App() {
       window.clearTimeout(initTimer);
       window.removeEventListener('focus', evaluateNow);
     };
-  }, [game.pet.hatched, currentUserId]);
+  }, [activePet.hatched, currentUserId]);
 
   useEffect(() => {
-    if (!game.pet.hatched) return;
+    if (!activePet.hatched) return;
     const hasShared = Boolean(sharedRoom);
 
     const runWorldSync = (applyDecay: boolean) => {
       const now = Date.now();
       setGame((prev) => {
         const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-        const decayedPet = applyDecay ? applyTimeDecay(prev.pet, 20000) : prev.pet;
+        const syncedFamily = syncFamilyDailyTasks(
+          prev.familyDailyTasks,
+          prev.familyDailyTasksDate
+        );
+        const decayedPets = applyDecay
+          ? prev.pets.map((p) => applyTimeDecay(p, 20000))
+          : prev.pets;
         const syncedCoop = syncCoopHubState(prev.coop, undefined, now, hasShared);
         let draft: GameState = {
           ...prev,
           dailyTasks: synced.dailyTasks,
           dailyTasksDate: synced.dailyTasksDate,
-          pet: decayedPet,
+          familyDailyTasks: syncedFamily.familyDailyTasks,
+          familyDailyTasksDate: syncedFamily.familyDailyTasksDate,
+          pets: decayedPets,
           coop: syncedCoop,
         };
         draft = syncTownOrders(draft, now);
@@ -941,7 +993,7 @@ export default function App() {
       window.clearTimeout(bootTimer);
       window.clearInterval(timer);
     };
-  }, [game.pet.hatched, currentUserId, sharedRoom?.id]);
+  }, [activePet.hatched, currentUserId, sharedRoom?.id]);
 
   // 新訪客到達時發出提醒
   useEffect(() => {
@@ -1003,10 +1055,12 @@ export default function App() {
     const now = new Date();
     const todayStr = formatLocalDate(now);
     const speciesInfo = getPetSpeciesInfo(species);
+    const initialWeight = getDefaultWeightForSpecies(species);
     const initialWeightLog: WeightLog = {
       id: `wlog_${Date.now()}`,
+      petId: 'pet_1',
       date: todayStr,
-      weight: game.pet.weight,
+      weight: initialWeight,
       foodName: '破殼報到',
       note: `${petName}（${speciesInfo.label}）來到萌寵食堂的第一天！`,
       weightDelta: 0,
@@ -1015,14 +1069,23 @@ export default function App() {
     };
     soundFX.petVoice(game.soundEnabled, species);
     setGame((prev) => {
+      const nextPersonality = createInitialPetPersonality(species);
+      const primaryId = prev.pets[0]?.id ?? 'pet_1';
+      const updated = updatePetById(prev, primaryId, (pet) => ({
+        ...pet,
+        name: petName,
+        species,
+        hatched: true,
+        weight: initialWeight,
+        ownerId: cloudUser?.id ?? 'local',
+        isSharedCoopPet: true,
+        personality: nextPersonality,
+        preference: PET_PREFERENCES[species],
+      }));
       const hatchedState: GameState = {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          name: petName,
-          species,
-          hatched: true,
-        },
+        ...updated,
+        activePetId: primaryId,
+        personality: nextPersonality,
         weightLogs: [initialWeightLog, ...prev.weightLogs],
         noviceGrowth: {
           ...prev.noviceGrowth,
@@ -1030,12 +1093,13 @@ export default function App() {
         },
       };
       const withMemory = recordMemoryEntry(hatchedState, {
-        uniqueKey: 'hatching_welcome',
+        uniqueKey: `hatching_welcome_${primaryId}`,
+        petId: primaryId,
         type: 'hatching',
         title: `${petName} 加入我們的家！`,
         description: `在萌寵食堂破殼報到（${speciesInfo.label}），正式展開幸福的美食與陪伴之旅！`,
         emoji: '🐣',
-        weight: prev.pet.weight,
+        weight: initialWeight,
         level: 1,
         createdAt: now.getTime(),
       });
@@ -1044,27 +1108,85 @@ export default function App() {
     setSpeech(`嗨～我是${petName}，${speciesInfo.greeting}`);
   };
 
-  const handleChangeSpecies = (species: PetSpecies) => {
-    if (game.pet.species === species) return;
-    const speciesInfo = getPetSpeciesInfo(species);
-    soundFX.petVoice(game.soundEnabled, species);
-    setGame((prev) => ({
-      ...prev,
-      pet: {
-        ...prev.pet,
-        species,
-      },
-    }));
-    setSpeech(`變身成「${speciesInfo.label}」囉！${speciesInfo.greeting}`);
-    pushFeedback(`切換為${speciesInfo.shortName}`, '✨');
+  const handleSwitchPet = (petId: string) => {
+    const res = switchActivePet(gameRef.current, petId);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+      return;
+    }
+    const targetPet = getActivePet(res.nextState);
+    const stage = getGrowthStage(targetPet.growth, targetPet.species);
+    prevActivePetIdRef.current = targetPet.id;
+    prevStageLevelRef.current = stage.level;
+    prevPrestigeStarsRef.current = getPrestigeStarInfo(targetPet.growth).stars;
+    soundFX.petVoice(game.soundEnabled, targetPet.species);
+    setGame(res.nextState);
+    const speciesInfo = getPetSpeciesInfo(targetPet.species);
+    setSpeech(`切換陪「${targetPet.name}」玩囉！${speciesInfo.greeting}`);
+    if (res.notice) pushFeedback(res.notice, '🐾');
+  };
+
+  const handleAdoptPet = (species: PetSpecies, name: string): boolean => {
+    const res = adoptNewPet(gameRef.current, {
+      species,
+      name,
+      ownerId: currentUserId,
+      hasSharedRoom: Boolean(sharedRoom),
+    });
+    if (!res.ok || !res.pet) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+      return false;
+    }
+    prevActivePetIdRef.current = res.pet.id;
+    prevStageLevelRef.current = 1;
+    prevPrestigeStarsRef.current = 0;
+    soundFX.petVoice(game.soundEnabled, res.pet.species);
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    const speciesInfo = getPetSpeciesInfo(res.pet.species);
+    setSpeech(`歡迎「${res.pet.name}」加入！${speciesInfo.greeting}`);
+    if (res.notice) pushFeedback(res.notice, '🎉');
+    return true;
+  };
+
+  const handleClaimPetSlotReward = (slotNumber: number) => {
+    const res = claimPetSlotReward(gameRef.current, slotNumber, Boolean(sharedRoom));
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🎁');
+      setSpeech(res.notice);
+    }
+  };
+
+  const handleClaimFamilyTask = (taskId: FamilyTaskId) => {
+    const res = claimFamilyDailyTaskReward(gameRef.current, taskId);
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) {
+      pushFeedback(res.notice, '🏡');
+      setSpeech(res.notice);
+    }
   };
 
   const handlePet = (zone: PetTouchZone = 'head') => {
     const zoneMeta = TOUCH_ZONE_META[zone];
     const nextSpeech = getRandomZoneSpeech(
-      game.pet.species,
+      activePet.species,
       zone,
-      game.pet.mood,
+      activePet.mood,
       lastSpeechRef.current
     );
     const nextFeedback = pickRandomNonRepeating(zoneMeta.feedbacks);
@@ -1077,7 +1199,7 @@ export default function App() {
     lastExpressionRef.current = nextExpression;
 
     const isStormWeather = game.dialogue.weather.condition === 'storm';
-    soundFX.petVoice(game.soundEnabled, game.pet.species);
+    soundFX.petVoice(game.soundEnabled, activePet.species);
     setTemporaryAction('petted', 1100, nextExpression);
     pushFeedback(
       isStormWeather ? `${nextFeedback.text} (雷雨安慰加成)` : nextFeedback.text,
@@ -1086,12 +1208,20 @@ export default function App() {
     setSpeech(nextSpeech);
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
+      const syncedFamily = syncFamilyDailyTasks(
+        prev.familyDailyTasks,
+        prev.familyDailyTasksDate
+      );
       const stormMoodBonus = prev.dialogue.weather.condition === 'storm' ? 2 : 0;
       const stormIntimacyBonus = prev.dialogue.weather.condition === 'storm' ? 1 : 0;
-      const gainInfo = computeGrowthGain(5, prev.pet);
-      const nextGrowth = prev.pet.growth + gainInfo.total;
-      const dev = applyPersonalityDevelopment(prev.personality, 'pet_or_message');
+      const gainInfo = computeGrowthGain(5, prevActive);
+      const nextGrowth = prevActive.growth + gainInfo.total;
+      const dev = applyPersonalityDevelopment(
+        getPetDisplayPersonality(prev, prevActive),
+        'pet_or_message'
+      );
       const zoneLabels: Record<PetTouchZone, string> = {
         head: '摸摸頭',
         cheek: '捏捏臉頰',
@@ -1100,21 +1230,28 @@ export default function App() {
       };
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'petted',
-        detail: zoneLabels[zone],
+        detail: `${prevActive.name}：${zoneLabels[zone]}`,
       });
+      const updatedPetState = updateActivePet(prev, (pet) => ({
+        ...pet,
+        mood: clampStat(pet.mood + 6 + stormMoodBonus, 0, 100),
+        intimacy: pet.intimacy + 2 + stormIntimacyBonus,
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth, pet.species).level,
+        personality: dev.nextPersonality,
+      }));
       const draftState: GameState = {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          mood: clampStat(prev.pet.mood + 6 + stormMoodBonus, 0, 100),
-          intimacy: prev.pet.intimacy + 2 + stormIntimacyBonus,
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth, prev.pet.species).level,
-        },
+        ...updatedPetState,
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'pet_3', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        familyDailyTasks: incrementFamilyTaskProgress(
+          syncedFamily.familyDailyTasks,
+          'family_pet_3',
+          1
+        ),
+        familyDailyTasksDate: syncedFamily.familyDailyTasksDate,
         noviceGrowth: {
           ...prev.noviceGrowth,
           petCount: prev.noviceGrowth.petCount + 1,
@@ -1133,21 +1270,20 @@ export default function App() {
       return;
     }
 
-    if (game.pet.hunger >= 100) {
+    if (activePet.hunger >= 100) {
       soundFX.pop(game.soundEnabled);
-      const fullMessage = `${game.pet.name}已經吃飽了！`;
+      const fullMessage = `${activePet.name}已經吃飽了！`;
       setSpeech(fullMessage);
       pushFeedback(fullMessage, '🍽️');
       return;
     }
 
-    const speciesInfo = getPetSpeciesInfo(game.pet.species);
-    const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
+    const speciesInfo = getPetSpeciesInfo(activePet.species);
     const nextFastFoodStreak =
-      food.category === 'fastFood' ? game.pet.consecutiveFastFood + 1 : 0;
+      food.category === 'fastFood' ? activePet.consecutiveFastFood + 1 : 0;
     const outcome = resolveFeedingOutcome(
       food,
-      game.pet.species,
+      activePet.species,
       nextFastFoodStreak,
       lastSpeechRef.current
     );
@@ -1167,7 +1303,7 @@ export default function App() {
       setFlyingFoodEmoji(null);
       soundFX.chew(game.soundEnabled);
       if (outcome.isFavorite && !outcome.isStuffed) {
-        soundFX.petVoice(game.soundEnabled, game.pet.species);
+        soundFX.petVoice(game.soundEnabled, activePet.species);
       }
 
       setActionState(outcome.action);
@@ -1196,18 +1332,25 @@ export default function App() {
       food.category === 'snack' || food.category === 'fastFood';
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const newWeight = clampWeight(prev.pet.weight + food.weightGain);
-      const actualDelta = roundWeight(newWeight - prev.pet.weight);
-      const feedGainInfo = computeGrowthGain(food.growthGain + bonusGrowth, prev.pet);
-      const nextGrowth = prev.pet.growth + feedGainInfo.total;
+      const syncedFamily = syncFamilyDailyTasks(
+        prev.familyDailyTasks,
+        prev.familyDailyTasksDate
+      );
+      const newWeight = clampWeight(prevActive.weight + food.weightGain);
+      const actualDelta = roundWeight(newWeight - prevActive.weight);
+      const feedGainInfo = computeGrowthGain(food.growthGain + bonusGrowth, prevActive);
+      const nextGrowth = prevActive.growth + feedGainInfo.total;
+      const basePersonality = getPetDisplayPersonality(prev, prevActive);
       const nextPersonality = isDessertOrFastFood
-        ? applyPersonalityDevelopment(prev.personality, 'feed_dessert_fastfood')
+        ? applyPersonalityDevelopment(basePersonality, 'feed_dessert_fastfood')
             .nextPersonality
-        : prev.personality;
+        : basePersonality;
 
       const newWeightLog: WeightLog = {
         id: `wlog_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        petId: prevActive.id,
         date: dateStr,
         weight: newWeight,
         foodName: food.name,
@@ -1226,6 +1369,7 @@ export default function App() {
 
       const newFeedLog: FeedLog = {
         id: `flog_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        petId: prevActive.id,
         date: dateStr,
         foodId: food.id,
         weightChange: actualDelta,
@@ -1239,13 +1383,13 @@ export default function App() {
       if (outcome.isStuffed) {
         nextDialogue = appendMemoryEvent(nextDialogue, {
           type: 'stuffed',
-          detail: food.name,
+          detail: `${prevActive.name}吃太撐（${food.name}）`,
           foodId: food.id,
         });
       } else if (effectiveFavorite) {
         nextDialogue = appendMemoryEvent(nextDialogue, {
           type: 'fedFavoriteFood',
-          detail: food.name,
+          detail: `${prevActive.name}愛吃${food.name}`,
           foodId: food.id,
         });
       } else if (outcome.isDisliked) {
@@ -1266,22 +1410,24 @@ export default function App() {
         });
       }
 
+      const withUpdatedPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        hunger: clampStat(pet.hunger + food.hunger, 0, 100),
+        mood: clampStat(pet.mood + food.mood + bonusMood, 0, 100),
+        weight: newWeight,
+        roundness: clampStat(pet.roundness + food.roundness, 0, 100),
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth).level,
+        intimacy: pet.intimacy + 2 + bonusIntimacy,
+        consecutiveFastFood: nextFastFoodStreak,
+        personality: nextPersonality,
+      }));
+
       const draftState: GameState = {
-        ...prev,
+        ...withUpdatedPet,
         foods: {
           ...prev.foods,
           [food.id]: Math.max(0, (prev.foods[food.id] ?? 1) - 1),
-        },
-        pet: {
-          ...prev.pet,
-          hunger: clampStat(prev.pet.hunger + food.hunger, 0, 100),
-          mood: clampStat(prev.pet.mood + food.mood + bonusMood, 0, 100),
-          weight: newWeight,
-          roundness: clampStat(prev.pet.roundness + food.roundness, 0, 100),
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
-          intimacy: prev.pet.intimacy + 2 + bonusIntimacy,
-          consecutiveFastFood: nextFastFoodStreak,
         },
         personality: nextPersonality,
         dialogue: nextDialogue,
@@ -1289,6 +1435,12 @@ export default function App() {
         feedLogs: [newFeedLog, ...prev.feedLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'feed_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        familyDailyTasks: incrementFamilyTaskProgress(
+          syncedFamily.familyDailyTasks,
+          'family_feed_1',
+          1
+        ),
+        familyDailyTasksDate: syncedFamily.familyDailyTasksDate,
         noviceGrowth: {
           ...prev.noviceGrowth,
           feedCount: prev.noviceGrowth.feedCount + 1,
@@ -1307,34 +1459,50 @@ export default function App() {
         weight: newWeight,
         growthDelta: feedGainInfo.total,
       });
+      const updatedActive = getActivePet(nextMem);
 
       nextMem = recordMemoryEntry(nextMem, {
-        uniqueKey: `feed_first_food_${food.id}`,
+        uniqueKey: `feed_first_pet_${updatedActive.id}`,
+        petId: updatedActive.id,
         type: 'feeding',
-        title: `第一次品嚐「${food.name}」`,
-        description: `${nextMem.pet.name}首次吃下 ${food.emoji} ${food.name}，目前體重 ${newWeight.toFixed(1)} kg！`,
+        title: `${updatedActive.name}的第一餐：「${food.name}」`,
+        description: `${updatedActive.name}首次吃下 ${food.emoji} ${food.name}，開啟美食日記！`,
         emoji: food.emoji,
         foodId: food.id,
         weight: newWeight,
-        level: nextMem.pet.level,
+        level: updatedActive.level,
+      });
+
+      nextMem = recordMemoryEntry(nextMem, {
+        uniqueKey: `feed_first_food_${food.id}`,
+        petId: updatedActive.id,
+        type: 'feeding',
+        title: `第一次品嚐「${food.name}」`,
+        description: `${updatedActive.name}首次吃下 ${food.emoji} ${food.name}，目前體重 ${newWeight.toFixed(1)} kg！`,
+        emoji: food.emoji,
+        foodId: food.id,
+        weight: newWeight,
+        level: updatedActive.level,
       });
 
       if (effectiveFavorite) {
         nextMem = recordMemoryEntry(nextMem, {
-          uniqueKey: 'feed_first_favorite',
+          uniqueKey: `feed_first_favorite_${updatedActive.id}`,
+          petId: updatedActive.id,
           type: 'feeding',
-          title: `第一次吃到最愛料理！`,
-          description: `${food.emoji} ${food.name}讓${nextMem.pet.name}眼睛發亮、開心轉圈圈！`,
+          title: `${updatedActive.name}第一次吃到最愛料理！`,
+          description: `${food.emoji} ${food.name}讓${updatedActive.name}眼睛發亮、開心轉圈圈！`,
           emoji: '💖',
           foodId: food.id,
           weight: newWeight,
-          level: nextMem.pet.level,
+          level: updatedActive.level,
         });
       }
 
       if (food.id === 'cheese_burger') {
         nextMem = recordMemoryEntry(nextMem, {
           uniqueKey: 'feed_first_burger',
+          petId: updatedActive.id,
           type: 'feeding',
           title: '第一次漢堡美味時刻',
           description: `大口咬下多汁的起司漢堡，滿足感直衝 100%！`,
@@ -1347,6 +1515,7 @@ export default function App() {
       if (food.id === 'crispy_fries') {
         nextMem = recordMemoryEntry(nextMem, {
           uniqueKey: 'feed_first_fries',
+          petId: updatedActive.id,
           type: 'feeding',
           title: '第一次香脆薯條派對',
           description: `咔滋咔滋的金黃薯條，一根接著一根停不下來！`,
@@ -1356,19 +1525,20 @@ export default function App() {
         });
       }
 
-      const nextRoundness = nextMem.pet.roundness;
+      const nextRoundness = updatedActive.roundness;
       if (nextRoundness >= 40) {
         const tier = getRoundnessTier(nextRoundness);
         nextMem = recordMemoryEntry(nextMem, {
           uniqueKey:
             nextRoundness >= 85
-              ? 'weight_round_85'
+              ? `weight_round_${updatedActive.id}_85`
               : nextRoundness >= 65
-              ? 'weight_round_65'
-              : 'weight_round_40',
+              ? `weight_round_${updatedActive.id}_65`
+              : `weight_round_${updatedActive.id}_40`,
+          petId: updatedActive.id,
           type: 'weight',
-          title: `體態成長為「${tier.label}」！`,
-          description: `${nextMem.pet.name}吃得圓滾滾超療癒（目前體重 ${newWeight.toFixed(1)} kg）`,
+          title: `${updatedActive.name}體態成長為「${tier.label}」！`,
+          description: `${updatedActive.name}吃得圓滾滾超療癒（目前體重 ${newWeight.toFixed(1)} kg）`,
           emoji: '⚖️',
           weight: newWeight,
         });
@@ -1377,11 +1547,12 @@ export default function App() {
       if (newWeight >= 8) {
         const milestoneKg = newWeight >= 16 ? 16 : newWeight >= 12 ? 12 : 8;
         nextMem = recordMemoryEntry(nextMem, {
-          uniqueKey: `weight_milestone_${milestoneKg}`,
+          uniqueKey: `weight_milestone_${updatedActive.id}_${milestoneKg}`,
+          petId: updatedActive.id,
           type: 'weight',
-          title: `體重突破 ${milestoneKg} kg 里程碑！`,
-          description: `${nextMem.pet.name}健康幸福地長大中，目前 ${newWeight.toFixed(1)} kg！`,
-          emoji: '🐷',
+          title: `${updatedActive.name}體重突破 ${milestoneKg} kg 里程碑！`,
+          description: `${updatedActive.name}健康幸福地長大中，目前 ${newWeight.toFixed(1)} kg！`,
+          emoji: speciesInfo.emoji,
           weight: newWeight,
         });
       }
@@ -1397,21 +1568,26 @@ export default function App() {
     pushFeedback('精力恢復中', '💤');
 
     setGame((prev) => {
-      const gainInfo = computeGrowthGain(4, prev.pet);
-      const nextGrowth = prev.pet.growth + gainInfo.total;
-      const dev = applyPersonalityDevelopment(prev.personality, 'sleep');
+      const prevActive = getActivePet(prev);
+      const gainInfo = computeGrowthGain(4, prevActive);
+      const nextGrowth = prevActive.growth + gainInfo.total;
+      const dev = applyPersonalityDevelopment(
+        getPetDisplayPersonality(prev, prevActive),
+        'sleep'
+      );
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'slept',
-        detail: '安心午睡',
+        detail: `${prevActive.name}安心午睡`,
       });
+      const updated = updateActivePet(prev, (pet) => ({
+        ...pet,
+        energy: clampStat(pet.energy + 28, 0, 100),
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth, pet.species).level,
+        personality: dev.nextPersonality,
+      }));
       return {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          energy: clampStat(prev.pet.energy + 28, 0, 100),
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth, prev.pet.species).level,
-        },
+        ...updated,
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
       };
@@ -1425,23 +1601,28 @@ export default function App() {
     pushFeedback('香噴噴！', '🫧');
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const gainInfo = computeGrowthGain(6, prev.pet);
-      const nextGrowth = prev.pet.growth + gainInfo.total;
-      const dev = applyPersonalityDevelopment(prev.personality, 'clean_or_bath');
+      const gainInfo = computeGrowthGain(6, prevActive);
+      const nextGrowth = prevActive.growth + gainInfo.total;
+      const dev = applyPersonalityDevelopment(
+        getPetDisplayPersonality(prev, prevActive),
+        'clean_or_bath'
+      );
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'bathed',
-        detail: '香噴噴泡泡浴',
+        detail: `${prevActive.name}香噴噴泡泡浴`,
       });
+      const updated = updateActivePet(prev, (pet) => ({
+        ...pet,
+        cleanliness: clampStat(pet.cleanliness + 35, 0, 100),
+        mood: clampStat(pet.mood + 6, 0, 100),
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth, pet.species).level,
+        personality: dev.nextPersonality,
+      }));
       return {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          cleanliness: clampStat(prev.pet.cleanliness + 35, 0, 100),
-          mood: clampStat(prev.pet.mood + 6, 0, 100),
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth, prev.pet.species).level,
-        },
+        ...updated,
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'clean_1', 1),
@@ -1452,40 +1633,70 @@ export default function App() {
 
   const handleWalk = () => {
     const isSunny = game.dialogue.weather.condition === 'clear';
+    const isDogBonus = activePet.species === 'dog';
+    const walkCoins = Math.round(5 * activeAbility.walkBonusMultiplier);
     soundFX.heart(game.soundEnabled);
     setTemporaryAction('walking', 1800, 'wink');
     setSpeech(
-      isSunny
+      isDogBonus
+        ? `汪！${activePet.name}發揮散步尋寶天賦，散步獎勵額外 +10%（+${walkCoins} 金幣）！`
+        : isSunny
         ? '大晴天出來散步曬太陽，心情好到飛起來！'
         : '出來散步吹吹風，身體好輕鬆！'
     );
-    pushFeedback(isSunny ? '晴天散步加成 +3 心情！' : '活力滿滿！', isSunny ? '☀️' : '🌿');
+    pushFeedback(
+      isDogBonus
+        ? `散步尋寶 +${walkCoins} 金幣（+10% 加成）`
+        : isSunny
+        ? `晴天散步 +${walkCoins} 金幣 · +3 心情`
+        : `散步開心 +${walkCoins} 金幣`,
+      isDogBonus ? '🐶' : isSunny ? '☀️' : '🌿'
+    );
 
     setGame((prev) => {
-      const gainInfo = computeGrowthGain(8, prev.pet);
-      const nextGrowth = prev.pet.growth + gainInfo.total;
-      const newWeight = clampWeight(prev.pet.weight - 0.1);
+      const prevActive = getActivePet(prev);
+      const syncedFamily = syncFamilyDailyTasks(
+        prev.familyDailyTasks,
+        prev.familyDailyTasksDate
+      );
+      const ability = getActivePetAbilityBonus(prev);
+      const gainInfo = computeGrowthGain(8, prevActive);
+      const nextGrowth = prevActive.growth + gainInfo.total;
+      const newWeight = clampWeight(prevActive.weight - 0.1);
       const sunnyMoodBonus = prev.dialogue.weather.condition === 'clear' ? 3 : 0;
       const sunnyIntimacyBonus = prev.dialogue.weather.condition === 'clear' ? 1 : 0;
+      const baseIntimacy = 1 + sunnyIntimacyBonus;
+      const intimacyGain =
+        ability.walkBonusMultiplier > 1
+          ? Math.max(baseIntimacy + 1, Math.round(baseIntimacy * ability.walkBonusMultiplier))
+          : baseIntimacy;
+      const rewardCoins = Math.round(5 * ability.walkBonusMultiplier);
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'walked',
         detail: prev.dialogue.weather.condition === 'clear' ? '晴天外出散步' : '外出散步',
       });
+      const updated = updateActivePet(prev, (pet) => ({
+        ...pet,
+        mood: clampStat(pet.mood + 12 + sunnyMoodBonus, 0, 100),
+        energy: clampStat(pet.energy + 10, 0, 100),
+        hunger: clampStat(pet.hunger - 6, 0, 100),
+        weight: newWeight,
+        roundness: clampStat(pet.roundness - 8, 0, 100),
+        consecutiveFastFood: 0,
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth, pet.species).level,
+        intimacy: pet.intimacy + intimacyGain,
+      }));
       return {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          mood: clampStat(prev.pet.mood + 12 + sunnyMoodBonus, 0, 100),
-          energy: clampStat(prev.pet.energy + 10, 0, 100),
-          hunger: clampStat(prev.pet.hunger - 6, 0, 100),
-          weight: newWeight,
-          roundness: clampStat(prev.pet.roundness - 8, 0, 100),
-          consecutiveFastFood: 0,
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth, prev.pet.species).level,
-          intimacy: prev.pet.intimacy + 1 + sunnyIntimacyBonus,
-        },
+        ...updated,
+        coins: updated.coins + rewardCoins,
         dialogue: nextDialogue,
+        familyDailyTasks: incrementFamilyTaskProgress(
+          syncedFamily.familyDailyTasks,
+          'family_walk_1',
+          1
+        ),
+        familyDailyTasksDate: syncedFamily.familyDailyTasksDate,
         noviceGrowth: {
           ...prev.noviceGrowth,
           walkCount: prev.noviceGrowth.walkCount + 1,
@@ -1521,7 +1732,8 @@ export default function App() {
     const expectedDurationMs = getExpectedCropDurationMs(
       durationMs,
       plantedAt,
-      game.yardMoodBuffPeriods ?? []
+      game.yardMoodBuffPeriods ?? [],
+      activeAbility.cropGrowthRateMultiplier
     );
     const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
     const isGolden = Math.random() < 0.1;
@@ -1594,7 +1806,8 @@ export default function App() {
     const expectedDurationMs = getExpectedCropDurationMs(
       durationMs,
       plantedAt,
-      game.yardMoodBuffPeriods ?? []
+      game.yardMoodBuffPeriods ?? [],
+      activeAbility.cropGrowthRateMultiplier
     );
     const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
 
@@ -1673,7 +1886,16 @@ export default function App() {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
     if (targetPlot.watered) return;
-    if (getCropGrowthState(targetPlot, Date.now(), game.yardMoodBuffPeriods ?? []).isReady) return;
+    if (
+      getCropGrowthState(
+        targetPlot,
+        Date.now(),
+        game.yardMoodBuffPeriods ?? [],
+        activeAbility.cropGrowthRateMultiplier
+      ).isReady
+    ) {
+      return;
+    }
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
     const boostMs = getWaterBoostMs(targetPlot.durationMs);
@@ -1698,7 +1920,16 @@ export default function App() {
   const handleHarvestCrop = (plotId: number) => {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
-    if (!getCropGrowthState(targetPlot, Date.now(), game.yardMoodBuffPeriods ?? []).isReady) return;
+    if (
+      !getCropGrowthState(
+        targetPlot,
+        Date.now(),
+        game.yardMoodBuffPeriods ?? [],
+        activeAbility.cropGrowthRateMultiplier
+      ).isReady
+    ) {
+      return;
+    }
 
     const cropInfo = INGREDIENTS[targetPlot.cropId];
     const harvestedId = targetPlot.cropId;
@@ -1712,9 +1943,14 @@ export default function App() {
       return;
     }
 
-    const totalYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+    const baseYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+    const extraRollChance =
+      activeAbility.pigHarvestBonusChance + activeAbility.hamsterIngredientBonusChance;
+    const extraPetBonus = extraRollChance > 0 && Math.random() < extraRollChance ? 1 : 0;
+    const totalYield = baseYield + extraPetBonus;
     const nextQty = Math.min(storageCap, curQty + totalYield);
     const actualGain = Math.max(1, nextQty - curQty);
+    const gainedPetExtra = actualGain > baseYield;
     const isGolden = Boolean(targetPlot.isGolden);
     const goldenCoinBonus = isGolden ? cropInfo.seedCost * 2 : 0;
 
@@ -1745,13 +1981,15 @@ export default function App() {
       let withMem = recordMonthlyActivity(harvestedState, {
         interactionLabel: '農場收成',
       });
+      const currentActive = getActivePet(withMem);
       withMem = recordMemoryEntry(withMem, {
         uniqueKey: 'farm_harvest_first',
+        petId: currentActive.id,
         type: 'farm',
         title: `第一次農場收成：${cropInfo.name}`,
         description: `親手種植的${cropInfo.name}成熟採收 +${actualGain}，食材小倉庫大豐收！`,
         emoji: cropInfo.emoji,
-        weight: withMem.pet.weight,
+        weight: currentActive.weight,
       });
       return withMem;
     });
@@ -1759,6 +1997,12 @@ export default function App() {
     if (isGolden) {
       pushFeedback(`大豐收！獲得雙倍金幣 +${goldenCoinBonus}`, '🌟');
       setSpeech(`大豐收！黃金${cropInfo.name}閃閃發光，獲得雙倍金幣 +${goldenCoinBonus} 🪙！`);
+    } else if (gainedPetExtra) {
+      pushFeedback(
+        `${activePet.name}發揮「${activeAbility.ability.title}」額外 +1 ${cropInfo.name}！`,
+        activeAbility.ability.emoji
+      );
+      setSpeech(`${activePet.name}憑「${activeAbility.ability.title}」幫你多找到 1 個${cropInfo.name}！`);
     } else {
       pushFeedback(`${cropInfo.name} +${actualGain}`, cropInfo.emoji);
       setSpeech(`採收了新鮮${cropInfo.name}！快去廚房做料理或手作家具吧～`);
@@ -1773,7 +2017,7 @@ export default function App() {
         p.cropId !== null &&
         p.plantedAt !== null &&
         !p.watered &&
-        !getCropGrowthState(p, nowTs, buffs).isReady
+        !getCropGrowthState(p, nowTs, buffs, activeAbility.cropGrowthRateMultiplier).isReady
     );
     const targetIds = new Set(targetPlots.map((p) => p.id));
     if (targetIds.size === 0) return;
@@ -1815,18 +2059,23 @@ export default function App() {
       (p) =>
         p.cropId !== null &&
         p.plantedAt !== null &&
-        getCropGrowthState(p, nowTs, buffs).isReady
+        getCropGrowthState(p, nowTs, buffs, activeAbility.cropGrowthRateMultiplier).isReady
     );
     if (readyPlots.length === 0) return;
 
     const simIngredients: Record<IngredientId, number> = { ...game.ingredients };
     const harvestedIds = new Set<number>();
+    const perPlotYield = new Map<number, number>();
     let harvestedCount = 0;
     let skippedFullCount = 0;
     let totalGoldenCoins = 0;
+    let totalPetExtraBonus = 0;
     let firstHarvestedCropName = '';
     let firstHarvestedCropEmoji = '🌾';
     let firstHarvestedGain = 0;
+
+    const extraRollChance =
+      activeAbility.pigHarvestBonusChance + activeAbility.hamsterIngredientBonusChance;
 
     for (const plot of readyPlots) {
       if (!plot.cropId) continue;
@@ -1836,9 +2085,15 @@ export default function App() {
         skippedFullCount += 1;
         continue;
       }
-      const totalYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+      const baseYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+      const extraBonus = extraRollChance > 0 && Math.random() < extraRollChance ? 1 : 0;
+      const totalYield = baseYield + extraBonus;
       const nextQty = Math.min(storageCap, curQty + totalYield);
       const actualGain = Math.max(1, nextQty - curQty);
+      if (actualGain > baseYield) {
+        totalPetExtraBonus += actualGain - baseYield;
+      }
+      perPlotYield.set(plot.id, totalYield);
       simIngredients[plot.cropId] = nextQty;
       harvestedIds.add(plot.id);
       harvestedCount += 1;
@@ -1873,7 +2128,8 @@ export default function App() {
       for (const p of prev.farmPlots) {
         if (!harvestedIds.has(p.id) || !p.cropId) continue;
         const info = INGREDIENTS[p.cropId];
-        const totalYield = getEffectiveHarvestYield(info.harvestYield, prev.house);
+        const totalYield =
+          perPlotYield.get(p.id) ?? getEffectiveHarvestYield(info.harvestYield, prev.house);
         nextIngredients[p.cropId] = Math.min(
           storageCap,
           (nextIngredients[p.cropId] ?? 0) + totalYield
@@ -1899,19 +2155,26 @@ export default function App() {
       let withMem = recordMonthlyActivity(harvestedState, {
         interactionLabel: '農場收成',
       });
+      const currentActive = getActivePet(withMem);
       withMem = recordMemoryEntry(withMem, {
         uniqueKey: 'farm_harvest_first',
+        petId: currentActive.id,
         type: 'farm',
         title: `第一次農場收成：${firstHarvestedCropName}`,
         description: `親手種植的${firstHarvestedCropName}成熟採收 +${firstHarvestedGain}，食材小倉庫大豐收！`,
         emoji: firstHarvestedCropEmoji,
-        weight: withMem.pet.weight,
+        weight: currentActive.weight,
       });
       return withMem;
     });
 
     if (totalGoldenCoins > 0) {
       pushFeedback(`一鍵採收 ${harvestedCount} 塊 · 黃金金幣 +${totalGoldenCoins}`, '🌟');
+    } else if (totalPetExtraBonus > 0) {
+      pushFeedback(
+        `${activePet.name}「${activeAbility.ability.title}」額外 +${totalPetExtraBonus} 食材！`,
+        activeAbility.ability.emoji
+      );
     } else {
       pushFeedback(`一鍵採收 ${harvestedCount} 塊農地`, '🧺');
     }
@@ -1924,7 +2187,7 @@ export default function App() {
       setSpeech(
         `大豐收！一口氣採收了 ${harvestedCount} 塊農地${
           totalGoldenCoins > 0 ? `，還拿到黃金雙倍金幣 +${totalGoldenCoins} 🪙` : ''
-        }！`
+        }${totalPetExtraBonus > 0 ? `，${activePet.name}還幫忙多收了 ${totalPetExtraBonus} 個食材` : ''}！`
       );
     }
   };
@@ -2034,12 +2297,13 @@ export default function App() {
     const isNewRecipe = !(game.encyclopedia.learnedRecipeIds ?? []).includes(recipe.id);
     soundFX.levelUp(game.soundEnabled);
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const nextIngredients = { ...prev.ingredients };
       for (const [id, need] of reqEntries) {
         nextIngredients[id] = Math.max(0, (nextIngredients[id] ?? 0) - need);
       }
-      const nextGrowth = prev.pet.growth + recipe.bonusGrowth;
+      const nextGrowth = prevActive.growth + recipe.bonusGrowth;
       const nextCollectedFoods = prev.encyclopedia.collectedFoodIds.includes(recipe.outputFoodId)
         ? prev.encyclopedia.collectedFoodIds
         : [...prev.encyclopedia.collectedFoodIds, recipe.outputFoodId];
@@ -2048,17 +2312,17 @@ export default function App() {
         ? prevLearnedRecipes
         : [...prevLearnedRecipes, recipe.id];
 
+      const updatedWithPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth).level,
+      }));
       const draftState: GameState = {
-        ...prev,
+        ...updatedWithPet,
         ingredients: nextIngredients,
         foods: {
           ...prev.foods,
           [recipe.outputFoodId]: (prev.foods[recipe.outputFoodId] ?? 0) + 1,
-        },
-        pet: {
-          ...prev.pet,
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
         },
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'cook_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
@@ -2078,13 +2342,15 @@ export default function App() {
         interactionLabel: '廚房料理',
         growthDelta: recipe.bonusGrowth,
       });
+      const currentActive = getActivePet(withMem);
       withMem = recordMemoryEntry(withMem, {
         uniqueKey: 'farm_cook_first',
+        petId: currentActive.id,
         type: 'farm',
         title: `第一次料理合成：${recipe.name}`,
         description: `用新鮮農場作物親手完成美味的「${recipe.name}」！`,
         emoji: recipe.emoji,
-        weight: withMem.pet.weight,
+        weight: currentActive.weight,
       });
       return withMem;
     });
@@ -2172,13 +2438,13 @@ export default function App() {
   };
 
   const handleToggleEquip = (item: Accessory) => {
-    const currentlyEquipped = game.pet.accessories[item.slot] === item.id;
+    const currentlyEquipped = activePet.accessories[item.slot] === item.id;
     const isEquipping = !currentlyEquipped;
 
     if (isEquipping) {
       const match = evaluateAccessoryPreference(
-        game.personality,
-        game.pet.species,
+        activePersonality,
+        activePet.species,
         item
       );
       setWardrobeReactionText(match.reactionText);
@@ -2197,18 +2463,19 @@ export default function App() {
     }
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const current = prev.pet.accessories[item.slot];
+      const current = prevActive.accessories[item.slot];
       const next = current === item.id ? null : item.id;
-      let updated: GameState = {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          accessories: {
-            ...prev.pet.accessories,
-            [item.slot]: next,
-          },
+      const updatedPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        accessories: {
+          ...pet.accessories,
+          [item.slot]: next,
         },
+      }));
+      let updated: GameState = {
+        ...updatedPet,
         dailyTasks: next
           ? incrementTaskProgress(synced.dailyTasks, 'dress_1', 1)
           : synced.dailyTasks,
@@ -2220,23 +2487,25 @@ export default function App() {
           accessoryId: item.id,
         });
         updated = recordMemoryEntry(updated, {
-          uniqueKey: 'wardrobe_first_equip',
+          uniqueKey: `wardrobe_first_equip_${prevActive.id}`,
+          petId: prevActive.id,
           type: 'wardrobe',
-          title: `第一次穿戴配件：${item.name}`,
-          description: `${prev.pet.name}戴上第一件專屬造型配件，可愛度爆表！`,
+          title: `${prevActive.name}第一次穿戴配件：${item.name}`,
+          description: `${prevActive.name}戴上第一件專屬造型配件，可愛度爆表！`,
           emoji: item.emoji,
           accessoryId: item.id,
-          weight: prev.pet.weight,
+          weight: prevActive.weight,
         });
         if (item.rarity !== 'common') {
           updated = recordMemoryEntry(updated, {
-            uniqueKey: `wardrobe_rare_${item.id}`,
+            uniqueKey: `wardrobe_rare_${prevActive.id}_${item.id}`,
+            petId: prevActive.id,
             type: 'wardrobe',
-            title: `換上稀有造型「${item.name}」`,
-            description: `閃閃發光的稀有配件登場，${prev.pet.name}成為全場焦點！`,
+            title: `${prevActive.name}換上稀有造型「${item.name}」`,
+            description: `閃閃發光的稀有配件登場，${prevActive.name}成為全場焦點！`,
             emoji: item.emoji,
             accessoryId: item.id,
-            weight: prev.pet.weight,
+            weight: prevActive.weight,
           });
         }
       }
@@ -2254,24 +2523,24 @@ export default function App() {
     }
     soundFX.levelUp(game.soundEnabled);
 
-    const stage = getGrowthStage(game.pet.growth);
+    const stage = getGrowthStage(activePet.growth);
     const canAutoEquip = stage.unlockedSlots.includes(item.slot);
     const match = evaluateAccessoryPreference(
-      game.personality,
-      game.pet.species,
+      activePersonality,
+      activePet.species,
       item
     );
 
+    const withBoughtPet = canAutoEquip
+      ? updateActivePet(game, (pet) => ({
+          ...pet,
+          accessories: { ...pet.accessories, [item.slot]: item.id },
+        }))
+      : game;
     const draftState: GameState = {
-      ...game,
+      ...withBoughtPet,
       coins: game.coins - item.price,
       accessories: [...game.accessories, item.id],
-      pet: {
-        ...game.pet,
-        accessories: canAutoEquip
-          ? { ...game.pet.accessories, [item.slot]: item.id }
-          : game.pet.accessories,
-      },
       dialogue: appendMemoryEvent(game.dialogue, {
         type: 'newAccessory',
         detail: item.name,
@@ -2284,35 +2553,39 @@ export default function App() {
     };
     const synced = syncAllAccessoryProgress(draftState);
     let nextBought = synced.nextState;
+    const boughtActive = getActivePet(nextBought);
     if (canAutoEquip) {
       nextBought = recordMonthlyActivity(nextBought, {
         interactionLabel: '穿搭換裝',
         accessoryId: item.id,
       });
       nextBought = recordMemoryEntry(nextBought, {
-        uniqueKey: 'wardrobe_first_equip',
+        uniqueKey: `wardrobe_first_equip_${boughtActive.id}`,
+        petId: boughtActive.id,
         type: 'wardrobe',
-        title: `第一次穿戴配件：${item.name}`,
-        description: `${nextBought.pet.name}戴上第一件專屬造型配件，可愛度爆表！`,
+        title: `${boughtActive.name}第一次穿戴配件：${item.name}`,
+        description: `${boughtActive.name}戴上第一件專屬造型配件，可愛度爆表！`,
         emoji: item.emoji,
         accessoryId: item.id,
-        weight: nextBought.pet.weight,
+        weight: boughtActive.weight,
       });
       if (item.rarity !== 'common') {
         nextBought = recordMemoryEntry(nextBought, {
-          uniqueKey: `wardrobe_rare_${item.id}`,
+          uniqueKey: `wardrobe_rare_${boughtActive.id}_${item.id}`,
+          petId: boughtActive.id,
           type: 'wardrobe',
-          title: `收藏並穿戴「${item.name}」`,
+          title: `${boughtActive.name}收藏並穿戴「${item.name}」`,
           description: `獲得進階限定造型「${item.name}」，穿搭圖鑑更豐富啦！`,
           emoji: item.emoji,
           accessoryId: item.id,
-          weight: nextBought.pet.weight,
+          weight: boughtActive.weight,
         });
       }
     }
     if (item.rarity === 'event') {
       nextBought = recordMemoryEntry(nextBought, {
         uniqueKey: `festival_acc_${item.id}`,
+        petId: boughtActive.id,
         type: 'festival',
         title: `獲得節日限定配件：${item.name}`,
         description: `解鎖活動限定珍藏「${item.name}」，紀念美好派對時刻！`,
@@ -2356,36 +2629,49 @@ export default function App() {
     const boundedWeight = clampWeight(newWeight);
     const now = new Date();
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const delta = roundWeight(boundedWeight - prev.pet.weight);
-      const nextGrowth = prev.pet.growth + 6;
+      const syncedFamily = syncFamilyDailyTasks(
+        prev.familyDailyTasks,
+        prev.familyDailyTasksDate
+      );
+      const delta = roundWeight(boundedWeight - prevActive.weight);
+      const nextGrowth = prevActive.growth + 6;
+      const speciesEmoji = getPetSpeciesInfo(prevActive.species).emoji;
 
       const newWeightLog: WeightLog = {
         id: `wlog_${Date.now()}`,
+        petId: prevActive.id,
         date: formatLocalDate(now),
         weight: boundedWeight,
         foodName: '手動紀錄',
-        note: note || '在成長手帳更新體重紀錄',
+        note: note || `在成長手帳更新${prevActive.name}的體重紀錄`,
         weightDelta: delta,
         timeStr: formatLocalTime(now),
         timestamp: now.getTime(),
       };
 
+      const withUpdatedPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        weight: boundedWeight,
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth).level,
+      }));
       const updated: GameState = {
-        ...prev,
-        pet: {
-          ...prev.pet,
-          weight: boundedWeight,
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
-        },
+        ...withUpdatedPet,
         dialogue: appendMemoryEvent(prev.dialogue, {
           type: 'weightLogged',
-          detail: `${boundedWeight.toFixed(1)} kg`,
+          detail: `${prevActive.name} ${boundedWeight.toFixed(1)} kg`,
         }),
         weightLogs: [newWeightLog, ...prev.weightLogs],
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'weigh_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
+        familyDailyTasks: incrementFamilyTaskProgress(
+          syncedFamily.familyDailyTasks,
+          'family_weigh_1',
+          1
+        ),
+        familyDailyTasksDate: syncedFamily.familyDailyTasksDate,
         noviceGrowth: {
           ...prev.noviceGrowth,
           weightRecordCount: prev.noviceGrowth.weightRecordCount + 1,
@@ -2396,23 +2682,26 @@ export default function App() {
         weight: boundedWeight,
         growthDelta: 6,
       });
+      const updatedActive = getActivePet(withMem);
       withMem = recordMemoryEntry(withMem, {
-        uniqueKey: 'weight_first_manual',
+        uniqueKey: `weight_first_manual_${updatedActive.id}`,
+        petId: updatedActive.id,
         type: 'weight',
-        title: `第一次記錄體重：${boundedWeight.toFixed(1)} kg`,
-        description: `在成長手帳仔細量測體重，守護 ${prev.pet.name} 健康長大！`,
+        title: `${updatedActive.name}第一次記錄體重：${boundedWeight.toFixed(1)} kg`,
+        description: `在成長手帳仔細量測體重，守護 ${updatedActive.name} 健康長大！`,
         emoji: '⚖️',
         weight: boundedWeight,
-        level: withMem.pet.level,
+        level: updatedActive.level,
       });
       if (boundedWeight >= 8) {
         const milestoneKg = boundedWeight >= 16 ? 16 : boundedWeight >= 12 ? 12 : 8;
         withMem = recordMemoryEntry(withMem, {
-          uniqueKey: `weight_milestone_${milestoneKg}`,
+          uniqueKey: `weight_milestone_${updatedActive.id}_${milestoneKg}`,
+          petId: updatedActive.id,
           type: 'weight',
-          title: `體重突破 ${milestoneKg} kg 里程碑！`,
-          description: `${prev.pet.name}目前體重 ${boundedWeight.toFixed(1)} kg，幸福成長中！`,
-          emoji: '🐷',
+          title: `${updatedActive.name}體重突破 ${milestoneKg} kg 里程碑！`,
+          description: `${updatedActive.name}目前體重 ${boundedWeight.toFixed(1)} kg，幸福成長中！`,
+          emoji: speciesEmoji,
           weight: boundedWeight,
         });
       }
@@ -2424,29 +2713,30 @@ export default function App() {
     soundFX.levelUp(game.soundEnabled);
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const targetTask = synced.dailyTasks.find((t) => t.id === taskId);
       if (!targetTask || targetTask.claimed || !targetTask.completed) {
         return prev;
       }
 
-      const nextGrowth = prev.pet.growth + 15;
+      const nextGrowth = prevActive.growth + 15;
       const updatedTasks = synced.dailyTasks.map((t) =>
         t.id === taskId ? { ...t, claimed: true } : t
       );
+      const updatedPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        growth: nextGrowth,
+        level: getGrowthStage(nextGrowth).level,
+      }));
 
       const draftState: GameState = {
-        ...prev,
+        ...updatedPet,
         coins: prev.coins + targetTask.reward.coins,
         foods: {
           ...prev.foods,
           [targetTask.reward.foodId]:
             (prev.foods[targetTask.reward.foodId] ?? 0) + targetTask.reward.foodQty,
-        },
-        pet: {
-          ...prev.pet,
-          growth: nextGrowth,
-          level: getGrowthStage(nextGrowth).level,
         },
         dailyTasks: updatedTasks,
         dailyTasksDate: synced.dailyTasksDate,
@@ -2726,9 +3016,10 @@ export default function App() {
     lastSharedUpdatedAtRef.current = res.room.updatedAt;
     setPendingCloudSave(null);
     if (res.state) {
+      const joinedActive = getActivePet(res.state);
       applyCloudStateLocally(
         res.state,
-        `成功加入！一起來照顧${res.state.pet.name}吧！`
+        `成功加入！一起來照顧${joinedActive.name}吧！`
       );
     }
     setGame((prev) => {
@@ -2801,7 +3092,9 @@ export default function App() {
 
   const handleSendMessage = async (
     content: string,
-    stickerId: PetStickerId | null
+    stickerId: PetStickerId | null,
+    targetPetId: string | null = null,
+    targetPetName: string | null = null
   ): Promise<string | null> => {
     const cleanText = content.trim();
     if (!cleanText && !stickerId) {
@@ -2817,6 +3110,8 @@ export default function App() {
         authorEmail: cloudUser.email,
         content: cleanText,
         stickerId,
+        targetPetId,
+        targetPetName,
       });
       if (res.error || !res.message) {
         return res.error ?? '傳送失敗，請稍後再試。';
@@ -2827,10 +3122,17 @@ export default function App() {
         return [...prev, created].slice(-80);
       });
       setGame((prev) => {
+        const nextPersonality = applyPersonalityDevelopment(
+          activePersonality,
+          'pet_or_message'
+        ).nextPersonality;
+        const withUpdatedPet = updateActivePet(prev, (pet) => ({
+          ...pet,
+          personality: nextPersonality,
+        }));
         let updated: GameState = {
-          ...prev,
-          personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
-            .nextPersonality,
+          ...withUpdatedPet,
+          personality: nextPersonality,
           dialogue: appendMemoryEvent(prev.dialogue, {
             type: 'partnerMessage',
             detail: cleanText || stickerInfo?.label || '貼圖留言',
@@ -2848,6 +3150,8 @@ export default function App() {
       soundFX.heart(game.soundEnabled);
       if (stickerInfo) {
         setSpeech(stickerInfo.caption);
+      } else if (targetPetName) {
+        setSpeech(`替你把悄悄話帶給「${targetPetName}」囉～💌`);
       } else {
         setSpeech('收到你的悄悄話囉～🩷');
       }
@@ -2864,14 +3168,24 @@ export default function App() {
       content: cleanText,
       stickerId,
       createdAt: Date.now(),
+      targetPetId,
+      targetPetName,
     };
 
     setGame((prev) => {
+      const prevActive = getActivePet(prev);
+      const nextPersonality = applyPersonalityDevelopment(
+        getPetDisplayPersonality(prev, prevActive),
+        'pet_or_message'
+      ).nextPersonality;
+      const withUpdatedPet = updateActivePet(prev, (pet) => ({
+        ...pet,
+        personality: nextPersonality,
+      }));
       const updated: GameState = {
-        ...prev,
+        ...withUpdatedPet,
         messages: [...prev.messages, localMsg].slice(-80),
-        personality: applyPersonalityDevelopment(prev.personality, 'pet_or_message')
-          .nextPersonality,
+        personality: nextPersonality,
       };
       return recordMonthlyActivity(updated, {
         coopMessageDelta: 1,
@@ -2881,6 +3195,8 @@ export default function App() {
     soundFX.heart(game.soundEnabled);
     if (stickerInfo) {
       setSpeech(stickerInfo.caption);
+    } else if (targetPetName) {
+      setSpeech(`已經把給「${targetPetName}」的留言記下來囉！`);
     } else {
       setSpeech('悄悄話已記在留言板裡囉！');
     }
@@ -2920,13 +3236,16 @@ export default function App() {
       );
       const treasurySpent = next.house.treasuryCoins < prev.house.treasuryCoins;
 
+      const nextActive = getActivePet(next);
+
       if (newCollectedId) {
         const buyName = ROOM_ITEM_BY_ID[newCollectedId]?.name ?? '新家具';
         next = recordMemoryEntry(next, {
           uniqueKey: 'room_first_buy',
+          petId: nextActive.id,
           type: 'room',
           title: `第一次購買家具：${buyName}`,
-          description: `為 ${next.pet.name} 的小屋添購「${buyName}」，空間越來越溫馨！`,
+          description: `為 ${nextActive.name} 的小屋添購「${buyName}」，空間越來越溫馨！`,
           emoji: '🛋️',
         });
         if (sharedRoom && treasurySpent) {
@@ -2957,9 +3276,10 @@ export default function App() {
         const placeName = ROOM_ITEM_BY_ID[newPlaced.itemId]?.name ?? '新家具';
         next = recordMemoryEntry(next, {
           uniqueKey: 'room_first_place',
+          petId: nextActive.id,
           type: 'room',
           title: `第一次放置家具：${placeName}`,
-          description: `把「${placeName}」擺進寵物房間裡，${next.pet.name}開心地逛起新角落！`,
+          description: `把「${placeName}」擺進寵物房間裡，${nextActive.name}開心地逛起新角落！`,
           emoji: '🏡',
         });
         next = recordMonthlyActivity(next, { interactionLabel: '佈置房間' });
@@ -2978,14 +3298,16 @@ export default function App() {
       if (newPhoto) {
         next = recordMemoryEntry(next, {
           uniqueKey: `photo_${newPhoto.id}`,
+          petId: nextActive.id,
           type: 'room',
           title: `拍下「${newPhoto.title}」`,
-          description: `在房間留下的溫馨合照（當時體重 ${next.pet.weight.toFixed(1)} kg）`,
+          description: `在房間留下的溫馨合照（當時體重 ${nextActive.weight.toFixed(1)} kg）`,
           emoji: '📸',
           photoId: newPhoto.id,
-          weight: next.pet.weight,
-          level: next.pet.level,
+          weight: nextActive.weight,
+          level: nextActive.level,
         });
+        next = maybeGrantCatPhotoMemoryCard(next).nextState;
       }
 
       const changedItemId = newPlaced?.itemId ?? newCollectedId ?? null;
@@ -3410,8 +3732,10 @@ export default function App() {
       void leaveSharedPetRoom(leavingRoomId);
     }
     const fresh = resetGameState();
-    prevStageLevelRef.current = getGrowthStage(fresh.pet.growth, fresh.pet.species).level;
-    prevPrestigeStarsRef.current = getPrestigeStarInfo(fresh.pet.growth).stars;
+    const freshActive = getActivePet(fresh);
+    prevActivePetIdRef.current = freshActive.id;
+    prevStageLevelRef.current = getGrowthStage(freshActive.growth, freshActive.species).level;
+    prevPrestigeStarsRef.current = getPrestigeStarInfo(freshActive.growth).stars;
     prevMilestonesCountRef.current = fresh.encyclopedia.claimedAccessoryMilestones.length;
     prevRecipeMilestonesCountRef.current = (fresh.encyclopedia.claimedRecipeMilestones ?? []).length;
     prevTitlesCountRef.current = fresh.encyclopedia.unlockedTitles.length;
@@ -3550,6 +3874,7 @@ export default function App() {
   const noviceEval = evaluateAllNoviceDays(game, Boolean(sharedRoom));
   const claimableQuestsCount =
     game.dailyTasks.filter((t) => t.completed && !t.claimed).length +
+    (game.familyDailyTasks ?? []).filter((t) => t.completed && !t.claimed).length +
     noviceEval.claimableCount;
 
   const unclaimedCoopRewardsCount = game.coop.pendingRewards.filter(
@@ -3574,7 +3899,12 @@ export default function App() {
   const hasGrowingUnreadyCrops = game.farmPlots.some(
     (p) =>
       p.cropId !== null &&
-      !getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+      !getCropGrowthState(
+        p,
+        farmClockNow,
+        game.yardMoodBuffPeriods ?? [],
+        activeAbility.cropGrowthRateMultiplier
+      ).isReady
   );
 
   useEffect(() => {
@@ -3587,13 +3917,14 @@ export default function App() {
   }, [hasGrowingUnreadyCrops]);
 
   useEffect(() => {
-    if (!game.pet.hatched || !hasGrowingUnreadyCrops) return;
+    if (!activePet.hatched || !hasGrowingUnreadyCrops) return;
     const checkCropNotifications = () => {
       const nowTs = Date.now();
       const buffs = gameRef.current.yardMoodBuffPeriods ?? [];
+      const growthMult = getActivePetAbilityBonus(gameRef.current).cropGrowthRateMultiplier;
       for (const plot of gameRef.current.farmPlots) {
         if (!plot.cropId || plot.plantedAt === null) continue;
-        const growth = getCropGrowthState(plot, nowTs, buffs);
+        const growth = getCropGrowthState(plot, nowTs, buffs, growthMult);
         if (!growth.isReady) continue;
         const notifyKey = `${plot.id}:${plot.plantedAt}`;
         if (notifiedReadyPlotsRef.current.has(notifyKey)) continue;
@@ -3618,18 +3949,28 @@ export default function App() {
     };
     const timer = window.setInterval(checkCropNotifications, 15000);
     return () => window.clearInterval(timer);
-  }, [game.pet.hatched, hasGrowingUnreadyCrops, cropNotifyEnabled]);
+  }, [activePet.hatched, hasGrowingUnreadyCrops, cropNotifyEnabled]);
 
   const readyCropsCount = game.farmPlots.filter(
     (p) =>
       p.cropId !== null &&
-      getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+      getCropGrowthState(
+        p,
+        farmClockNow,
+        game.yardMoodBuffPeriods ?? [],
+        activeAbility.cropGrowthRateMultiplier
+      ).isReady
   ).length;
   const overnightReadyCount = game.farmPlots.filter(
     (p) =>
       p.cropId !== null &&
       Boolean(INGREDIENTS[p.cropId]?.isOvernight) &&
-      getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+      getCropGrowthState(
+        p,
+        farmClockNow,
+        game.yardMoodBuffPeriods ?? [],
+        activeAbility.cropGrowthRateMultiplier
+      ).isReady
   ).length;
 
   const claimableHouseCount = game.house.achievedMilestones.filter(
@@ -3648,7 +3989,7 @@ export default function App() {
   return (
     <div className="min-h-dvh w-full bg-[#FBECE3] flex justify-center overflow-x-clip">
       <div className="w-full max-w-[430px] min-h-dvh bg-[#FFF8ED] shadow-2xl relative flex flex-col overflow-x-clip">
-        {!game.pet.hatched ? (
+        {!activePet.hatched ? (
           <>
             <PWAUpdateBanner
               show={showUpdateBanner}
@@ -3658,8 +3999,8 @@ export default function App() {
               stickyClassName="sticky top-2 z-40"
             />
             <IntroHatching
-              defaultName={game.pet.name}
-              defaultSpecies={game.pet.species}
+              defaultName={activePet.name}
+              defaultSpecies={activePet.species}
               onComplete={handleHatchComplete}
               onEggTapSound={() => soundFX.pop(game.soundEnabled)}
               onHatchSound={() => soundFX.hatch(game.soundEnabled)}
@@ -3761,7 +4102,11 @@ export default function App() {
             <main className="flex-1 overflow-x-clip">
               {activeTab === 'home' && (
                 <HomeView
-                  pet={game.pet}
+                  pet={activePet}
+                  pets={game.pets}
+                  maxPetSlots={petSlotsSummary.maxSlots}
+                  onSwitchPet={handleSwitchPet}
+                  onOpenPetList={() => setActiveTab('pets')}
                   action={actionState}
                   expression={expressionState}
                   flyingFoodEmoji={flyingFoodEmoji}
@@ -3800,7 +4145,7 @@ export default function App() {
                   latestMessage={latestMessage}
                   unreadMessagesCount={unreadMessagesCount}
                   onOpenMessageBoard={handleOpenMessageBoard}
-                  personality={game.personality}
+                  personality={activePersonality}
                   onOpenPersonality={() => setPersonalityModalOpen(true)}
                   onOpenCoopGames={() => setCoopModalOpen(true)}
                   coopBadgeCount={coopBadgeCount}
@@ -3830,9 +4175,24 @@ export default function App() {
                 />
               )}
 
+              {activeTab === 'pets' && (
+                <PetListView
+                  game={game}
+                  hasSharedRoom={Boolean(sharedRoom)}
+                  onBack={() => setActiveTab('home')}
+                  onSwitchPet={handleSwitchPet}
+                  onAdoptPet={handleAdoptPet}
+                  onClaimSlotReward={handleClaimPetSlotReward}
+                  onOpenMemories={() => {
+                    setJournalInitialSection('memories');
+                    setActiveTab('journal');
+                  }}
+                />
+              )}
+
               {activeTab === 'canteen' && (
                 <CanteenView
-                  pet={game.pet}
+                  pet={activePet}
                   action={actionState}
                   flyingFoodEmoji={flyingFoodEmoji}
                   speech={speech}
@@ -3876,13 +4236,13 @@ export default function App() {
 
               {activeTab === 'wardrobe' && (
                 <WardrobeView
-                  pet={game.pet}
-                  personality={game.personality}
+                  pet={activePet}
+                  personality={activePersonality}
                   coins={game.coins}
                   unlockedAccessories={game.accessories}
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
-                  onChangeSpecies={handleChangeSpecies}
+                  onOpenPetList={() => setActiveTab('pets')}
                   onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe')}
                   onOpenEncyclopedia={() => {
                     setJournalInitialSection('encyclopedia');
@@ -3928,8 +4288,8 @@ export default function App() {
 
               {activeTab === 'journal' && (
                 <JournalView
-                  pet={game.pet}
-                  personality={game.personality}
+                  pet={activePet}
+                  personality={activePersonality}
                   weightLogs={game.weightLogs}
                   onRecordWeight={handleRecordWeight}
                   onRequestReset={() => setResetModalOpen(true)}
@@ -3971,6 +4331,7 @@ export default function App() {
                     setCanteenInitialSection('kitchen');
                     setActiveTab('canteen');
                   }}
+                  onOpenPetList={() => setActiveTab('pets')}
                 />
               )}
 
@@ -3979,6 +4340,7 @@ export default function App() {
                   dailyTasks={game.dailyTasks}
                   dateStr={game.dailyTasksDate}
                   onClaimTask={handleClaimTask}
+                  onClaimFamilyTask={handleClaimFamilyTask}
                   game={game}
                   hasSharedRoom={Boolean(sharedRoom)}
                   onClaimNoviceDay={handleClaimNoviceDay}
@@ -4017,7 +4379,7 @@ export default function App() {
               stage={levelUpStage}
               prestigeStar={levelUpPrestigeStar}
               rewardText={levelUpRewardText}
-              pet={game.pet}
+              pet={activePet}
               onClose={() => {
                 setLevelUpStage(null);
                 setLevelUpPrestigeStar(null);
@@ -4031,13 +4393,13 @@ export default function App() {
 
             <GrowthRoadmapModal
               open={growthRoadmapOpen}
-              pet={game.pet}
+              pet={activePet}
               onClose={() => setGrowthRoadmapOpen(false)}
             />
 
             <ResetConfirmModal
               open={resetModalOpen}
-              petName={game.pet.name}
+              petName={activePet.name}
               onClose={() => setResetModalOpen(false)}
               onConfirmReset={handleConfirmReset}
             />
@@ -4053,10 +4415,10 @@ export default function App() {
           lastSyncedAt={lastSyncedAt}
           syncError={syncError}
           pendingCloudSave={pendingCloudSave}
-          localPetName={game.pet.name}
-          localPetLevel={game.pet.level}
-          localPetWeight={game.pet.weight}
-          localHatched={game.pet.hatched}
+          localPetName={activePet.name}
+          localPetLevel={activePet.level}
+          localPetWeight={activePet.weight}
+          localHatched={activePet.hatched}
           sharedRoom={sharedRoom}
           onOpenSharedPet={() => setSharedModalOpen(true)}
           onAuthSuccess={(loggedInUser) => {
@@ -4080,8 +4442,8 @@ export default function App() {
           cloudUser={cloudUser}
           sharedRoom={sharedRoom}
           syncStatus={syncStatus}
-          localPetName={game.pet.name}
-          localHatched={game.pet.hatched}
+          localPetName={game.pets[0]?.name ?? activePet.name}
+          localHatched={activePet.hatched}
           onOpenCloudAuth={() => setAuthModalOpen(true)}
           onCreateSharedRoom={handleCreateSharedRoom}
           onJoinSharedRoom={handleJoinSharedRoom}
@@ -4094,7 +4456,8 @@ export default function App() {
         <MessageBoardModal
           open={messageModalOpen}
           onClose={() => setMessageModalOpen(false)}
-          petName={game.pet.name}
+          petName={activePet.name}
+          pets={game.pets}
           messages={activeMessages}
           roomPhotos={game.house.photos}
           loading={messagesLoading}
@@ -4110,7 +4473,7 @@ export default function App() {
         <MinigameHubModal
           open={minigameOpen}
           onClose={() => setMinigameOpen(false)}
-          pet={game.pet}
+          pet={activePet}
           coins={game.coins}
           soundEnabled={game.soundEnabled}
           hubState={game.minigameHub}
@@ -4122,14 +4485,14 @@ export default function App() {
         <PersonalityProfileModal
           open={personalityModalOpen}
           onClose={() => setPersonalityModalOpen(false)}
-          pet={game.pet}
-          personality={game.personality}
+          pet={activePet}
+          personality={activePersonality}
         />
 
         <WardrobePhotoModal
           open={wardrobePhotoOpen}
           onClose={() => setWardrobePhotoOpen(false)}
-          pet={game.pet}
+          pet={activePet}
           sharedRoom={sharedRoom}
           initialScene={wardrobePhotoScene}
           unlockedPoses={game.memoryAlbum.unlockedPhotoPoses}
@@ -4141,7 +4504,7 @@ export default function App() {
         <DialogueHistoryModal
           open={dialogueHistoryOpen}
           onClose={() => setDialogueHistoryOpen(false)}
-          pet={game.pet}
+          pet={activePet}
           dialogue={game.dialogue}
           onUpdateSettings={handleUpdateDialogueSettings}
           savedDialogueIds={game.memoryAlbum.savedDialogueIds}
@@ -4152,7 +4515,7 @@ export default function App() {
           open={Boolean(selectedMemoryEntry)}
           onClose={() => setSelectedMemoryEntry(null)}
           memory={selectedMemoryEntry}
-          pet={game.pet}
+          pet={activePet}
           isFavorite={
             selectedMemoryEntry
               ? game.memoryAlbum.favoriteMemoryIds.includes(selectedMemoryEntry.id)

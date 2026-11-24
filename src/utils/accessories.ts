@@ -17,6 +17,8 @@ import {
   RoomPhotoRecord,
 } from '../types';
 import { syncEncyclopediaRewards } from './encyclopedia';
+import { maybeGrantCatPhotoMemoryCard } from './memories';
+import { getActivePet } from './pets';
 
 export function isAccessoryPurchasable(item: Accessory): boolean {
   return (
@@ -92,11 +94,12 @@ export function syncLimitedAccessoryUnlocks(state: GameState): LimitedUnlockResu
   };
 
   // 1. 生日小皇冠：活動或成就獲得（寵物達 Lv.2 / 解鎖非新手稱號或配件里程碑 / 完成 2 項每日任務）
+  const maxPetLevel = Math.max(...state.pets.map((p) => p.level), 1);
   const nonSproutTitleUnlocked = state.encyclopedia.unlockedTitles.some(
     (t) => t !== 'growth_sprout'
   );
   const qualifiesForBirthdayCrown =
-    state.pet.level >= 2 ||
+    maxPetLevel >= 2 ||
     state.encyclopedia.claimedAccessoryMilestones.length >= 1 ||
     nonSproutTitleUnlocked ||
     state.noviceGrowth.completedDailyTasksCount >= 2;
@@ -119,10 +122,10 @@ export function syncLimitedAccessoryUnlocks(state: GameState): LimitedUnlockResu
   grantIfMissing('party_mini_cape', qualifiesForPartyCape);
 
   // 5. 星願閃亮髮夾：寵物進化達 Lv.3 自動解鎖
-  grantIfMissing('starlight_spark_pin', state.pet.level >= 3);
+  grantIfMissing('starlight_spark_pin', maxPetLevel >= 3);
 
   // 6. 巨星閃耀手杖：寵物進化達 Lv.4 自動解鎖
-  grantIfMissing('superstar_star_wand', state.pet.level >= 4);
+  grantIfMissing('superstar_star_wand', maxPetLevel >= 4);
 
   if (newlyUnlockedIds.length === 0) {
     return { nextState: state, newlyUnlockedIds: [] };
@@ -179,17 +182,19 @@ export function saveWardrobePhoto(
     frameId: PhotoFrame;
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
+  const activePet = getActivePet(state);
   const photo: RoomPhotoRecord = {
     id: `wphoto_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    title: params.title.trim() || `${state.pet.name}的穿搭寫真`,
+    title: params.title.trim() || `${activePet.name}的穿搭寫真`,
     caption:
       params.caption.trim() ||
       `換上最喜歡的造型留下閃耀紀念！`,
     createdAt: Date.now(),
     houseName: state.house.houseName,
-    species: state.pet.species,
-    petName: state.pet.name,
-    equipped: { ...state.pet.accessories },
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: { ...activePet.accessories },
     poseId: 'normal',
     wallpaperId: state.house.roomLayout.wallpaperId,
     flooringId: state.house.roomLayout.flooringId,
@@ -202,15 +207,17 @@ export function saveWardrobePhoto(
     comments: [],
   };
 
+  const withPhoto: GameState = {
+    ...state,
+    house: {
+      ...state.house,
+      photos: [photo, ...state.house.photos].slice(0, 36),
+    },
+  };
+
   return {
     photo,
-    nextState: {
-      ...state,
-      house: {
-        ...state.house,
-        photos: [photo, ...state.house.photos].slice(0, 36),
-      },
-    },
+    nextState: maybeGrantCatPhotoMemoryCard(withPhoto).nextState,
   };
 }
 

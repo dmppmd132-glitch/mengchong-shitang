@@ -24,7 +24,7 @@ import {
   createInitialDailyTasks,
 } from '../data/quests';
 import { isValidStickerId } from '../data/stickers';
-import { PERSONALITY_IDS } from '../data/personality';
+import { PERSONALITY_IDS, PET_PREFERENCES } from '../data/personality';
 import { COOP_BADGES, COOP_FARM_DAILY_ORDERS } from '../data/coop';
 import { WEATHER_META } from '../data/dialogue';
 import {
@@ -36,6 +36,10 @@ import {
   PHOTO_SCENE_BY_ID,
   PHOTO_STICKER_BY_ID,
 } from '../data/photoStudio';
+import {
+  FAMILY_DAILY_TASK_TEMPLATES,
+  RESERVED_SPECIAL_PETS,
+} from '../data/pets';
 import {
   VISITOR_BY_ID,
   VISITOR_DECOR_BY_ID,
@@ -63,6 +67,7 @@ import {
   DialogueResponse,
   DialogueState,
   EncyclopediaState,
+  FamilyDailyTask,
   FarmDecorationId,
   FeedLog,
   FlooringId,
@@ -84,6 +89,7 @@ import {
   PetMessage,
   PetPersonality,
   PetSpecies,
+  PetUnlockRuleType,
   PetViewDirection,
   PhotoComment,
   PhotoFilter,
@@ -161,6 +167,12 @@ import {
   saveNoviceGrowthMirror,
 } from './noviceGrowth';
 import { createInitialPetPersonality } from './personality';
+import {
+  createInitialFamilyDailyTasks,
+  getActivePet,
+  getDefaultWeightForSpecies,
+  syncFamilyDailyTasks,
+} from './pets';
 import { createInitialTownOrders } from './townOrders';
 import {
   createDefaultAffinities,
@@ -220,14 +232,22 @@ export function createInitialPet(): Pet {
     },
     hatched: false,
     consecutiveFastFood: 0,
+    personality: createInitialPetPersonality('pig'),
+    preference: PET_PREFERENCES.pig,
+    ownerId: 'local',
+    isSharedCoopPet: true,
+    adoptedAt: Date.now(),
+    source: 'starter',
   };
 }
 
 export function createInitialGameState(): GameState {
   const today = formatLocalDate();
+  const initialPet = createInitialPet();
   return {
     version: 2,
-    pet: createInitialPet(),
+    pets: [initialPet],
+    activePetId: initialPet.id,
     coins: 120,
     furnitureShards: 0,
     foods: { ...INITIAL_FOOD_INVENTORY },
@@ -239,6 +259,11 @@ export function createInitialGameState(): GameState {
     feedLogs: [],
     dailyTasks: createInitialDailyTasks(today),
     dailyTasksDate: today,
+    familyDailyTasks: createInitialFamilyDailyTasks(today),
+    familyDailyTasksDate: today,
+    claimedPetSlots: [1],
+    completedTownOrdersCount: 0,
+    reservedSpecialPets: [...RESERVED_SPECIAL_PETS],
     messages: [],
     soundEnabled: true,
     lastSavedAt: Date.now(),
@@ -248,7 +273,7 @@ export function createInitialGameState(): GameState {
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(today),
     house: createInitialSharedHouse(),
-    personality: createInitialPetPersonality('pig'),
+    personality: initialPet.personality ?? createInitialPetPersonality('pig'),
     coop: createInitialCoopHubState(today),
     dialogue: createInitialDialogueState(today),
     memoryAlbum: createInitialMemoryAlbumState('布丁'),
@@ -323,7 +348,14 @@ function asNullableString(value: unknown): string | null {
 }
 
 function asSpecies(value: unknown): PetSpecies {
-  if (value === 'pig' || value === 'rabbit' || value === 'dog') {
+  if (
+    value === 'pig' ||
+    value === 'rabbit' ||
+    value === 'dog' ||
+    value === 'cat' ||
+    value === 'duck' ||
+    value === 'hamster'
+  ) {
     return value;
   }
   return 'pig';
@@ -436,6 +468,7 @@ function parseWeightLogs(raw: unknown): WeightLog[] {
     if (!id) continue;
     logs.push({
       id,
+      petId: typeof item.petId === 'string' ? item.petId : undefined,
       date: asString(item.date ?? item.dateStr, formatLocalDate()),
       weight: asNumber(item.weight ?? item.weightAfter, 8.5),
       foodName: asString(item.foodName ?? item.sourceName, '紀錄'),
@@ -457,6 +490,7 @@ function parseFeedLogs(raw: unknown): FeedLog[] {
     if (!id) continue;
     logs.push({
       id,
+      petId: typeof item.petId === 'string' ? item.petId : undefined,
       date: asString(item.date, formatLocalDate()),
       foodId: asString(item.foodId, ''),
       weightChange: asNumber(item.weightChange, 0),
@@ -482,6 +516,8 @@ function parsePetMessages(raw: unknown): PetMessage[] {
       content,
       stickerId,
       createdAt: asNumber(item.createdAt, Date.now()),
+      targetPetId: typeof item.targetPetId === 'string' ? item.targetPetId : null,
+      targetPetName: typeof item.targetPetName === 'string' ? item.targetPetName : null,
     });
   }
   return messages.slice(-80);
@@ -1081,6 +1117,7 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             caption: asString(p.caption, ''),
             createdAt: asNumber(p.createdAt, Date.now()),
             houseName: asString(p.houseName, '萌寵暖暖小屋'),
+            petId: typeof p.petId === 'string' ? p.petId : undefined,
             species: asSpecies(p.species),
             petName: asString(p.petName, '布丁'),
             equipped: parseAccessoriesRecord(p.equipped, {
@@ -1526,6 +1563,15 @@ function parseCoopHubState(raw: unknown): CoopHubState {
     }
   }
 
+  const partnerShowcasePets: Pet[] = Array.isArray(raw.partnerShowcasePets)
+    ? raw.partnerShowcasePets
+        .filter((p): p is Record<string, unknown> => isRecord(p))
+        .map((p, idx) =>
+          parseSinglePet(p, asString(p.id, `partner_pet_${idx}`), 'pig', undefined, false)
+        )
+        .slice(0, 6)
+    : [];
+
   return syncCoopHubState(
     {
       activeRoomSession: parseCoopSession(raw.activeRoomSession),
@@ -1546,6 +1592,7 @@ function parseCoopHubState(raw: unknown): CoopHubState {
         typeof raw.lastVisitorCompletedDate === 'string'
           ? raw.lastVisitorCompletedDate
           : null,
+      partnerShowcasePets,
     },
     todayStr
   );
@@ -2026,30 +2073,121 @@ function parseDialogueState(raw: unknown): DialogueState {
   );
 }
 
+function asPetUnlockRuleType(value: unknown): PetUnlockRuleType {
+  if (
+    value === 'starter' ||
+    value === 'slot_unlock' ||
+    value === 'minigames_count' ||
+    value === 'visitors_hosted' ||
+    value === 'town_orders_completed' ||
+    value === 'future_festival' ||
+    value === 'future_coop'
+  ) {
+    return value;
+  }
+  return 'starter';
+}
+
+function parseSinglePet(
+  raw: Record<string, unknown>,
+  fallbackId: string,
+  fallbackSpecies: PetSpecies = 'pig',
+  fallbackTopPersonality?: unknown,
+  defaultShared = false
+): Pet {
+  const species = asSpecies(raw.species ?? fallbackSpecies);
+  const growth = asNumber(raw.growth, 0);
+  const defaultWeight = getDefaultWeightForSpecies(species);
+  const petPersonality = parsePetPersonality(
+    raw.personality ?? fallbackTopPersonality,
+    species
+  );
+  const isFirstShared = defaultShared || raw.id === 'pet_1' || raw.isSharedCoopPet === true;
+
+  return {
+    id: asString(raw.id, fallbackId),
+    name: asString(raw.name, '布丁'),
+    species,
+    level: getGrowthStage(growth).level,
+    growth,
+    intimacy: Math.max(0, asNumber(raw.intimacy, 10)),
+    hunger: clampStat(asNumber(raw.hunger, 72)),
+    mood: clampStat(asNumber(raw.mood, 82)),
+    cleanliness: clampStat(asNumber(raw.cleanliness, 88)),
+    energy: clampStat(asNumber(raw.energy, 85)),
+    weight: clampWeight(asNumber(raw.weight, defaultWeight)),
+    roundness: clampStat(asNumber(raw.roundness, 28)),
+    accessories: parseAccessoriesRecord(
+      raw.accessories,
+      isFirstShared
+        ? { head: 'pink_bow', face: null, neck: null, body: null, held: null, back: null }
+        : { head: null, face: null, neck: null, body: null, held: null, back: null }
+    ),
+    hatched: typeof raw.hatched === 'boolean' ? raw.hatched : true,
+    consecutiveFastFood: asNumber(raw.consecutiveFastFood, 0),
+    personality: petPersonality,
+    preference: PET_PREFERENCES[species] ?? PET_PREFERENCES.pig,
+    ownerId: typeof raw.ownerId === 'string' ? raw.ownerId : 'local',
+    isSharedCoopPet: isFirstShared,
+    adoptedAt: asNumber(raw.adoptedAt, Date.now()),
+    source: asPetUnlockRuleType(raw.source),
+  };
+}
+
+function parseFamilyDailyTasks(raw: unknown, tasksDate?: string): FamilyDailyTask[] {
+  const fallback = createInitialFamilyDailyTasks(tasksDate || formatLocalDate());
+  if (!Array.isArray(raw) || raw.length === 0) return fallback;
+  const tplById = new Map(FAMILY_DAILY_TASK_TEMPLATES.map((t) => [t.id, t]));
+  const parsed: FamilyDailyTask[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) continue;
+    const tpl = tplById.get(item.id as FamilyDailyTask['id']);
+    if (!tpl) continue;
+    seen.add(item.id);
+    const progress = Math.min(tpl.target, Math.max(0, asNumber(item.progress, 0)));
+    parsed.push({
+      ...tpl,
+      reward: { ...tpl.reward },
+      progress,
+      completed: typeof item.completed === 'boolean' ? item.completed : progress >= tpl.target,
+      claimed: typeof item.claimed === 'boolean' ? item.claimed : false,
+    });
+  }
+  return parsed.length > 0 ? parsed : fallback;
+}
+
 function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   const base = createInitialGameState();
+  const basePet = base.pets[0];
   const now = Date.now();
   const rawPet = isRecord(raw.pet) ? raw.pet : {};
   const rawStats = isRecord(rawPet.stats) ? rawPet.stats : {};
-  const growth = asNumber(rawPet.growth, base.pet.growth);
+  const growth = asNumber(rawPet.growth, basePet.growth);
   const lastSavedAt = asNumber(raw.lastUpdatedAt, now);
 
   let pet: Pet = {
     id: 'pet_1',
-    name: asString(rawPet.name, base.pet.name),
+    name: asString(rawPet.name, basePet.name),
     species: 'pig',
     level: getGrowthStage(growth).level,
     growth,
-    intimacy: clampStat(asNumber(rawPet.intimacy, base.pet.intimacy), 0, 99999),
-    hunger: clampStat(asNumber(rawStats.satiety, base.pet.hunger)),
-    mood: clampStat(asNumber(rawStats.mood, base.pet.mood)),
-    cleanliness: clampStat(asNumber(rawStats.cleanliness, base.pet.cleanliness)),
-    energy: clampStat(asNumber(rawStats.energy, base.pet.energy)),
-    weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
-    roundness: clampStat(asNumber(rawPet.chubbiness, base.pet.roundness)),
-    accessories: parseAccessoriesRecord(rawPet.equipped, base.pet.accessories),
+    intimacy: clampStat(asNumber(rawPet.intimacy, basePet.intimacy), 0, 99999),
+    hunger: clampStat(asNumber(rawStats.satiety, basePet.hunger)),
+    mood: clampStat(asNumber(rawStats.mood, basePet.mood)),
+    cleanliness: clampStat(asNumber(rawStats.cleanliness, basePet.cleanliness)),
+    energy: clampStat(asNumber(rawStats.energy, basePet.energy)),
+    weight: clampWeight(asNumber(rawPet.weight, basePet.weight)),
+    roundness: clampStat(asNumber(rawPet.chubbiness, basePet.roundness)),
+    accessories: parseAccessoriesRecord(rawPet.equipped, basePet.accessories),
     hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
     consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
+    personality: createInitialPetPersonality('pig'),
+    preference: PET_PREFERENCES.pig,
+    ownerId: 'local',
+    isSharedCoopPet: true,
+    adoptedAt: now,
+    source: 'starter',
   };
 
   if (pet.hatched) {
@@ -2077,10 +2215,12 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
   });
 
   const syncedTasks = syncDailyTasks(migratedTasks, legacyDate);
+  const todayStr = formatLocalDate();
 
   return {
     version: 2,
-    pet,
+    pets: [pet],
+    activePetId: pet.id,
     coins: asNumber(raw.coins, base.coins),
     furnitureShards: 0,
     foods: parseStringNumberRecord(raw.foodInventory, base.foods),
@@ -2092,18 +2232,23 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     feedLogs: [],
     dailyTasks: syncedTasks.dailyTasks,
     dailyTasksDate: syncedTasks.dailyTasksDate,
+    familyDailyTasks: createInitialFamilyDailyTasks(todayStr),
+    familyDailyTasksDate: todayStr,
+    claimedPetSlots: [1],
+    completedTownOrdersCount: 0,
+    reservedSpecialPets: [...RESERVED_SPECIAL_PETS],
     messages: [],
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
     lastSavedAt: now,
-    noviceGrowth: createInitialNoviceGrowthStats(formatLocalDate()),
+    noviceGrowth: createInitialNoviceGrowthStats(todayStr),
     encyclopedia: createInitialEncyclopediaState(),
     unlockedBackgrounds: ['default'],
     activeBackground: 'default',
     minigameHub: createInitialMinigameHubState(),
     house: createInitialSharedHouse(),
-    personality: createInitialPetPersonality('pig'),
-    coop: createInitialCoopHubState(formatLocalDate()),
-    dialogue: createInitialDialogueState(formatLocalDate()),
+    personality: pet.personality ?? createInitialPetPersonality('pig'),
+    coop: createInitialCoopHubState(todayStr),
+    dialogue: createInitialDialogueState(todayStr),
     memoryAlbum: createInitialMemoryAlbumState(pet.name),
   };
 }
@@ -2158,6 +2303,7 @@ function parseMemoryAlbum(raw: unknown, petName: string): MemoryAlbumState {
           return {
             id: asString(m.id, `mem_${Date.now()}`),
             uniqueKey: typeof m.uniqueKey === 'string' ? m.uniqueKey : undefined,
+            petId: typeof m.petId === 'string' ? m.petId : undefined,
             type,
             title: asString(m.title, '幸福回憶'),
             description: asString(m.description, ''),
@@ -2175,7 +2321,7 @@ function parseMemoryAlbum(raw: unknown, petName: string): MemoryAlbumState {
           } as MemoryEntry;
         })
         .filter((m): m is MemoryEntry => m !== null)
-        .slice(0, 160)
+        .slice(0, 180)
     : [];
 
   const favoriteMemoryIds = Array.isArray(raw.favoriteMemoryIds)
@@ -2334,32 +2480,48 @@ function parseMemoryAlbum(raw: unknown, petName: string): MemoryAlbumState {
 export function normalizeGameState(parsed: unknown): GameState | null {
   if (!isRecord(parsed)) return null;
   const base = createInitialGameState();
+  const basePet = base.pets[0];
   const now = Date.now();
   const lastSavedAt = asNumber(parsed.lastSavedAt, now);
-  const rawPet = isRecord(parsed.pet) ? parsed.pet : {};
-  const growth = asNumber(rawPet.growth, base.pet.growth);
 
-  let pet: Pet = {
-    id: asString(rawPet.id, base.pet.id),
-    name: asString(rawPet.name, base.pet.name),
-    species: asSpecies(rawPet.species),
-    level: getGrowthStage(growth).level,
-    growth,
-    intimacy: Math.max(0, asNumber(rawPet.intimacy, base.pet.intimacy)),
-    hunger: clampStat(asNumber(rawPet.hunger, base.pet.hunger)),
-    mood: clampStat(asNumber(rawPet.mood, base.pet.mood)),
-    cleanliness: clampStat(asNumber(rawPet.cleanliness, base.pet.cleanliness)),
-    energy: clampStat(asNumber(rawPet.energy, base.pet.energy)),
-    weight: clampWeight(asNumber(rawPet.weight, base.pet.weight)),
-    roundness: clampStat(asNumber(rawPet.roundness, base.pet.roundness)),
-    accessories: parseAccessoriesRecord(rawPet.accessories, base.pet.accessories),
-    hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
-    consecutiveFastFood: asNumber(rawPet.consecutiveFastFood, 0),
-  };
-
-  if (pet.hatched) {
-    pet = applyTimeDecay(pet, now - lastSavedAt);
+  let pets: Pet[] = [];
+  if (Array.isArray(parsed.pets) && parsed.pets.length > 0) {
+    const seenIds = new Set<string>();
+    parsed.pets.forEach((item, idx) => {
+      if (!isRecord(item)) return;
+      const p = parseSinglePet(
+        item,
+        idx === 0 ? 'pet_1' : `pet_${idx + 1}`,
+        'pig',
+        idx === 0 ? parsed.personality : undefined,
+        idx === 0
+      );
+      if (seenIds.has(p.id)) return;
+      seenIds.add(p.id);
+      pets.push(p.hatched ? applyTimeDecay(p, now - lastSavedAt) : p);
+    });
   }
+
+  if (pets.length === 0) {
+    const rawPet = isRecord(parsed.pet) ? parsed.pet : {};
+    const legacyPet = parseSinglePet(
+      {
+        ...rawPet,
+        hatched: typeof rawPet.hatched === 'boolean' ? rawPet.hatched : false,
+      },
+      basePet.id,
+      'pig',
+      parsed.personality,
+      true
+    );
+    pets = [legacyPet.hatched ? applyTimeDecay(legacyPet, now - lastSavedAt) : legacyPet];
+  }
+
+  const requestedActiveId = typeof parsed.activePetId === 'string' ? parsed.activePetId : '';
+  const activePetId = pets.some((p) => p.id === requestedActiveId)
+    ? requestedActiveId
+    : pets[0].id;
+  const activePet = pets.find((p) => p.id === activePetId) ?? pets[0];
 
   const rawUnlocked = Array.isArray(parsed.accessories)
     ? parsed.accessories.filter((x): x is string => typeof x === 'string')
@@ -2370,6 +2532,23 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     parseDailyTasks(parsed.dailyTasks, parsedTasksDate),
     parsedTasksDate
   );
+
+  const parsedFamilyTasksDate = asString(parsed.familyDailyTasksDate, formatLocalDate());
+  const syncedFamilyTasks = syncFamilyDailyTasks(
+    parseFamilyDailyTasks(parsed.familyDailyTasks, parsedFamilyTasksDate),
+    parsedFamilyTasksDate
+  );
+
+  const claimedPetSlots = Array.isArray(parsed.claimedPetSlots)
+    ? Array.from(
+        new Set<number>([
+          1,
+          ...parsed.claimedPetSlots.filter(
+            (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 6
+          ),
+        ])
+      ).sort((a, b) => a - b)
+    : [1];
 
   const parsedWeightLogs = parseWeightLogs(parsed.weightLogs);
   const parsedFeedLogs = parseFeedLogs(parsed.feedLogs);
@@ -2405,7 +2584,8 @@ export function normalizeGameState(parsed: unknown): GameState | null {
 
   const draft: GameState = {
     version: 2,
-    pet,
+    pets,
+    activePetId,
     coins: asNumber(parsed.coins, base.coins),
     furnitureShards: Math.max(0, Math.floor(asNumber(parsed.furnitureShards, 0))),
     foods: parseStringNumberRecord(parsed.foods, base.foods),
@@ -2417,6 +2597,14 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     feedLogs: parsedFeedLogs,
     dailyTasks: syncedTasks.dailyTasks,
     dailyTasksDate: syncedTasks.dailyTasksDate,
+    familyDailyTasks: syncedFamilyTasks.familyDailyTasks,
+    familyDailyTasksDate: syncedFamilyTasks.familyDailyTasksDate,
+    claimedPetSlots,
+    completedTownOrdersCount: Math.max(
+      0,
+      Math.floor(asNumber(parsed.completedTownOrdersCount, 0))
+    ),
+    reservedSpecialPets: [...RESERVED_SPECIAL_PETS],
     messages: parsePetMessages(parsed.messages),
     soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
     lastSavedAt: now,
@@ -2426,10 +2614,10 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     activeBackground,
     minigameHub: parseMinigameHub(parsed.minigameHub),
     house: parsedHouse,
-    personality: parsePetPersonality(parsed.personality, pet.species),
+    personality: activePet.personality ?? parsePetPersonality(parsed.personality, activePet.species),
     coop: parseCoopHubState(parsed.coop),
     dialogue: parseDialogueState(parsed.dialogue),
-    memoryAlbum: parseMemoryAlbum(parsed.memoryAlbum, pet.name),
+    memoryAlbum: parseMemoryAlbum(parsed.memoryAlbum, activePet.name),
     farmSpeedTickets: Math.max(
       0,
       Math.floor(asNumber(parsed.farmSpeedTickets, base.farmSpeedTickets ?? 1))
@@ -2440,16 +2628,18 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
-  if (hydrated.pet.hatched) {
+  const currentActivePet = getActivePet(hydrated);
+  if (currentActivePet.hatched) {
     hydrated = recordMemoryEntry(hydrated, {
       uniqueKey: 'hatching_welcome',
+      petId: pets[0]?.id ?? currentActivePet.id,
       type: 'hatching',
-      title: `${hydrated.pet.name} 加入我們的家！`,
-      description: `${hydrated.pet.name}破殼報到了，一起展開幸福的食堂生活吧！`,
+      title: `${pets[0]?.name ?? currentActivePet.name} 加入我們的家！`,
+      description: `${pets[0]?.name ?? currentActivePet.name}破殼報到了，一起展開幸福的食堂生活吧！`,
       emoji: '🐣',
       dateKey: hydrated.noviceGrowth.startedDate || formatLocalDate(),
-      weight: hydrated.pet.weight,
-      level: hydrated.pet.level,
+      weight: pets[0]?.weight ?? currentActivePet.weight,
+      level: pets[0]?.level ?? currentActivePet.level,
     });
     hydrated = evaluateAndSyncMilestones(hydrated, false).nextState;
   }

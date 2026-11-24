@@ -1,12 +1,14 @@
 import { PetExpression, PetSpecies, PetSpeciesInfo, PetTouchZone } from '../types';
 
-export const PET_SPECIES_LIST: PetSpecies[] = ['pig', 'rabbit', 'dog'];
+export const STARTER_PET_SPECIES: PetSpecies[] = ['pig', 'rabbit', 'dog'];
+export const PET_SPECIES_LIST: PetSpecies[] = ['pig', 'rabbit', 'dog', 'cat', 'duck', 'hamster'];
 
 export const PET_SPECIES_INFO: Record<PetSpecies, PetSpeciesInfo> = {
   pig: {
     id: 'pig',
     label: '粉紅小豬',
     shortName: '小豬',
+    emoji: '🐷',
     eggColor: '#FFB6CA',
     accentColor: '#FF7A9E',
     favoriteFoodIds: ['caramel_pudding', 'crispy_fries', 'dream_cocoa_cake'],
@@ -56,6 +58,7 @@ export const PET_SPECIES_INFO: Record<PetSpecies, PetSpeciesInfo> = {
     id: 'rabbit',
     label: '棉花糖小兔',
     shortName: '小兔',
+    emoji: '🐰',
     eggColor: '#C5F0DF',
     accentColor: '#5CC9A7',
     favoriteFoodIds: ['carrot_salad', 'fruit_box', 'morning_brunch_plate'],
@@ -105,6 +108,7 @@ export const PET_SPECIES_INFO: Record<PetSpecies, PetSpeciesInfo> = {
     id: 'dog',
     label: '奶油小狗',
     shortName: '小狗',
+    emoji: '🐶',
     eggColor: '#FFE099',
     accentColor: '#E6A222',
     favoriteFoodIds: ['meat_bento', 'cheese_burger', 'moon_croissant'],
@@ -150,6 +154,126 @@ export const PET_SPECIES_INFO: Record<PetSpecies, PetSpeciesInfo> = {
       ],
     },
   },
+  cat: {
+    id: 'cat',
+    label: '蜜桃橘貓',
+    shortName: '小貓',
+    emoji: '🐱',
+    eggColor: '#FFD6B8',
+    accentColor: '#EA8C55',
+    favoriteFoodIds: ['caramel_pudding', 'blueberry_tart', 'cocoa_mint_latte'],
+    greeting: '喵嗚～本喵剛好有空，快端出香甜的點心吧！',
+    pettedSpeech: '呼嚕呼嚕… 勉強讓你再多摸兩下喵～',
+    favoriteFoodReaction: '喵～這味道真優雅，本喵給你滿分評價！',
+    zoneSpeeches: {
+      head: [
+        '喵～耳根後面抓抓最舒服了，呼嚕呼嚕停不下來…',
+        '嗯哼，你的摸頭技術還算及格啦喵～',
+        '輕輕順著額頭的貓咪花紋摸，心情整個都軟綿綿了喵！',
+        '只有特別喜歡的人，本喵才准你碰頭頂喔～',
+        '尾巴尖輕輕勾著你的手腕，這是貓咪最高級的示好喵！',
+        '呼嚕呼嚕… 再多摸一會兒，本喵就大方借你靠著休息吧！',
+      ],
+      cheek: [
+        '喵嗚～下巴和腮幫子搔一搔，眼睛都要眯成月牙了！',
+        '輕輕用臉頰蹭你的手心，這可是幫你蓋上本喵的專屬氣味章喔～',
+        '鬍鬚抖抖～才不是害羞，是室內太溫暖了啦喵！',
+        '軟呼呼的小貓腮幫子，捏起來比麻糬還精緻對吧？',
+      ],
+      belly: [
+        '喵！肚皮可是禁區… 好吧，如果是你就可以摸一下下！',
+        '呼嚕… 溫暖的肚子剛好適合窩在陽光下打盹呢～',
+        '軟綿綿的貓肚皮，摸著是不是覺得整天壓力都融化了喵？',
+        '哼哼，再揉下去本喵就要原地攤平變成一攤貓餅乾囉～',
+      ],
+      paw: [
+        '粉嫩山竹小肉球輕輕踩踩你的手背～喵！',
+        '握住我軟綿綿的貓掌，今天的好運由本喵承包了喵！',
+        '舉起貓爪打招呼，待會記得幫本喵多拍幾張美照喔📸',
+        '小貓掌按在掌心上，一起散發優雅又幸福的氣場吧～',
+      ],
+    },
+  },
+  duck: {
+    id: 'duck',
+    label: '陽光小鴨',
+    shortName: '小鴨',
+    emoji: '🐥',
+    eggColor: '#FFF0A8',
+    accentColor: '#F4A62A',
+    favoriteFoodIds: ['fruit_box', 'pumpkin_soup', 'morning_brunch_plate'],
+    greeting: '嘎嘎～今天陽光真好，想在庭院多交幾個新朋友！',
+    pettedSpeech: '嘎嘎！被你摸摸羽毛變得蓬鬆又亮晶晶～',
+    favoriteFoodReaction: '嘎呼！！這道料理超爽口，翅膀都要拍飛起來啦！',
+    zoneSpeeches: {
+      head: [
+        '嘎嘎～頭頂的小呆毛翹起來了，代表今天會遇見可愛訪客喔！',
+        '順順頭頂的黃色絨毛，感覺整隻鴨像小太陽一樣暖呼呼！',
+        '嘎～最喜歡你輕輕點我的頭頂了，像在打快樂的節拍！',
+        '摸摸頭充飽元氣！待會要去庭院巡邏迎接客人嘎嘎～',
+        '頭頂軟綿綿的羽毛，是剛曬過暖陽的鬆軟觸感喔！',
+        '只要你在身邊，小鴨每天都覺得開心到想跳踢踏舞嘎！',
+      ],
+      cheek: [
+        '圓嘟嘟黃色小臉頰蹭蹭你的掌心嘎～',
+        '扁扁橘色小嘴巴輕輕啾一下你的手指，好癢對吧嘎嘎！',
+        '被雙手捧著小鴨臉好幸福，整個視野都是最喜歡的你～',
+        '臉頰暖洋洋的，像剛出爐的奶油小餐包一樣可愛嘎！',
+      ],
+      belly: [
+        '咕嚕嘎～圓滾滾的小鴨肚皮像羽絨枕頭一樣澎鬆吧！',
+        '哈哈哈揉肚肚好癢喔！翅膀要忍不住拍拍拍了嘎嘎～',
+        '吃飽飽的小肚子貼著地面好涼爽，再陪我窩一下嘛！',
+        '軟綿綿的肚肚裡面裝滿了陽光跟好心情喔嘎！',
+      ],
+      paw: [
+        '啪嗒啪嗒！橘色小鴨掌跟你擊掌，今天一起大步向前走嘎！',
+        '小翅膀輕輕抱住你的手指，不準偷偷離開小鴨喔～',
+        '搖搖擺擺牽手散步去！庭院裡好像有新朋友在等我們呢！',
+        '翅膀比一個大大的愛心送給你 💛 嘎嘎！',
+      ],
+    },
+  },
+  hamster: {
+    id: 'hamster',
+    label: '蓬蓬小倉鼠',
+    shortName: '小倉鼠',
+    emoji: '🐹',
+    eggColor: '#FCE1B6',
+    accentColor: '#D98A4E',
+    favoriteFoodIds: ['butter_cookie', 'sunflower_bento', 'dried_fruit'],
+    greeting: '吱吱～今天也要把可愛的小點心塞滿臉頰！',
+    pettedSpeech: '吱吱吱～被摸摸感覺像在滾輪上幸福旋轉！',
+    favoriteFoodReaction: '吱！！香脆又甜的美味！腮幫子都塞成愛心形狀了～',
+    zoneSpeeches: {
+      head: [
+        '吱吱～圓圓的小耳朵動呀動，最喜歡你的溫柔順毛了！',
+        '用指腹輕輕摸摸頭頂，小倉鼠舒服到都要化在掌心裡了吱～',
+        '焦糖色的軟軟背毛順過去，心情立刻變成一百分！',
+        '吱～只要你一直摸著我，我就能安安心心睡個甜美小覺～',
+        '小倉鼠雖然小小隻，但對你的喜歡可是大大的喔吱吱！',
+        '頭頂充飽元氣！今天也會幫你多抱幾個好食材回來喔🌻',
+      ],
+      cheek: [
+        '腮幫子鼓鼓的才不是發胖，是偷偷替你存了滿滿幸福跟葵花籽吱！',
+        '吱嗚～輕輕點點肉肉的小臉頰，像軟綿綿的麻糬對吧？',
+        '臉頰揉起來Q彈軟嫩，被你捧著感覺自己是世界上最珍貴的小寶貝～',
+        '小鼻子一抽一抽嗅嗅你的味道，最喜歡和你貼貼了吱！',
+      ],
+      belly: [
+        '白白軟軟的小肚肚翻過來給你摸～好害羞呀吱吱！',
+        '揉揉小肚子就像揉一顆剛出爐的牛奶小湯圓，暖呼呼的～',
+        '哈哈哈不要搔肚臍啦好癢吱吱吱！但好開心喔！',
+        '吃完小餅乾窩在你掌心揉肚肚，是倉鼠界最奢侈的享受～',
+      ],
+      paw: [
+        '粉嫩小小手抓緊你的指尖！我會努力跟上你的腳步吱～',
+        '用迷你小手手幫你加油打氣！今天一定也能收集到滿滿食材！',
+        '雙手舉高高求抱抱～把小小的身體放進你溫暖的掌心吧吱！',
+        '迷你肉球蓋個章，約定好每天都要一起開心吃點心喔🌻',
+      ],
+    },
+  },
 };
 
 const MOOD_BONUS_SPEECHES: Record<PetSpecies, { high: string[]; low: string[] }> = {
@@ -181,6 +305,36 @@ const MOOD_BONUS_SPEECHES: Record<PetSpecies, { high: string[]; low: string[] }>
     low: [
       '嗚汪… 有點想你了，摸摸我我馬上就能打起精神！',
       '謝謝你來陪我，被你撫摸一下下我就重新充滿勇氣啦汪！',
+    ],
+  },
+  cat: {
+    high: [
+      '今天心情超棒喵～要不要一起來拍幾張美美的合照呢？',
+      '呼嚕呼嚕… 待在你身邊的陽光下真是全天下最棒的時光喵！',
+    ],
+    low: [
+      '喵嗚… 剛剛有點無聊，幸好你終於來陪本喵了！',
+      '輕輕摸摸我的背，心情很快就放晴囉喵～',
+    ],
+  },
+  duck: {
+    high: [
+      '嘎嘎～今天心情好到像在池塘開派對，肯定會有好多訪客來玩！',
+      '翅膀輕飄飄的，因為有你每天這麼疼愛小鴨呀嘎！',
+    ],
+    low: [
+      '嘎… 剛剛羽毛有點垂垂的，謝謝你溫柔地抱抱我！',
+      '被你摸摸之後又充滿陽光活力啦！一起去庭院走走嘎～',
+    ],
+  },
+  hamster: {
+    high: [
+      '吱吱！今天開心到在心裡轉了十圈滾輪，還存了好多好心情！',
+      '和你一起待在食堂，每天都像在吃香酥餅乾一樣幸福吱～',
+    ],
+    low: [
+      '吱… 剛剛躲在角落有點寂寞，被你捧起來馬上就暖呼呼了！',
+      '謝謝你的溫柔摸摸，小倉鼠重新補滿元氣囉吱吱！',
     ],
   },
 };

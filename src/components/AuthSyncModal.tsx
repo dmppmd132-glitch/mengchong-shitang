@@ -16,6 +16,7 @@ import {
   signUpWithEmail,
 } from '../services/cloudSync';
 import { CloudSavePayload, CloudSyncStatus, CloudUser, SharedPetRoom } from '../types';
+import { getActivePet } from '../utils/pets';
 
 interface AuthSyncModalProps {
   open: boolean;
@@ -237,15 +238,22 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
 
               <div className="rounded-2xl bg-[#FFEAF0] border border-[#F4C4D3] p-3 space-y-1">
                 <span className="inline-block font-extrabold text-[#D64470]">雲端存檔進度</span>
-                <p className="text-sm font-extrabold text-[#4A3531] truncate">
-                  {pendingCloudSave.state.pet.hatched
-                    ? pendingCloudSave.state.pet.name
-                    : '尚未孵化'}
-                </p>
-                <p className="text-[#6E544E] tabular-nums">
-                  Lv.{pendingCloudSave.state.pet.level} ·{' '}
-                  {pendingCloudSave.state.pet.weight.toFixed(1)} kg
-                </p>
+                {(() => {
+                  const cloudPet = getActivePet(pendingCloudSave.state);
+                  return (
+                    <>
+                      <p className="text-sm font-extrabold text-[#4A3531] truncate">
+                        {cloudPet.hatched ? cloudPet.name : '尚未孵化'}
+                      </p>
+                      <p className="text-[#6E544E] tabular-nums">
+                        Lv.{cloudPet.level} · {cloudPet.weight.toFixed(1)} kg
+                        {pendingCloudSave.state.pets.length > 1
+                          ? `（共 ${pendingCloudSave.state.pets.length} 隻）`
+                          : ''}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

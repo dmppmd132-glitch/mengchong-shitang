@@ -53,8 +53,10 @@ export function getActiveYardBuffExpiresAt(
 export function getExpectedCropDurationMs(
   baseDurationMs: number,
   now: number,
-  periods: YardMoodBuffPeriod[]
+  periods: YardMoodBuffPeriod[],
+  extraGrowthMultiplier = 1
 ): number {
+  const baseRate = Math.max(0.5, extraGrowthMultiplier);
   let remainingWorkMs = Math.max(0, baseDurationMs);
   let cursor = now;
 
@@ -62,33 +64,37 @@ export function getExpectedCropDurationMs(
     if (period.expiresAt <= cursor) continue;
 
     const normalMs = Math.max(0, period.startedAt - cursor);
-    if (remainingWorkMs <= normalMs) {
-      return Math.max(0, Math.ceil(cursor + remainingWorkMs - now));
+    const normalWorkMs = normalMs * baseRate;
+    if (remainingWorkMs <= normalWorkMs) {
+      return Math.max(0, Math.ceil(cursor + remainingWorkMs / baseRate - now));
     }
-    remainingWorkMs -= normalMs;
+    remainingWorkMs -= normalWorkMs;
     cursor += normalMs;
 
     const boostedMs = Math.max(0, period.expiresAt - cursor);
-    const boostedWorkMs = boostedMs * PICNIC_GROWTH_RATE_MULTIPLIER;
+    const boostedRate = baseRate * PICNIC_GROWTH_RATE_MULTIPLIER;
+    const boostedWorkMs = boostedMs * boostedRate;
     if (remainingWorkMs <= boostedWorkMs) {
-      return Math.max(0, Math.ceil(cursor + remainingWorkMs / PICNIC_GROWTH_RATE_MULTIPLIER - now));
+      return Math.max(0, Math.ceil(cursor + remainingWorkMs / boostedRate - now));
     }
     remainingWorkMs -= boostedWorkMs;
     cursor += boostedMs;
   }
 
-  return Math.max(0, Math.ceil(cursor + remainingWorkMs - now));
+  return Math.max(0, Math.ceil(cursor + remainingWorkMs / baseRate - now));
 }
 
 export function getCropGrowthState(
   plot: CropPlot,
   now: number,
-  periods: YardMoodBuffPeriod[]
+  periods: YardMoodBuffPeriod[],
+  extraGrowthMultiplier = 1
 ): CropGrowthState {
   if (plot.plantedAt === null || plot.cropId === null || plot.durationMs <= 0) {
     return { effectiveElapsedMs: 0, remainingMs: 0, progressPercent: 0, isReady: false };
   }
 
+  const baseRate = Math.max(0.5, extraGrowthMultiplier);
   const plantedAt = plot.plantedAt;
   const wallElapsedMs = Math.max(0, now - plantedAt);
   const boostedElapsedMs = mergeYardMoodBuffPeriods(periods).reduce((total, period) => {
@@ -96,12 +102,19 @@ export function getCropGrowthState(
     const overlapEnd = Math.min(now, period.expiresAt);
     return total + Math.max(0, overlapEnd - overlapStart);
   }, 0);
-  const effectiveElapsedMs = wallElapsedMs + boostedElapsedMs * (PICNIC_GROWTH_RATE_MULTIPLIER - 1);
+  const effectiveElapsedMs =
+    wallElapsedMs * baseRate +
+    boostedElapsedMs * baseRate * (PICNIC_GROWTH_RATE_MULTIPLIER - 1);
   const remainingWorkMs = Math.max(0, plot.durationMs - effectiveElapsedMs);
 
   return {
     effectiveElapsedMs,
-    remainingMs: getExpectedCropDurationMs(remainingWorkMs, now, periods),
+    remainingMs: getExpectedCropDurationMs(
+      remainingWorkMs,
+      now,
+      periods,
+      extraGrowthMultiplier
+    ),
     progressPercent: Math.min(100, Math.round((effectiveElapsedMs / plot.durationMs) * 100)),
     isReady: remainingWorkMs <= 0,
   };

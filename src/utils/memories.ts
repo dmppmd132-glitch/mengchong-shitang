@@ -30,6 +30,7 @@ import {
   SharedPetRoom,
 } from '../types';
 import { getGrowthStage } from '../data/growth';
+import { getActivePet, updateActivePet } from './pets';
 
 export function getMemoryDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -111,10 +112,11 @@ export function recordMonthlyActivity(
   },
   now: Date = new Date()
 ): GameState {
+  const activePet = getActivePet(state);
   const monthKey = getMonthKeyFromDate(now);
   const existing =
     state.memoryAlbum.monthlyTrackers[monthKey] ??
-    createEmptyMonthlyTracker(monthKey, state.pet.weight);
+    createEmptyMonthlyTracker(monthKey, activePet.weight);
 
   const nextFoodCounts = { ...existing.foodCounts };
   if (patch.foodId) {
@@ -138,8 +140,8 @@ export function recordMonthlyActivity(
     foodCounts: nextFoodCounts,
     interactionCounts: nextInteractionCounts,
     accessoryCounts: nextAccessoryCounts,
-    startWeight: existing.startWeight ?? patch.weight ?? state.pet.weight,
-    endWeight: patch.weight ?? state.pet.weight,
+    startWeight: existing.startWeight ?? patch.weight ?? activePet.weight,
+    endWeight: patch.weight ?? activePet.weight,
     growthGained: existing.growthGained + Math.max(0, patch.growthDelta ?? 0),
     coopMessagesCount:
       existing.coopMessagesCount + Math.max(0, patch.coopMessageDelta ?? 0),
@@ -172,6 +174,7 @@ export function recordMemoryEntry(
   state: GameState,
   payload: {
     uniqueKey?: string;
+    petId?: string;
     type: MemoryType;
     title: string;
     description: string;
@@ -201,6 +204,7 @@ export function recordMemoryEntry(
   const entry: MemoryEntry = {
     id: `mem_${createdAt}_${Math.random().toString(36).slice(2, 6)}`,
     uniqueKey: payload.uniqueKey,
+    petId: payload.petId,
     type: payload.type,
     title: payload.title,
     description: payload.description,
@@ -221,7 +225,7 @@ export function recordMemoryEntry(
   const favSet = new Set(album.favoriteMemoryIds);
   const favorites = combined.filter((m) => favSet.has(m.id));
   const others = combined.filter((m) => !favSet.has(m.id));
-  const capped = [...favorites, ...others.slice(0, Math.max(40, 160 - favorites.length))].sort(
+  const capped = [...favorites, ...others.slice(0, Math.max(40, 180 - favorites.length))].sort(
     (a, b) => b.createdAt - a.createdAt
   );
 
@@ -232,6 +236,29 @@ export function recordMemoryEntry(
       memories: capped,
     },
   };
+}
+
+export function maybeGrantCatPhotoMemoryCard(state: GameState): {
+  nextState: GameState;
+  bonusMemoryCreated: boolean;
+} {
+  const activePet = getActivePet(state);
+  if (activePet.species !== 'cat' || Math.random() >= 0.12) {
+    return { nextState: state, bonusMemoryCreated: false };
+  }
+  const now = Date.now();
+  const nextState = recordMemoryEntry(state, {
+    uniqueKey: `cat_photo_bonus_${now}_${Math.random().toString(36).slice(2, 5)}`,
+    petId: activePet.id,
+    type: 'milestone',
+    title: `鏡頭靈感驚喜卡：${activePet.name}的閃耀瞬間`,
+    description: `${activePet.name}發揮「鏡頭靈感」天賦，為這場拍照時光多留下了一張珍藏回憶卡！`,
+    emoji: '📸',
+    createdAt: now,
+    weight: activePet.weight,
+    level: activePet.level,
+  });
+  return { nextState, bonusMemoryCreated: true };
 }
 
 export function toggleFavoriteMemory(state: GameState, memoryId: string): GameState {
@@ -264,10 +291,12 @@ export function saveDialogueToMemories(
       savedDialogueIds: [line.id, ...state.memoryAlbum.savedDialogueIds].slice(0, 80),
     },
   };
+  const activePet = getActivePet(state);
   const nextState = recordMemoryEntry(withSavedId, {
     uniqueKey: `dialogue_${line.id}`,
+    petId: activePet.id,
     type: 'dialogue',
-    title: `${state.pet.name}的暖心語錄`,
+    title: `${activePet.name}的暖心語錄`,
     description: line.respondedLabel
       ? `「${line.text}」（你的回應：${line.respondedLabel}）`
       : `「${line.text}」`,
@@ -275,8 +304,8 @@ export function saveDialogueToMemories(
     createdAt: line.createdAt,
     dateKey: getMemoryDateKey(new Date(line.createdAt)),
     dialogueText: line.text,
-    weight: state.pet.weight,
-    level: state.pet.level,
+    weight: activePet.weight,
+    level: activePet.level,
   });
   return { nextState, saved: true };
 }
@@ -293,7 +322,12 @@ export function evaluateAndSyncMilestones(
     unlockedById.set(m.id, m);
   }
 
-  const equippedCount = Object.values(state.pet.accessories).filter(Boolean).length;
+  const activePet = getActivePet(state);
+  const maxEquippedCount = Math.max(
+    ...state.pets.map((p) => Object.values(p.accessories).filter(Boolean).length),
+    Object.values(activePet.accessories).filter(Boolean).length
+  );
+  const maxLevel = Math.max(...state.pets.map((p) => p.level), activePet.level);
   const startedDate = state.noviceGrowth.startedDate || todayKey;
   const companionDays = daysBetweenDateKeys(startedDate, todayKey) + 1;
   const coopStart = album.sharedRoomStartedDate;
@@ -307,7 +341,7 @@ export function evaluateAndSyncMilestones(
     first_burger: state.feedLogs.some((l) => l.foodId === 'cheese_burger'),
     first_fries: state.feedLogs.some((l) => l.foodId === 'crispy_fries'),
     first_equip_accessory:
-      equippedCount >= 1 || album.memories.some((m) => m.type === 'wardrobe'),
+      maxEquippedCount >= 1 || album.memories.some((m) => m.type === 'wardrobe'),
     first_weight_log:
       state.weightLogs.some((w) => w.foodName === '手動紀錄') ||
       state.noviceGrowth.weightRecordCount >= 1,
@@ -317,9 +351,9 @@ export function evaluateAndSyncMilestones(
     first_farm_harvest: album.memories.some(
       (m) => m.type === 'farm' && m.uniqueKey?.startsWith('farm_harvest')
     ),
-    reach_lv2: state.pet.level >= 2,
-    reach_lv3: state.pet.level >= 3,
-    reach_lv4: state.pet.level >= 4,
+    reach_lv2: maxLevel >= 2,
+    reach_lv3: maxLevel >= 3,
+    reach_lv4: maxLevel >= 4,
     coop_7_days:
       state.coop.streakDays >= 7 || (hasSharedRoom && coopDays >= 7),
     day_100_anniversary: companionDays >= 100,
@@ -364,15 +398,18 @@ export function evaluateAndSyncMilestones(
     return { nextState: state, newlyUnlocked: [] };
   }
 
-  const nextGrowth = state.pet.growth + bonusGrowth;
-  let nextState: GameState = {
-    ...state,
-    coins: state.coins + bonusCoins,
-    pet: {
-      ...state.pet,
+  const withGrowth = updateActivePet(state, (pet) => {
+    const nextGrowth = pet.growth + bonusGrowth;
+    return {
+      ...pet,
       growth: nextGrowth,
       level: getGrowthStage(nextGrowth).level,
-    },
+    };
+  });
+
+  let nextState: GameState = {
+    ...withGrowth,
+    coins: withGrowth.coins + bonusCoins,
     memoryAlbum: {
       ...album,
       milestones: nextMilestones,
@@ -381,6 +418,7 @@ export function evaluateAndSyncMilestones(
     },
   };
 
+  const updatedActive = getActivePet(nextState);
   for (const ms of newlyUnlocked) {
     const extras: string[] = [];
     if (ms.rewardCoins > 0) extras.push(`+${ms.rewardCoins} 金幣`);
@@ -389,14 +427,15 @@ export function evaluateAndSyncMilestones(
     if (ms.rewardFrameId) extras.push('解鎖限定相框');
     nextState = recordMemoryEntry(nextState, {
       uniqueKey: `milestone_${ms.id}`,
+      petId: updatedActive.id,
       type: 'milestone',
       title: `達成里程碑：${ms.title}`,
       description: `${ms.description}（獲得「${ms.rewardCardTitle}」・${extras.join(' · ')}）`,
       emoji: ms.emoji,
       dateKey: todayKey,
       createdAt: now.getTime(),
-      weight: nextState.pet.weight,
-      level: nextState.pet.level,
+      weight: updatedActive.weight,
+      level: updatedActive.level,
     });
   }
 
@@ -444,9 +483,11 @@ export function evaluateAndSyncSharedMemories(
     state.dialogue.memoryEvents.some((ev) => ev.type === 'partnerFed') ||
     explicitEventKeys.includes('shared_first_feed');
 
+  const sharedPet = state.pets.find((p) => p.isSharedCoopPet || p.id === 'pet_1') ?? getActivePet(state);
+
   const conditionByKey: Record<SharedMemoryKey, boolean> = {
     shared_first_naming:
-      state.pet.hatched || explicitEventKeys.includes('shared_first_naming'),
+      sharedPet.hatched || explicitEventKeys.includes('shared_first_naming'),
     shared_first_feed: hasPartnerFeed,
     shared_first_message:
       distinctMsgAuthors.size >= 2 ||
@@ -487,7 +528,7 @@ export function evaluateAndSyncSharedMemories(
           unlocked: false,
           createdAt: null,
           dateKey: null,
-          petName: state.pet.name,
+          petName: sharedPet.name,
           actors: [],
           rewardCoins: def.rewardCoins,
           rewardIntimacy: def.rewardIntimacy,
@@ -517,7 +558,7 @@ export function evaluateAndSyncSharedMemories(
       unlocked: true,
       createdAt: prev?.createdAt ?? now.getTime(),
       dateKey: prev?.dateKey ?? todayKey,
-      petName: prev?.petName || state.pet.name,
+      petName: prev?.petName || sharedPet.name,
       actors: mergedActors,
       rewardCoins: def.rewardCoins,
       rewardIntimacy: def.rewardIntimacy,
@@ -545,13 +586,23 @@ export function evaluateAndSyncSharedMemories(
     return { nextState: state, newlyNotified: [] };
   }
 
+  const withSharedPetIntimacy = updateActivePet(
+    state,
+    (pet) =>
+      pet.id === sharedPet.id
+        ? { ...pet, intimacy: pet.intimacy + rewardIntimacy }
+        : pet
+  );
+  const nextPetsWithShared = withSharedPetIntimacy.pets.map((pet) =>
+    pet.id === sharedPet.id && pet.id !== withSharedPetIntimacy.activePetId
+      ? { ...pet, intimacy: pet.intimacy + rewardIntimacy }
+      : pet
+  );
+
   let nextState: GameState = {
-    ...state,
-    coins: state.coins + rewardCoins,
-    pet: {
-      ...state.pet,
-      intimacy: state.pet.intimacy + rewardIntimacy,
-    },
+    ...withSharedPetIntimacy,
+    pets: nextPetsWithShared,
+    coins: withSharedPetIntimacy.coins + rewardCoins,
     memoryAlbum: {
       ...album,
       sharedRoomId: sharedRoom.id,
@@ -590,22 +641,24 @@ export function saveScenePhoto(
     stickers: PhotoStickerId[];
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
+  const activePet = getActivePet(state);
   const sceneMeta = PHOTO_SCENES.find((s) => s.id === params.scene) ?? PHOTO_SCENES[0];
   const cleanTitle =
     params.title.trim().slice(0, 20) ||
-    `${state.pet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20);
+    `${activePet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20);
   const nowTs = Date.now();
   const photo: RoomPhotoRecord = {
     id: `photo_${nowTs}_${Math.random().toString(36).slice(2, 6)}`,
     title: cleanTitle,
     caption:
       params.caption.trim().slice(0, 60) ||
-      `${sceneMeta.label}留念 · ${state.pet.name} (${state.pet.weight.toFixed(1)} kg)`,
+      `${sceneMeta.label}留念 · ${activePet.name} (${activePet.weight.toFixed(1)} kg)`,
     createdAt: nowTs,
     houseName: state.house.houseName,
-    species: state.pet.species,
-    petName: state.pet.name,
-    equipped: { ...state.pet.accessories },
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: { ...activePet.accessories },
     poseId: 'normal',
     wallpaperId: state.house.roomLayout.wallpaperId,
     flooringId: state.house.roomLayout.flooringId,
@@ -620,7 +673,7 @@ export function saveScenePhoto(
     filterId: params.filterId,
     frameId: params.frameId,
     stickers: params.stickers.slice(0, 6),
-    weightAtCapture: state.pet.weight,
+    weightAtCapture: activePet.weight,
     likes: [],
     comments: [],
   };
@@ -636,6 +689,7 @@ export function saveScenePhoto(
   nextState = recordMonthlyActivity(nextState, { interactionLabel: '拍照留念' });
   nextState = recordMemoryEntry(nextState, {
     uniqueKey: `photo_${photo.id}`,
+    petId: activePet.id,
     type:
       params.scene === 'room'
         ? 'room'
@@ -643,12 +697,14 @@ export function saveScenePhoto(
         ? 'farm'
         : 'wardrobe',
     title: `拍下「${photo.title}」`,
-    description: `${sceneMeta.label}寫真紀念（當時體重 ${state.pet.weight.toFixed(1)} kg）`,
+    description: `${sceneMeta.label}寫真紀念（當時體重 ${activePet.weight.toFixed(1)} kg）`,
     emoji: '📸',
     photoId: photo.id,
-    weight: state.pet.weight,
-    level: state.pet.level,
+    weight: activePet.weight,
+    level: activePet.level,
   });
+
+  nextState = maybeGrantCatPhotoMemoryCard(nextState).nextState;
 
   return { nextState, photo };
 }
@@ -717,7 +773,8 @@ export function buildMonthlyRecapDraft(
     }
   });
   if (!favoriteAccessoryId) {
-    const equippedFirst = Object.values(state.pet.accessories).find(
+    const activePet = getActivePet(state);
+    const equippedFirst = Object.values(activePet.accessories).find(
       (id): id is string => Boolean(id)
     );
     favoriteAccessoryId = equippedFirst ?? state.accessories[0] ?? null;
@@ -887,7 +944,12 @@ export function mergeMemoryAlbumRemoteState(
 ): MemoryAlbumState {
   const memByKey = new Map<string, MemoryEntry>();
   for (const m of remoteAlbum.memories) {
-    memByKey.set(m.uniqueKey || m.id, m);
+    // Only merge shared co-op / default shared pet memories from remote; keep partner's personal pet memories isolated
+    const isSharedOrDefaultPet =
+      m.isShared || !m.petId || m.petId === 'pet_1';
+    if (isSharedOrDefaultPet) {
+      memByKey.set(m.uniqueKey || m.id, m);
+    }
   }
   for (const lm of localAlbum.memories) {
     const k = lm.uniqueKey || lm.id;
@@ -897,7 +959,7 @@ export function mergeMemoryAlbumRemoteState(
   }
   const mergedMemories = Array.from(memByKey.values())
     .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, 160);
+    .slice(0, 180);
 
   const favIds = Array.from(
     new Set([...remoteAlbum.favoriteMemoryIds, ...localAlbum.favoriteMemoryIds])

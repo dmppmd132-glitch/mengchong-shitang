@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarHeart, CheckCircle2, Coins, Gift, Sparkles } from 'lucide-react';
 import { formatDailyTaskDescription } from '../data/quests';
 import { getFoodById } from '../data/foods';
-import { DailyTask, GameState, StageBackgroundId } from '../types';
+import { DailyTask, FamilyTaskId, GameState, StageBackgroundId } from '../types';
 import { evaluateAllNoviceDays } from '../utils/noviceGrowth';
+import { getActivePet, syncFamilyDailyTasks } from '../utils/pets';
 import { NoviceGrowthView } from './NoviceGrowthView';
 
 interface QuestsViewProps {
   dailyTasks: DailyTask[];
   dateStr: string;
   onClaimTask: (taskId: string) => void;
+  onClaimFamilyTask?: (taskId: FamilyTaskId) => void;
   game: GameState;
   hasSharedRoom: boolean;
   onClaimNoviceDay: (day: number) => void;
@@ -23,6 +25,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
   dailyTasks,
   dateStr,
   onClaimTask,
+  onClaimFamilyTask,
   game,
   hasSharedRoom,
   onClaimNoviceDay,
@@ -37,8 +40,17 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
     setSection(initialSection);
   }, [initialSection]);
 
+  const activePet = getActivePet(game);
+  const syncedFamily = syncFamilyDailyTasks(
+    game.familyDailyTasks,
+    game.familyDailyTasksDate,
+    dateStr
+  );
+  const familyTasks = syncedFamily.familyDailyTasks;
+  const familyReadyCount = familyTasks.filter((t) => t.completed && !t.claimed).length;
+  const familyClaimedCount = familyTasks.filter((t) => t.claimed).length;
   const claimedCount = dailyTasks.filter((t) => t.claimed).length;
-  const dailyReadyCount = dailyTasks.filter((t) => t.completed && !t.claimed).length;
+  const dailyReadyCount = dailyTasks.filter((t) => t.completed && !t.claimed).length + familyReadyCount;
   const noviceEval = evaluateAllNoviceDays(game, hasSharedRoom);
   const triggerClaimNoviceDay = handleClaimNoviceDay ?? onClaimNoviceDay;
 
@@ -106,13 +118,108 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
         <>
           <section className="rounded-3xl bg-gradient-to-r from-[#FFF4D1] to-[#FFE9F0] border-2 border-[#F5DFD7] p-4 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-extrabold text-[#4A3531]">今日每日任務</h2>
+              <h2 className="text-base font-extrabold text-[#4A3531]">🐾 全家今日任務</h2>
+              <p className="text-xs text-[#7D635D] mt-0.5 leading-snug">
+                家裡任一隻寵物完成即可領取共享獎勵，輕鬆照顧不重複累人
+              </p>
+            </div>
+            <div className="text-right tabular-nums shrink-0">
+              <span className="text-lg font-extrabold text-[#D64470]">
+                {familyClaimedCount} / {familyTasks.length}
+              </span>
+              <p className="text-[11px] font-bold text-[#826862]">共享已領</p>
+            </div>
+          </section>
+
+          <div className="space-y-2.5">
+            {familyTasks.map((task) => {
+              const current = Math.min(task.target, task.progress);
+              const isReady = task.completed || current >= task.target;
+              const isClaimed = task.claimed;
+              const rewardFood = getFoodById(task.reward.foodId);
+              const pct = Math.round((current / task.target) * 100);
+
+              return (
+                <article
+                  key={task.id}
+                  className={`rounded-3xl border-2 p-3.5 space-y-2.5 transition ${
+                    isClaimed
+                      ? 'bg-[#F7F3EE] border-[#E8DED8] opacity-85'
+                      : isReady
+                      ? 'bg-[#FFF5F8] border-[#FF8AA8]'
+                      : 'bg-[#FFFDF8] border-[#F4DFD7]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-extrabold text-[#4A3531]">
+                        {task.title}
+                      </h3>
+                      <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
+                        {task.description}
+                      </p>
+                    </div>
+                    <span className="text-xs font-extrabold text-[#D64470] tabular-nums shrink-0">
+                      {current} / {task.target}
+                    </span>
+                  </div>
+
+                  <div className="w-full h-2 rounded-full bg-[#F2E6DF] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#FF85A6] transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 text-xs font-bold text-[#6E544E] tabular-nums">
+                      <span className="inline-flex items-center gap-1 text-[#A46D0F]">
+                        <Coins className="w-3.5 h-3.5" />
+                        +{task.reward.coins} 金幣
+                      </span>
+                      {rewardFood && (
+                        <span className="inline-flex items-center gap-1">
+                          <span aria-hidden="true">{rewardFood.emoji}</span>
+                          +{task.reward.foodQty} {rewardFood.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {isClaimed ? (
+                      <span className="min-h-[36px] px-3 rounded-2xl bg-[#E1EFEA] text-[#28735B] text-xs font-extrabold inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        已領取
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!isReady || !onClaimFamilyTask}
+                        onClick={() => onClaimFamilyTask?.(task.id)}
+                        className={`min-h-[36px] px-3.5 rounded-2xl text-xs font-extrabold inline-flex items-center gap-1 transition ${
+                          isReady && onClaimFamilyTask
+                            ? 'bg-[#FF7A9E] text-white shadow-[0_3px_0_#D9577B] hover:bg-[#F45D86] active:translate-y-0.5'
+                            : 'bg-[#EFE6E2] text-[#A4938D] cursor-not-allowed'
+                        }`}
+                      >
+                        <Gift className="w-3.5 h-3.5" />
+                        <span>{isReady ? '領取共享獎勵' : '進行中'}</span>
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <section className="rounded-3xl bg-gradient-to-r from-[#E6F8F1] to-[#FFF6DE] border-2 border-[#D7EDE4] p-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-extrabold text-[#4A3531]">今日日常挑戰</h2>
               <p className="text-xs text-[#7D635D] mt-0.5 tabular-nums">
                 日期 {dateStr} · 每日凌晨自動更新
               </p>
             </div>
             <div className="text-right tabular-nums">
-              <span className="text-xl font-extrabold text-[#D64470]">
+              <span className="text-xl font-extrabold text-[#256D57]">
                 {claimedCount} / {dailyTasks.length}
               </span>
               <p className="text-[11px] font-bold text-[#826862]">已領取</p>
@@ -144,7 +251,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
                         {task.title}
                       </h3>
                       <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
-                        {formatDailyTaskDescription(task.description, game.pet.name)}
+                        {formatDailyTaskDescription(task.description, activePet.name)}
                       </p>
                     </div>
                     <span className="text-xs font-extrabold text-[#D64470] tabular-nums shrink-0">

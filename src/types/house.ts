@@ -167,6 +167,7 @@ export interface RoomPhotoRecord {
   createdAt: number;
   houseName: string;
   species: PetSpecies;
+  petId?: string;
   petName: string;
   equipped: Record<AccessorySlot, string | null>;
   poseId: RoomPhotoPoseId;

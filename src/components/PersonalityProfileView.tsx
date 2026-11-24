@@ -7,6 +7,7 @@ import {
   PERSONALITY_DEFINITIONS,
   PERSONALITY_IDS,
 } from '../data/personality';
+import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
 import { TOY_BY_ID } from '../data/toys';
 import { Pet, PetPersonality } from '../types';
@@ -24,6 +25,7 @@ export const PersonalityProfileView: React.FC<PersonalityProfileViewProps> = ({
   personality,
 }) => {
   const speciesInfo = getPetSpeciesInfo(pet.species);
+  const ability = PET_ABILITIES[pet.species];
   const primaryDef = PERSONALITY_DEFINITIONS[personality.primary];
   const secondaryDef = PERSONALITY_DEFINITIONS[personality.secondary];
   const pref = getPetPreference(pet.species);
@@ -88,6 +90,29 @@ export const PersonalityProfileView: React.FC<PersonalityProfileViewProps> = ({
             </p>
           </article>
         </div>
+      </section>
+
+      {/* Species Ability Card */}
+      <section className="rounded-3xl bg-gradient-to-r from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#A7E0CB] p-4 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xl leading-none" aria-hidden="true">
+              {ability.emoji}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold text-[#256D57]">
+                {speciesInfo.label}專屬生活加成
+              </p>
+              <h3 className="text-sm font-extrabold text-[#4A3531] truncate">
+                {ability.title} · {ability.summary}
+              </h3>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-lg bg-white border border-[#B5E5D1] text-[10px] font-extrabold text-[#1F6B54] shrink-0 tabular-nums">
+            +{ability.bonusPercent}%
+          </span>
+        </div>
+        <p className="text-xs text-[#4E6960] leading-relaxed">{ability.detail}</p>
       </section>
 
       {/* Personality Development Meter (8 traits) */}

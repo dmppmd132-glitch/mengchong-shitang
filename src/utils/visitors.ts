@@ -32,7 +32,8 @@ import {
 } from '../types';
 import { syncAllAccessoryProgress } from './accessories';
 import { syncHouseProgress } from './house';
-import { recordMemoryEntry } from './memories';
+import { maybeGrantCatPhotoMemoryCard, recordMemoryEntry } from './memories';
+import { getActivePet } from './pets';
 
 function formatLocalDate(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -158,6 +159,8 @@ export function evaluateYardSynergy(
     rabbit: [],
   };
 
+  const duckBonusActive = getActivePet(state).species === 'duck';
+
   for (const visitor of VISITORS) {
     let bonus = 0;
     for (const decorId of visitor.preference.preferredYardDecorIds) {
@@ -191,6 +194,10 @@ export function evaluateYardSynergy(
     let finalWeight = visitor.baseWeight + bonus;
     if (picnicBuffActive) {
       finalWeight = Math.round(finalWeight * 1.1);
+    }
+    if (duckBonusActive) {
+      finalWeight = Math.round(finalWeight * 1.1);
+      reasonsByVisitor[visitor.id].push('小鴨迎賓 +10%');
     }
     weights[visitor.id] = finalWeight;
   }
@@ -267,11 +274,13 @@ export function syncVisitorSystem(
     dailyVisitCount = 0;
   }
 
+  const duckBoost = getActivePet(state).species === 'duck';
+
   // Expire finished visit cleanly
   if (activeVisit && now >= activeVisit.departAt) {
     activeVisit = null;
     arrivalNoticeUnread = false;
-    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive);
+    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost);
   }
 
   // Cycle visitor behavior in the yard every ~35s for lively motion
@@ -293,7 +302,7 @@ export function syncVisitorSystem(
     dailyVisitCount += 1;
     arrivalNoticeUnread = true;
     justArrivedVisitorId = pickedId;
-    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive);
+    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost);
     affinities = {
       ...affinities,
       [pickedId]: {
@@ -710,17 +719,18 @@ export function captureVisitorPhoto(
     caption?: string;
   }
 ): VisitorActionResult {
+  const activePet = getActivePet(state);
   const visitor = VISITOR_BY_ID[params.visitorId];
   const now = Date.now();
   const photoId = `vphoto_${now}_${Math.random().toString(36).slice(2, 6)}`;
   const title = params.isCoopPhoto
     ? `我們與${visitor.name}的共同紀念照`
-    : `${state.pet.name}與${visitor.name}的庭院合照`;
+    : `${activePet.name}與${visitor.name}的庭院合照`;
   const caption =
     params.caption?.trim() ||
     (params.isCoopPhoto
       ? `兩人一起在庭院招待${visitor.name}留下的開心瞬間！`
-      : `${state.pet.name}和來訪的${visitor.name}在暖陽庭院一起合影！`);
+      : `${activePet.name}和來訪的${visitor.name}在暖陽庭院一起合影！`);
 
   const photo: RoomPhotoRecord = {
     id: photoId,
@@ -728,9 +738,10 @@ export function captureVisitorPhoto(
     caption,
     createdAt: now,
     houseName: state.house.houseName,
-    species: state.pet.species,
-    petName: state.pet.name,
-    equipped: { ...state.pet.accessories },
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: { ...activePet.accessories },
     poseId: 'happy_jump',
     wallpaperId: state.house.roomLayout.wallpaperId,
     flooringId: state.house.roomLayout.flooringId,
@@ -744,7 +755,7 @@ export function captureVisitorPhoto(
     filterId: params.filterId ?? 'forest',
     frameId: params.frameId ?? (params.isCoopPhoto ? 'coop_heart' : 'polaroid'),
     stickers: params.stickers ?? ['star'],
-    weightAtCapture: state.pet.weight,
+    weightAtCapture: activePet.weight,
     likes: [],
     comments: [],
   };
@@ -778,6 +789,7 @@ export function captureVisitorPhoto(
 
   nextState = recordMemoryEntry(nextState, {
     uniqueKey: `visitor_photo_${photoId}`,
+    petId: activePet.id,
     type: 'visitor',
     title,
     description: caption,
@@ -785,6 +797,8 @@ export function captureVisitorPhoto(
     photoId,
     isShared: params.isCoopPhoto,
   });
+
+  nextState = maybeGrantCatPhotoMemoryCard(nextState).nextState;
 
   return {
     nextState,

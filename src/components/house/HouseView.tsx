@@ -104,6 +104,7 @@ import {
   PICNIC_MOOD_BUFF_DURATION_MS,
 } from '../../utils/farmGrowth';
 import { evaluateItemPreference } from '../../utils/personality';
+import { getActivePet, updateActivePet } from '../../utils/pets';
 import { ShareCardPayload } from '../../utils/shareCardCanvas';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { PiggyCharacter } from '../PiggyCharacter';
@@ -251,13 +252,23 @@ export const HouseView: React.FC<HouseViewProps> = ({
   // Treasury deposit input
   const [customDepositInput, setCustomDepositInput] = useState<string>('100');
 
+  const activePet = getActivePet(game);
+  const companionPets = useMemo(
+    () => game.pets.filter((p) => p.id !== activePet.id),
+    [game.pets, activePet.id]
+  );
+  const partnerShowcasePets = game.coop.partnerShowcasePets ?? [];
+  const totalRoomPets =
+    game.pets.length +
+    partnerShowcasePets.filter((sp) => !game.pets.some((p) => p.id === sp.id)).length;
+
   // Photo studio states
   const [selectedPoseId, setSelectedPoseId] = useState<RoomPhotoPoseId>('normal');
   const [photoTitle, setPhotoTitle] = useState<string>(
     `${game.house.houseName}的幸福時刻`.slice(0, 20)
   );
   const [photoCaption, setPhotoCaption] = useState<string>(
-    `跟 ${game.pet.name} 一起在親手佈置的小房間拍照留念！`
+    `跟 ${activePet.name} 一起在親手佈置的小房間拍照留念！`
   );
   const [photoStickers, setPhotoStickers] = useState<PhotoStickerId[]>([]);
   const [sharingPhoto, setSharingPhoto] = useState<boolean>(false);
@@ -269,14 +280,13 @@ export const HouseView: React.FC<HouseViewProps> = ({
     onUpdateGame((prev) => ({ ...prev, coins: prev.coins + safeAmount }));
   };
   const rewardYardSwing = () => {
-    onUpdateGame((prev) => ({
-      ...prev,
-      pet: {
-        ...prev.pet,
-        mood: Math.min(100, prev.pet.mood + 3),
-        intimacy: Math.min(100, prev.pet.intimacy + 1),
-      },
-    }));
+    onUpdateGame((prev) =>
+      updateActivePet(prev, (p) => ({
+        ...p,
+        mood: Math.min(100, p.mood + 3),
+        intimacy: Math.min(100, p.intimacy + 1),
+      }))
+    );
   };
   const usePicnicSnack = (snackId: PicnicSnackId) => {
     onUpdateGame((prev) => {
@@ -305,27 +315,29 @@ export const HouseView: React.FC<HouseViewProps> = ({
           )
         : [...periods, { startedAt: now, expiresAt: now + PICNIC_MOOD_BUFF_DURATION_MS }];
 
-      return {
-        ...prev,
-        ingredients:
-          snackId === SYSTEM_COOKIE_ID
-            ? prev.ingredients
-            : { ...prev.ingredients, [snackId]: Math.max(0, (prev.ingredients[snackId] ?? 0) - 1) },
-        yardMoodBuffPeriods: mergeYardMoodBuffPeriods(nextPeriods),
-        pet: {
-          ...prev.pet,
-          mood: Math.min(100, prev.pet.mood + 4),
-          intimacy: Math.min(100, prev.pet.intimacy + 1),
+      return updateActivePet(
+        {
+          ...prev,
+          ingredients:
+            snackId === SYSTEM_COOKIE_ID
+              ? prev.ingredients
+              : { ...prev.ingredients, [snackId]: Math.max(0, (prev.ingredients[snackId] ?? 0) - 1) },
+          yardMoodBuffPeriods: mergeYardMoodBuffPeriods(nextPeriods),
         },
-      };
+        (p) => ({
+          ...p,
+          mood: Math.min(100, p.mood + 4),
+          intimacy: Math.min(100, p.intimacy + 1),
+        })
+      );
     });
   };
   const wallDef = WALLPAPER_BY_ID[house.roomLayout.wallpaperId] ?? WALLPAPER_BY_ID.cream_warm;
   const floorDef = FLOORING_BY_ID[house.roomLayout.flooringId] ?? FLOORING_BY_ID.oak_wood;
   const encCounts = getHouseEncyclopediaCounts(house);
   const summaryStats = useMemo(
-    () => getHouseSummaryStats(house, game.pet.species),
-    [house, game.pet.species]
+    () => getHouseSummaryStats(house, activePet.species),
+    [house, activePet.species]
   );
 
   const showPlacementGrid =
@@ -407,7 +419,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
 
       // 25% chance to take a relaxing stroll onto the floor/rug between furniture visits
       if (Math.random() < 0.25) {
-        strollOnFloor(`${game.pet.name} 在毛絨地毯上悠閒散步中～`);
+        strollOnFloor(`${activePet.name} 在毛絨地毯上悠閒散步中～`);
         return;
       }
 
@@ -420,11 +432,11 @@ export const HouseView: React.FC<HouseViewProps> = ({
             def.category === 'toyBall' ||
             def.category === 'snackRack' ||
             def.category === 'diningTable' ||
-            evaluateItemPreference(game.pet.species, def.id) === 'favorite')
+            evaluateItemPreference(activePet.species, def.id) === 'favorite')
         );
       });
       const favPool = priority.filter(
-        (p) => evaluateItemPreference(game.pet.species, p.itemId) === 'favorite'
+        (p) => evaluateItemPreference(activePet.species, p.itemId) === 'favorite'
       );
       const basePool =
         favPool.length > 0 && Math.random() < 0.72
@@ -436,7 +448,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
       const itemDef = ROOM_ITEM_BY_ID[chosen.itemId];
       if (!itemDef) return;
 
-      const match = evaluateItemPreference(game.pet.species, itemDef.id);
+      const match = evaluateItemPreference(activePet.species, itemDef.id);
       movePetToCell(chosen.x, chosen.y);
       setPetAction(itemDef.petAction);
       setPetExpression(
@@ -462,8 +474,8 @@ export const HouseView: React.FC<HouseViewProps> = ({
   }, [
     tab,
     house.roomLayout.placedItems,
-    game.pet.species,
-    game.pet.name,
+    activePet.species,
+    activePet.name,
     movePetSmoothly,
     movePetToCell,
   ]);
@@ -616,7 +628,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
   const handleTryFurnitureWithPet = (placed: PlacedRoomItem) => {
     const def = ROOM_ITEM_BY_ID[placed.itemId];
     if (!def) return;
-    const match = evaluateItemPreference(game.pet.species, def.id);
+    const match = evaluateItemPreference(activePet.species, def.id);
     movePetToCell(placed.x, placed.y);
     setPetAction(def.petAction);
     setPetExpression(match === 'favorite' ? 'sparkle' : 'happyTongue');
@@ -752,7 +764,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
       movePetToCell(x, y);
       setPetAction('idle');
       setPetExpression('sparkle');
-      setPetSpeech(`${game.pet.name} 開心地走到這裡散步囉～`);
+      setPetSpeech(`${activePet.name} 開心地走到這裡散步囉～`);
       soundFX.pop(game.soundEnabled);
       return;
     }
@@ -824,9 +836,10 @@ export const HouseView: React.FC<HouseViewProps> = ({
     caption: photoCaption,
     createdAt: Date.now(),
     houseName: house.houseName,
-    species: game.pet.species,
-    petName: game.pet.name,
-    equipped: game.pet.accessories,
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: activePet.accessories,
     poseId: selectedPoseId,
     wallpaperId: house.roomLayout.wallpaperId,
     flooringId: house.roomLayout.flooringId,
@@ -835,7 +848,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
     photoKind: 'room',
     scene: 'room',
     stickers: photoStickers,
-    weightAtCapture: game.pet.weight,
+    weightAtCapture: activePet.weight,
   };
 
   return (
@@ -1157,6 +1170,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
               <div className="flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#7D635D]">
                 <span>
                   壁紙：{wallDef.name} · 地板：{floorDef.name}
+                  {totalRoomPets > 1 ? ` · 🐾 屋內 ${totalRoomPets} 隻萌寵` : ''}
                 </span>
                 <span className="tabular-nums">
                   {house.roomLayout.placedItems.length} / 24 格
@@ -1831,10 +1845,81 @@ export const HouseView: React.FC<HouseViewProps> = ({
                   })}
                 </div>
 
-                {/* Smooth Floor-Wandering & Breathing Pet Layer */}
+                {/* Smooth Floor-Wandering & Breathing Pet Layer (All Household & Partner Pets) */}
                 <div className="pointer-events-none absolute inset-2 z-20" aria-hidden="true">
+                  {companionPets.map((comp, idx) => {
+                    const spot = [
+                      { left: 20, top: 72 },
+                      { left: 79, top: 70 },
+                      { left: 28, top: 44 },
+                      { left: 74, top: 42 },
+                      { left: 50, top: 79 },
+                    ][idx % 5];
+                    return (
+                      <div
+                        key={`room_comp_${comp.id}`}
+                        className="absolute flex flex-col items-center animate-house-pet-breathe"
+                        style={{
+                          left: `${spot.left}%`,
+                          top: `${spot.top}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        <PiggyCharacter
+                          species={comp.species}
+                          growth={comp.growth}
+                          roundness={comp.roundness}
+                          action="idle"
+                          expression="normal"
+                          equipped={comp.accessories}
+                          interactive={false}
+                          size={40}
+                        />
+                        <span className="px-1.5 py-0.2 rounded-full bg-white/85 border border-[#EAD9D0] text-[9px] font-extrabold text-[#5A3E36] -mt-1">
+                          {comp.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {partnerShowcasePets
+                    .filter((sp) => !game.pets.some((p) => p.id === sp.id))
+                    .map((sp, idx) => {
+                      const spot = [
+                        { left: 82, top: 55 },
+                        { left: 16, top: 56 },
+                        { left: 64, top: 76 },
+                        { left: 36, top: 76 },
+                      ][idx % 4];
+                      return (
+                        <div
+                          key={`room_partner_${sp.id}`}
+                          className="absolute flex flex-col items-center animate-house-pet-breathe opacity-95"
+                          style={{
+                            left: `${spot.left}%`,
+                            top: `${spot.top}%`,
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <PiggyCharacter
+                            species={sp.species}
+                            growth={sp.growth}
+                            roundness={sp.roundness}
+                            action="idle"
+                            expression="sparkle"
+                            equipped={sp.accessories}
+                            interactive={false}
+                            size={38}
+                          />
+                          <span className="px-1.5 py-0.2 rounded-full bg-[#E5F8F0]/90 border border-[#9BE0C4] text-[9px] font-extrabold text-[#1F6B54] -mt-1">
+                            夥伴·{sp.name}
+                          </span>
+                        </div>
+                      );
+                    })}
+
                   <div
-                    className="house-pet-mover absolute"
+                    className="house-pet-mover absolute z-10"
                     style={{
                       left: `${petCoords.xPercent}%`,
                       top: `${petCoords.yPercent}%`,
@@ -1877,12 +1962,12 @@ export const HouseView: React.FC<HouseViewProps> = ({
                         }
                       >
                         <PiggyCharacter
-                          species={game.pet.species}
-                          growth={game.pet.growth}
-                          roundness={game.pet.roundness}
+                          species={activePet.species}
+                          growth={activePet.growth}
+                          roundness={activePet.roundness}
                           action={isPetMoving ? 'walking' : petAction}
                           expression={petExpression}
-                          equipped={game.pet.accessories}
+                          equipped={activePet.accessories}
                           interactive={false}
                           size={50}
                         />
@@ -1953,7 +2038,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
                   className="min-h-[44px] rounded-xl bg-[#FFEAF0] border border-[#F4C4D4] text-xs font-extrabold text-[#B83B64] inline-flex items-center justify-center gap-1 active:scale-95 transition whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>讓{game.pet.name}試用</span>
+                  <span>讓{activePet.name}試用</span>
                 </button>
 
                 <button
@@ -2169,7 +2254,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 {filteredStowedItems.map((item) => {
                   const stowedCount = getStowedCountByItem(house, item.id);
                   const isPlacing = placingItemId === item.id;
-                  const isFav = evaluateItemPreference(game.pet.species, item.id) === 'favorite';
+                  const isFav = evaluateItemPreference(activePet.species, item.id) === 'favorite';
                   return (
                     <button
                       key={item.id}
@@ -2269,7 +2354,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
         <div className="space-y-3.5">
           <FarmSceneBanner
             house={house}
-            pet={game.pet}
+            pet={activePet}
             ingredients={game.ingredients}
             buffPeriods={game.yardMoodBuffPeriods ?? []}
             soundEnabled={game.soundEnabled}
@@ -3107,7 +3192,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 const availCoins =
                   paySource === 'treasury' ? house.treasuryCoins : game.coins;
                 const canBuy = availCoins >= item.price;
-                const isFav = evaluateItemPreference(game.pet.species, item.id) === 'favorite';
+                const isFav = evaluateItemPreference(activePet.species, item.id) === 'favorite';
 
                 const craftEntries = item.craftIngredients
                   ? (Object.entries(item.craftIngredients) as [IngredientId, number][])
@@ -3621,8 +3706,8 @@ export const HouseView: React.FC<HouseViewProps> = ({
                         dateLabel: new Date(photo.createdAt).toLocaleDateString('zh-TW'),
                         badgeText: '小屋寫真紀念',
                         emoji: '📸',
-                        weight: photo.weightAtCapture ?? game.pet.weight,
-                        level: game.pet.level,
+                        weight: photo.weightAtCapture ?? activePet.weight,
+                        level: activePet.level,
                         photo,
                       })
                     }

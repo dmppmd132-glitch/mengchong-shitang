@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
   CalendarHeart,
@@ -17,6 +17,7 @@ import {
 import { ACCESSORIES } from '../../data/accessories';
 import { MEMORY_TYPE_META, MEMORY_TYPE_ORDER } from '../../data/memories';
 import { PHOTO_SCENES } from '../../data/photoStudio';
+import { getPetSpeciesInfo } from '../../data/species';
 import {
   GameState,
   MemoryEntry,
@@ -27,6 +28,7 @@ import {
   RoomPhotoRecord,
   SharedPetRoom,
 } from '../../types';
+import { getActivePet } from '../../utils/pets';
 import { ShareCardPayload } from '../../utils/shareCardCanvas';
 import { RoomPhotoCard } from '../house/RoomPhotoCard';
 import { MonthlyRecapCard } from './MonthlyRecapCard';
@@ -68,11 +70,19 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
   onShareTextToBoard,
   onOpenSharedPet,
 }) => {
+  const activePet = getActivePet(game);
+  const firstPetId = game.pets[0]?.id ?? 'pet_1';
   const [subTab, setSubTab] = useState<MemoriesSubTab>('timeline');
+  const [petFilter, setPetFilter] = useState<string>(activePet.id);
   const [typeFilter, setTypeFilter] = useState<'all' | MemoryType>('all');
   const [photoSceneFilter, setPhotoSceneFilter] = useState<'all' | PhotoScene>('all');
+  const [photoPetFilter, setPhotoPetFilter] = useState<string>('all');
   const [showRecapPanel, setShowRecapPanel] = useState<boolean>(false);
   const [boardNotice, setBoardNotice] = useState<string>('');
+
+  useEffect(() => {
+    setPetFilter(activePet.id);
+  }, [activePet.id]);
 
   const album = game.memoryAlbum;
   const favSet = useMemo(() => new Set(album.favoriteMemoryIds), [album.favoriteMemoryIds]);
@@ -88,21 +98,30 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
     return [...album.memories].sort((a, b) => b.createdAt - a.createdAt);
   }, [album.memories]);
 
+  const petScopedMemories = useMemo(() => {
+    if (petFilter === 'all') return sortedMemories;
+    return sortedMemories.filter((m) => (m.petId ?? firstPetId) === petFilter);
+  }, [sortedMemories, petFilter, firstPetId]);
+
   const favoriteMemories = useMemo(() => {
-    return sortedMemories.filter((m) => favSet.has(m.id));
-  }, [sortedMemories, favSet]);
+    return petScopedMemories.filter((m) => favSet.has(m.id));
+  }, [petScopedMemories, favSet]);
 
   const filteredTimeline = useMemo(() => {
-    if (typeFilter === 'all') return sortedMemories;
-    return sortedMemories.filter((m) => m.type === typeFilter);
-  }, [sortedMemories, typeFilter]);
+    if (typeFilter === 'all') return petScopedMemories;
+    return petScopedMemories.filter((m) => m.type === typeFilter);
+  }, [petScopedMemories, typeFilter]);
 
   const filteredPhotos = useMemo(() => {
-    if (photoSceneFilter === 'all') return game.house.photos;
-    return game.house.photos.filter(
-      (p) => (p.scene ?? p.photoKind ?? 'room') === photoSceneFilter
-    );
-  }, [game.house.photos, photoSceneFilter]);
+    return game.house.photos.filter((p) => {
+      const sceneOk =
+        photoSceneFilter === 'all' ||
+        (p.scene ?? p.photoKind ?? 'room') === photoSceneFilter;
+      const petOk =
+        photoPetFilter === 'all' || (p.petId ?? firstPetId) === photoPetFilter;
+      return sceneOk && petOk;
+    });
+  }, [game.house.photos, photoSceneFilter, photoPetFilter, firstPetId]);
 
   const completedMilestones = useMemo(
     () => album.milestones.filter((m) => m.unlocked),
@@ -123,6 +142,9 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
     window.setTimeout(() => setBoardNotice(''), 2500);
   };
 
+  const selectedMemoryPet =
+    game.pets.find((p) => p.id === petFilter) ?? activePet;
+
   return (
     <div className="space-y-3.5 overflow-x-hidden">
       {/* Top Memories Summary + Camera & Monthly Recap Buttons */}
@@ -130,10 +152,10 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h2 className="text-base font-extrabold text-[#4A3531] truncate">
-              📖 {game.pet.name}的回憶冊
+              📖 {petFilter === 'all' ? '大家的回憶冊' : `${selectedMemoryPet.name}的回憶冊`}
             </h2>
             <p className="text-[11px] font-bold text-[#7D635D] tabular-nums">
-              {album.memories.length} 則回憶 · {game.house.photos.length} 張相片 ·{' '}
+              {petScopedMemories.length} 則回憶 · {game.house.photos.length} 張相片 ·{' '}
               {completedMilestones.length}/{album.milestones.length} 里程碑
             </p>
           </div>
@@ -295,6 +317,47 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
             </section>
           )}
 
+          {/* Per-Pet Memory Tabs */}
+          {game.pets.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              {game.pets.map((p) => {
+                const count = sortedMemories.filter(
+                  (m) => (m.petId ?? firstPetId) === p.id
+                ).length;
+                const sp = getPetSpeciesInfo(p.species);
+                const selected = petFilter === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPetFilter(p.id)}
+                    className={`min-h-[38px] px-3 rounded-xl border text-[11px] font-extrabold inline-flex items-center gap-1 transition ${
+                      selected
+                        ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#B83B64]'
+                        : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#6E544E]'
+                    }`}
+                  >
+                    <span>{sp.emoji}</span>
+                    <span>
+                      {p.name} ({count})
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setPetFilter('all')}
+                className={`min-h-[38px] px-3 rounded-xl border text-[11px] font-extrabold transition ${
+                  petFilter === 'all'
+                    ? 'bg-[#5CC9A7] border-[#5CC9A7] text-white'
+                    : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#6E544E]'
+                }`}
+              >
+                全部寵物 ({sortedMemories.length})
+              </button>
+            </div>
+          )}
+
           {/* Type Filter Chips */}
           <div className="flex flex-wrap gap-1.5">
             <button
@@ -306,10 +369,10 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
                   : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#6E544E]'
               }`}
             >
-              全部 ({sortedMemories.length})
+              全部 ({petScopedMemories.length})
             </button>
             {MEMORY_TYPE_ORDER.map((t) => {
-              const count = sortedMemories.filter((m) => m.type === t).length;
+              const count = petScopedMemories.filter((m) => m.type === t).length;
               if (count === 0 && typeFilter !== t) return null;
               const meta = MEMORY_TYPE_META[t];
               const active = typeFilter === t;
@@ -461,10 +524,50 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
             </div>
           </div>
 
+          {game.pets.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPhotoPetFilter('all')}
+                className={`min-h-[36px] px-2.5 rounded-xl border text-[11px] font-extrabold transition ${
+                  photoPetFilter === 'all'
+                    ? 'bg-[#FF7A9E] border-[#FF7A9E] text-white'
+                    : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#6E544E]'
+                }`}
+              >
+                全部寵物 ({game.house.photos.length})
+              </button>
+              {game.pets.map((p) => {
+                const count = game.house.photos.filter(
+                  (ph) => (ph.petId ?? firstPetId) === p.id
+                ).length;
+                const sp = getPetSpeciesInfo(p.species);
+                const active = photoPetFilter === p.id;
+                return (
+                  <button
+                    key={`photo_pet_${p.id}`}
+                    type="button"
+                    onClick={() => setPhotoPetFilter(p.id)}
+                    className={`min-h-[36px] px-2.5 rounded-xl border text-[11px] font-extrabold inline-flex items-center gap-1 transition ${
+                      active
+                        ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#B83B64]'
+                        : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#6E544E]'
+                    }`}
+                  >
+                    <span>{sp.emoji}</span>
+                    <span>
+                      {p.name} ({count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {filteredPhotos.length === 0 ? (
             <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-6 text-center space-y-3">
               <p className="text-xs font-bold text-[#7D635D]">
-                這個場景還沒有相片喔！幫 {game.pet.name} 拍一張紀念寫真吧～
+                這個篩選條件還沒有相片喔！幫 {activePet.name} 拍一張紀念寫真吧～
               </p>
               <button
                 type="button"
@@ -497,8 +600,8 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
                         dateLabel: new Date(p.createdAt).toLocaleDateString('zh-TW'),
                         badgeText: '📸 照片牆精選',
                         emoji: '📸',
-                        weight: p.weightAtCapture ?? game.pet.weight,
-                        level: game.pet.level,
+                        weight: p.weightAtCapture ?? activePet.weight,
+                        level: activePet.level,
                         photo: p,
                       })
                     }
@@ -575,15 +678,15 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
                       type="button"
                       onClick={() =>
                         onOpenShareCard({
-                          petName: game.pet.name,
-                          species: game.pet.species,
+                          petName: activePet.name,
+                          species: activePet.species,
                           title: ms.rewardCardTitle,
                           subtitle: ms.description,
                           dateLabel: ms.unlockedDateKey || '',
                           badgeText: `🏆 ${ms.title}`,
                           emoji: ms.emoji,
-                          weight: game.pet.weight,
-                          level: game.pet.level,
+                          weight: activePet.weight,
+                          level: activePet.level,
                         })
                       }
                       className="min-h-[38px] px-2.5 rounded-xl bg-white border border-[#9BE0C4] text-[11px] font-extrabold text-[#1F6B54] shrink-0 inline-flex items-center gap-1"
@@ -749,15 +852,15 @@ export const MemoriesView: React.FC<MemoriesViewProps> = ({
                           type="button"
                           onClick={() =>
                             onOpenShareCard({
-                              petName: game.pet.name,
-                              species: game.pet.species,
+                              petName: activePet.name,
+                              species: activePet.species,
                               title: sm.title,
                               subtitle: `${sm.description}（${sm.actors.join(' & ')}）`,
                               dateLabel: sm.dateKey || '',
                               badgeText: '💞 我們的小屋回憶',
                               emoji: sm.emoji,
-                              weight: game.pet.weight,
-                              level: game.pet.level,
+                              weight: activePet.weight,
+                              level: activePet.level,
                             })
                           }
                           className="min-h-[36px] px-2.5 rounded-xl bg-[#E5F8F0] border border-[#9BE0C4] text-[11px] font-extrabold text-[#1F6B54] inline-flex items-center gap-1"

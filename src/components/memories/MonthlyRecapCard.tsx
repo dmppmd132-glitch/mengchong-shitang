@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { GameState, MonthlyRecap, PetMessage, RoomPhotoRecord, SharedPetRoom } from '../../types';
 import { buildMonthlyRecapDraft, getMonthKeyFromDate } from '../../utils/memories';
+import { getActivePet } from '../../utils/pets';
 import { ShareCardPayload } from '../../utils/shareCardCanvas';
 import { RoomPhotoCard } from '../house/RoomPhotoCard';
 
@@ -141,17 +142,19 @@ export const MonthlyRecapCard: React.FC<MonthlyRecapCardProps> = ({
     }
   };
 
+  const activePet = getActivePet(game);
+
   const handleOpenCard = () => {
     onOpenShareCard({
-      petName: game.pet.name,
-      species: game.pet.species,
+      petName: activePet.name,
+      species: activePet.species,
       title: `${selectedMonth} 本月回顧卡`,
       subtitle: `最愛食物：${activeRecap.favoriteFoodName} · 最常互動：${activeRecap.topInteractionLabel} · 體重變化 ${weightDeltaLabel} · 成長 +${activeRecap.growthGained}`,
       dateLabel: selectedMonth,
       badgeText: '🗓️ 月度成長精選',
       emoji: '🗓️',
-      weight: game.pet.weight,
-      level: game.pet.level,
+      weight: activePet.weight,
+      level: activePet.level,
       photo: coverPhoto,
       accessoryId: activeRecap.favoriteAccessoryId ?? undefined,
     });

@@ -182,6 +182,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const [editingSignName, setEditingSignName] = useState<boolean>(false);
   const [signNameDraft, setSignNameDraft] = useState<string>(house.houseName);
   const [now, setNow] = useState<number>(() => Date.now());
+  const cropGrowthRateMultiplier = pet.species === 'rabbit' ? 1.1 : 1;
   const [harvestBursts, setHarvestBursts] = useState<
     Array<{ id: number; plotId: number; text: string; emoji: string; isGolden?: boolean }>
   >([]);
@@ -322,7 +323,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
       (p) =>
         p.cropId !== null &&
         !p.watered &&
-        !getCropGrowthState(p, now, yardMoodBuffPeriods).isReady
+        !getCropGrowthState(p, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
     );
     if (targets.length === 0) return;
     onWaterAllCrops();
@@ -355,7 +356,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
     const readyTargets = farmPlots.filter(
       (p) =>
         p.cropId !== null &&
-        getCropGrowthState(p, now, yardMoodBuffPeriods).isReady
+        getCropGrowthState(p, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
     );
     if (readyTargets.length === 0) return;
 
@@ -424,13 +425,13 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const canPlantAtLeastOne =
     (freeSeeds[selectedSeed] ?? 0) > 0 || coins >= selectedSeedInfo.seedCost;
   const readyCropsCount = farmPlots.filter(
-    (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
+    (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
   ).length;
   const waterableCropsCount = farmPlots.filter(
     (plot) =>
       plot.cropId !== null &&
       !plot.watered &&
-      !getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
+      !getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
   ).length;
 
   const nextExpandPlotNumber = house.unlockedFarmPlots < 8 ? house.unlockedFarmPlots + 1 : null;
@@ -899,7 +900,8 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                           getExpectedCropDurationMs(
                             getEffectiveGrowDurationMs(info.growSeconds, house),
                             now,
-                            yardMoodBuffPeriods
+                            yardMoodBuffPeriods,
+                            cropGrowthRateMultiplier
                           ) / 1000
                         )
                       );
@@ -1064,7 +1066,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 <div className="grid grid-cols-2 gap-x-3.5 gap-y-8">
                   {farmPlots.map((plot) => {
                     const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
-                    const growth = getCropGrowthState(plot, now, yardMoodBuffPeriods);
+                    const growth = getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier);
                     const remainingLabel = crop ? formatRemainingTime(growth.remainingMs) : '';
                     const isReady = crop !== null && growth.isReady;
                     const progressPct = crop ? growth.progressPercent : 0;

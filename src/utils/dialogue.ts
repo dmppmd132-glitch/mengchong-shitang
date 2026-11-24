@@ -24,6 +24,7 @@ import {
   WeatherCondition,
   WeatherState,
 } from '../types';
+import { getActivePet, getPetDisplayPersonality, updateActivePet } from './pets';
 import { clampStat } from './storage';
 
 const MIN_PROACTIVE_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
@@ -283,12 +284,13 @@ export function evaluateAndSelectDialogue(
   currentUserId: string,
   now: number = Date.now()
 ): DialogueState {
-  if (!state.pet.hatched) return state.dialogue;
+  const activePet = getActivePet(state);
+  if (!activePet.hatched) return state.dialogue;
 
   const nowDate = new Date(now);
   const todayKey = getDialogueDateKey(nowDate);
   const period = getLocalTimePeriod(nowDate);
-  const primaryPersonality = state.personality.primary;
+  const primaryPersonality = getPetDisplayPersonality(state, activePet).primary;
   let dialogue = syncDialogueDaily(state.dialogue, todayKey);
   const settings = dialogue.settings;
 
@@ -316,7 +318,7 @@ export function evaluateAndSelectDialogue(
       category: 'coop',
       text: buildMemoryDialogueText(
         pendingCoopEvent,
-        state.pet.species,
+        activePet.species,
         primaryPersonality,
         todayKey
       ),
@@ -336,10 +338,10 @@ export function evaluateAndSelectDialogue(
     stat: 'hunger' | 'mood' | 'cleanliness' | 'energy';
     value: number;
   }[] = [
-    { stat: 'hunger', value: state.pet.hunger },
-    { stat: 'mood', value: state.pet.mood },
-    { stat: 'cleanliness', value: state.pet.cleanliness },
-    { stat: 'energy', value: state.pet.energy },
+    { stat: 'hunger', value: activePet.hunger },
+    { stat: 'mood', value: activePet.mood },
+    { stat: 'cleanliness', value: activePet.cleanliness },
+    { stat: 'energy', value: activePet.energy },
   ];
   const lowStats = statCandidates
     .filter((s) => s.value < 30)
@@ -417,7 +419,7 @@ export function evaluateAndSelectDialogue(
       category: 'memory',
       text: buildMemoryDialogueText(
         recentMemory,
-        state.pet.species,
+        activePet.species,
         primaryPersonality,
         todayKey
       ),
@@ -448,7 +450,7 @@ export function evaluateAndSelectDialogue(
     const weightMilestones = [20, 15, 12, 10];
     const nextWeightMilestone = weightMilestones.find(
       (w) =>
-        state.pet.weight >= w && !dialogue.announcedWeightMilestones.includes(w)
+        activePet.weight >= w && !dialogue.announcedWeightMilestones.includes(w)
     );
     if (nextWeightMilestone) {
       const line = makeDialogueLine({
@@ -607,18 +609,19 @@ export function respondToActiveDialogue(
       : item
   );
 
+  const withUpdatedPet = updateActivePet(state, (pet) => ({
+    ...pet,
+    intimacy: pet.intimacy + response.intimacyGain,
+    mood: clampStat(pet.mood + response.moodGain + extraMood, 0, 100),
+    hunger: clampStat(pet.hunger + extraHunger, 0, 100),
+    energy: clampStat(pet.energy + extraEnergy, 0, 100),
+    cleanliness: clampStat(pet.cleanliness + extraClean, 0, 100),
+  }));
+
   const nextState: GameState = {
-    ...state,
-    pet: {
-      ...state.pet,
-      intimacy: state.pet.intimacy + response.intimacyGain,
-      mood: clampStat(state.pet.mood + response.moodGain + extraMood, 0, 100),
-      hunger: clampStat(state.pet.hunger + extraHunger, 0, 100),
-      energy: clampStat(state.pet.energy + extraEnergy, 0, 100),
-      cleanliness: clampStat(state.pet.cleanliness + extraClean, 0, 100),
-    },
+    ...withUpdatedPet,
     dialogue: {
-      ...state.dialogue,
+      ...withUpdatedPet.dialogue,
       activeBubble: null,
       history: updatedHistory,
     },

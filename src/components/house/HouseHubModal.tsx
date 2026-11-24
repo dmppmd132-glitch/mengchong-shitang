@@ -81,6 +81,7 @@ import {
   updateHouseName,
 } from '../../utils/house';
 import { evaluateItemPreference } from '../../utils/personality';
+import { getActivePet } from '../../utils/pets';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { FurnitureGraphic } from './FurnitureGraphic';
@@ -157,13 +158,15 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
   // Treasury deposit input
   const [customDepositInput, setCustomDepositInput] = useState<string>('100');
 
+  const activePet = getActivePet(game);
+
   // Photo mode states
   const [selectedPoseId, setSelectedPoseId] = useState<RoomPhotoPoseId>('normal');
   const [photoTitle, setPhotoTitle] = useState<string>(
     `${game.house.houseName}的幸福時刻`.slice(0, 20)
   );
   const [photoCaption, setPhotoCaption] = useState<string>(
-    `跟 ${game.pet.name} 一起在親手佈置的小房間拍照留念！`
+    `跟 ${activePet.name} 一起在親手佈置的小房間拍照留念！`
   );
   const [photoStickers, setPhotoStickers] = useState<PhotoStickerId[]>([]);
   const [sharingPhoto, setSharingPhoto] = useState<boolean>(false);
@@ -207,11 +210,11 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
             def.category === 'toyBall' ||
             def.category === 'snackRack' ||
             def.category === 'diningTable' ||
-            evaluateItemPreference(game.pet.species, def.id) === 'favorite')
+            evaluateItemPreference(activePet.species, def.id) === 'favorite')
         );
       });
       const favPool = priority.filter(
-        (p) => evaluateItemPreference(game.pet.species, p.itemId) === 'favorite'
+        (p) => evaluateItemPreference(activePet.species, p.itemId) === 'favorite'
       );
       const basePool =
         favPool.length > 0 && Math.random() < 0.72
@@ -223,7 +226,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
       const itemDef = ROOM_ITEM_BY_ID[chosen.itemId];
       if (!itemDef) return;
 
-      const match = evaluateItemPreference(game.pet.species, itemDef.id);
+      const match = evaluateItemPreference(activePet.species, itemDef.id);
       setPetCell({ x: chosen.x, y: chosen.y });
       setPetAction(itemDef.petAction);
       setPetExpression(
@@ -243,7 +246,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
     triggerRandomVisit();
     const timer = window.setInterval(triggerRandomVisit, 6500);
     return () => window.clearInterval(timer);
-  }, [open, tab, house.roomLayout.placedItems, game.pet.species]);
+  }, [open, tab, house.roomLayout.placedItems, activePet.species]);
 
   const placedCellMap = useMemo(() => {
     const map = new Map<string, PlacedRoomItem>();
@@ -514,9 +517,10 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
     caption: photoCaption,
     createdAt: Date.now(),
     houseName: house.houseName,
-    species: game.pet.species,
-    petName: game.pet.name,
-    equipped: game.pet.accessories,
+    petId: activePet.id,
+    species: activePet.species,
+    petName: activePet.name,
+    equipped: activePet.accessories,
     poseId: selectedPoseId,
     wallpaperId: house.roomLayout.wallpaperId,
     flooringId: house.roomLayout.flooringId,
@@ -525,7 +529,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
     photoKind: 'room',
     scene: 'room',
     stickers: photoStickers,
-    weightAtCapture: game.pet.weight,
+    weightAtCapture: activePet.weight,
   };
 
   return (
@@ -832,12 +836,12 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                           {hasPetHere && (
                             <div className="pointer-events-none absolute -top-3 z-10 drop-shadow-sm">
                               <PiggyCharacter
-                                species={game.pet.species}
-                                growth={game.pet.growth}
-                                roundness={game.pet.roundness}
+                                species={activePet.species}
+                                growth={activePet.growth}
+                                roundness={activePet.roundness}
                                 action={petAction}
                                 expression={petExpression}
-                                equipped={game.pet.accessories}
+                                equipped={activePet.accessories}
                                 interactive={false}
                                 size={42}
                               />
@@ -1382,7 +1386,7 @@ export const HouseHubModal: React.FC<HouseHubModalProps> = ({
                                 <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
                                   {item.name}
                                 </h4>
-                                {evaluateItemPreference(game.pet.species, item.id) === 'favorite' && (
+                                {evaluateItemPreference(activePet.species, item.id) === 'favorite' && (
                                   <span className="px-1.5 py-0.5 rounded-md bg-[#FFEAF2] border border-[#F5B4CA] text-[10px] font-extrabold text-[#D64470] shrink-0">
                                     ♥ 最愛
                                   </span>

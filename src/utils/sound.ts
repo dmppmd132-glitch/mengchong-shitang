@@ -73,6 +73,28 @@ export const soundFX = {
       playTone(530, 0.11, 'triangle', 0.08, 0.23);
       return;
     }
+    if (species === 'cat') {
+      // Gentle rising-falling meow
+      playTone(620, 0.09, 'sine', 0.075, 0);
+      playTone(840, 0.1, 'sine', 0.075, 0.06);
+      playTone(680, 0.14, 'sine', 0.06, 0.14);
+      return;
+    }
+    if (species === 'duck') {
+      // Playful bouncy quack-quack
+      playTone(420, 0.07, 'sawtooth', 0.045, 0);
+      playTone(520, 0.08, 'triangle', 0.07, 0.03);
+      playTone(430, 0.07, 'sawtooth', 0.045, 0.14);
+      playTone(550, 0.09, 'triangle', 0.07, 0.17);
+      return;
+    }
+    if (species === 'hamster') {
+      // Tiny quick squeak-squeak
+      playTone(1120, 0.05, 'sine', 0.06, 0);
+      playTone(1320, 0.06, 'sine', 0.06, 0.06);
+      playTone(1240, 0.05, 'sine', 0.055, 0.13);
+      return;
+    }
     // Piggy playful oink-oink
     playTone(230, 0.09, 'triangle', 0.09, 0);
     playTone(310, 0.09, 'triangle', 0.08, 0.05);

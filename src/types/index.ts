@@ -1,9 +1,9 @@
 import type { FarmDecorationId } from './house';
 import type { MinigameHubState } from './minigame';
 
-export type TabKey = 'home' | 'canteen' | 'wardrobe' | 'house' | 'journal' | 'quests';
+export type TabKey = 'home' | 'canteen' | 'wardrobe' | 'house' | 'journal' | 'quests' | 'pets';
 
-export type PetSpecies = 'pig' | 'rabbit' | 'dog';
+export type PetSpecies = 'pig' | 'rabbit' | 'dog' | 'cat' | 'duck' | 'hamster';
 
 export type FoodCategory = 'meal' | 'snack' | 'fastFood';
 
@@ -81,6 +81,84 @@ export interface Pet {
   accessories: Record<AccessorySlot, string | null>;
   hatched: boolean;
   consecutiveFastFood: number;
+  personality?: PetPersonality;
+  preference?: PetPreference;
+  ownerId?: string;
+  isSharedCoopPet?: boolean;
+  adoptedAt?: number;
+  source?: PetUnlockRuleType;
+}
+
+export type PetAbilityId =
+  | 'pig_harvest_bonus'
+  | 'rabbit_crop_speed'
+  | 'dog_walk_bonus'
+  | 'cat_photo_memory'
+  | 'duck_visitor_rate'
+  | 'hamster_ingredient_bonus';
+
+export interface PetAbility {
+  id: PetAbilityId;
+  species: PetSpecies;
+  title: string;
+  summary: string;
+  detail: string;
+  bonusPercent: number;
+  emoji: string;
+}
+
+export type PetUnlockRuleType =
+  | 'starter'
+  | 'slot_unlock'
+  | 'minigames_count'
+  | 'visitors_hosted'
+  | 'town_orders_completed'
+  | 'future_festival'
+  | 'future_coop';
+
+export interface PetUnlockCondition {
+  species: PetSpecies;
+  ruleType: PetUnlockRuleType;
+  targetCount: number;
+  label: string;
+  description: string;
+  reservedOnly?: boolean;
+}
+
+export interface PetSlotUnlockRule {
+  slotNumber: number;
+  title: string;
+  conditionLabel: string;
+  rewardText: string;
+  rewardCoins: number;
+  rewardShards?: number;
+  rewardTickets?: number;
+}
+
+export interface ReservedSpecialPet {
+  id: string;
+  name: string;
+  category: 'festival' | 'coop';
+  unlockHint: string;
+  emoji: string;
+  status: 'coming_soon';
+}
+
+export type FamilyTaskId =
+  | 'family_feed_1'
+  | 'family_pet_3'
+  | 'family_walk_1'
+  | 'family_weigh_1';
+
+export interface FamilyDailyTask {
+  id: FamilyTaskId;
+  title: string;
+  description: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  reward: TaskReward;
 }
 
 export interface Food {
@@ -113,6 +191,7 @@ export interface Accessory {
 
 export interface WeightLog {
   id: string;
+  petId?: string;
   date: string;
   weight: number;
   foodName: string;
@@ -124,6 +203,7 @@ export interface WeightLog {
 
 export interface FeedLog {
   id: string;
+  petId?: string;
   date: string;
   foodId: string;
   weightChange: number;
@@ -182,6 +262,8 @@ export interface PetMessage {
   content: string;
   stickerId: PetStickerId | null;
   createdAt: number;
+  targetPetId?: string | null;
+  targetPetName?: string | null;
 }
 
 export type IngredientId =
@@ -235,6 +317,7 @@ export interface PetSpeciesInfo {
   id: PetSpecies;
   label: string;
   shortName: string;
+  emoji: string;
   eggColor: string;
   accentColor: string;
   favoriteFoodIds: string[];
@@ -627,6 +710,7 @@ export interface CoopHubState {
   coopVisitor?: CoopVisitorSession | null;
   visitorStreakDays?: number;
   lastVisitorCompletedDate?: string | null;
+  partnerShowcasePets?: Pet[];
 }
 
 export type DialogueId = string;
@@ -853,6 +937,7 @@ export type MemoryType =
 export interface MemoryEntry {
   id: string;
   uniqueKey?: string;
+  petId?: string;
   type: MemoryType;
   title: string;
   description: string;
@@ -975,7 +1060,8 @@ export interface MemoryAlbumState {
 
 export interface GameState {
   version: number;
-  pet: Pet;
+  pets: Pet[];
+  activePetId: string;
   coins: number;
   furnitureShards: number;
   foods: Record<string, number>;
@@ -987,6 +1073,11 @@ export interface GameState {
   feedLogs: FeedLog[];
   dailyTasks: DailyTask[];
   dailyTasksDate: string;
+  familyDailyTasks?: FamilyDailyTask[];
+  familyDailyTasksDate?: string;
+  claimedPetSlots?: number[];
+  completedTownOrdersCount?: number;
+  reservedSpecialPets?: ReservedSpecialPet[];
   messages: PetMessage[];
   soundEnabled: boolean;
   lastSavedAt: number;

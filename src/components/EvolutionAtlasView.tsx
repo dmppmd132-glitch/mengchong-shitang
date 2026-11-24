@@ -47,8 +47,14 @@ export const EvolutionAtlasView: React.FC<EvolutionAtlasViewProps> = ({
   const ownedAccessorySet = new Set(unlockedAccessories);
   const unlockedTitleSet = new Set(encyclopedia.unlockedTitles);
 
+  const belongsToPet = (m: MemoryEntry) => (m.petId ?? 'pet_1') === pet.id;
+
   const hatchMemory = memories.find(
-    (m) => m.uniqueKey === 'hatching_welcome' || m.type === 'hatching'
+    (m) =>
+      belongsToPet(m) &&
+      (m.uniqueKey === 'hatching_welcome' ||
+        m.uniqueKey === `pet_adopt_${pet.id}` ||
+        m.type === 'hatching')
   );
 
   const getStageMemoryDate = (level: number): string | null => {
@@ -57,8 +63,10 @@ export const EvolutionAtlasView: React.FC<EvolutionAtlasViewProps> = ({
     }
     const found = memories.find(
       (m) =>
-        m.uniqueKey === `growth_lv_${level}` ||
-        (m.type === 'growth' && m.level === level)
+        belongsToPet(m) &&
+        (m.uniqueKey === `growth_lv_${pet.id}_${level}` ||
+          m.uniqueKey === `growth_lv_${level}` ||
+          (m.type === 'growth' && m.level === level))
     );
     return found?.dateKey ?? null;
   };

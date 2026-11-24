@@ -289,6 +289,7 @@ export function claimTownOrderReward(
       ingredients: nextIngredients,
       visitorTreats: nextTreats,
       townOrders: nextOrders,
+      completedTownOrdersCount: (state.completedTownOrdersCount ?? 0) + 1,
     },
     ok: true,
     notice: order.overdue

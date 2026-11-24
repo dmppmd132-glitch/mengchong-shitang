@@ -23,6 +23,7 @@ import { HouseSubTab } from './HouseView';
 
 interface HomeHousePreviewProps {
   pet: Pet;
+  companionPets?: Pet[];
   house: SharedHouse;
   onOpenHouse: (tab?: HouseSubTab) => void;
 }
@@ -31,6 +32,7 @@ type InteractionPhase = 'idle' | 'entering' | 'approaching' | 'interacting';
 
 export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
   pet,
+  companionPets = [],
   house,
   onOpenHouse,
 }) => {
@@ -501,6 +503,29 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
             className="pointer-events-none absolute inset-1.5 z-20"
             aria-hidden="true"
           >
+            {companionPets.slice(0, 2).map((comp, idx) => (
+              <div
+                key={comp.id}
+                className="absolute animate-house-pet-breathe opacity-95"
+                style={{
+                  left: idx === 0 ? '20%' : '80%',
+                  top: idx === 0 ? '70%' : '68%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <PiggyCharacter
+                  species={comp.species}
+                  growth={comp.growth}
+                  roundness={comp.roundness}
+                  action="idle"
+                  expression="normal"
+                  equipped={comp.accessories}
+                  interactive={false}
+                  size={34}
+                />
+              </div>
+            ))}
+
             <div
               className="house-pet-mover absolute z-10"
               style={{

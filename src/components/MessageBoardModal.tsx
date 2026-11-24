@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, MessageCircleHeart, Send, Smile, Trash2, X } from 'lucide-react';
 import { getStickerById, PET_STICKERS } from '../data/stickers';
-import { PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom } from '../types';
+import { Pet, PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom } from '../types';
 import { PiggySticker } from './PiggySticker';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
 
@@ -9,13 +9,19 @@ interface MessageBoardModalProps {
   open: boolean;
   onClose: () => void;
   petName: string;
+  pets?: Pet[];
   messages: PetMessage[];
   roomPhotos?: RoomPhotoRecord[];
   loading: boolean;
   error: string | null;
   currentUserId: string | null;
   sharedRoom: SharedPetRoom | null;
-  onSendMessage: (content: string, stickerId: PetStickerId | null) => Promise<string | null>;
+  onSendMessage: (
+    content: string,
+    stickerId: PetStickerId | null,
+    targetPetId?: string | null,
+    targetPetName?: string | null
+  ) => Promise<string | null>;
   onDeleteMessage: (messageId: string) => Promise<void>;
   onTogglePhotoLike?: (photoId: string) => void;
   onAddPhotoComment?: (photoId: string, content: string) => void;
@@ -45,6 +51,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
   open,
   onClose,
   petName,
+  pets = [],
   messages,
   roomPhotos = [],
   loading,
@@ -58,6 +65,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
 }) => {
   const [text, setText] = useState<string>('');
   const [selectedSticker, setSelectedSticker] = useState<PetStickerId | null>(null);
+  const [targetPetId, setTargetPetId] = useState<string | null>(null);
   const [stickerDrawerOpen, setStickerDrawerOpen] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [localError, setLocalError] = useState<string>('');
@@ -83,10 +91,19 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
       return;
     }
 
+    const selectedTargetPet = targetPetId
+      ? pets.find((p) => p.id === targetPetId) ?? null
+      : null;
+
     setLocalError('');
     setSubmitting(true);
     try {
-      const err = await onSendMessage(trimmed, selectedSticker);
+      const err = await onSendMessage(
+        trimmed,
+        selectedSticker,
+        selectedTargetPet?.id ?? null,
+        selectedTargetPet?.name ?? null
+      );
       if (err) {
         setLocalError(err);
       } else {
@@ -181,6 +198,11 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                         : 'bg-white border-[#EFE0D8] text-[#4A3531]'
                     }`}
                   >
+                    {msg.targetPetName && (
+                      <div className="mb-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF5DF] border border-[#F2D59B] text-[10px] font-black text-[#A6651A]">
+                        <span>💌 給{msg.targetPetName}的留言</span>
+                      </div>
+                    )}
                     {msg.stickerId && (
                       <div className="flex flex-col items-center my-0.5">
                         <PiggySticker stickerId={msg.stickerId} size={74} />
@@ -293,6 +315,37 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
           onSubmit={handleSubmit}
           className="p-3 bg-[#FFFDF8] border-t border-[#F4DFD7] space-y-2 shrink-0"
         >
+          {pets.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+              <span className="text-[10px] font-black text-[#8B6C62] shrink-0">留言對象：</span>
+              <button
+                type="button"
+                onClick={() => setTargetPetId(null)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 border transition ${
+                  targetPetId === null
+                    ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#D64470]'
+                    : 'bg-white border-[#EAD9D1] text-[#7D635D]'
+                }`}
+              >
+                全體 / 夥伴
+              </button>
+              {pets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setTargetPetId(p.id)}
+                  className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 border transition ${
+                    targetPetId === p.id
+                      ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#D64470]'
+                      : 'bg-white border-[#EAD9D1] text-[#7D635D]'
+                  }`}
+                >
+                  給 {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {activeStickerInfo && (
             <div className="flex items-center justify-between gap-2 rounded-xl bg-[#FFEAF0] px-3 py-1.5 text-xs font-bold text-[#B83B64]">
               <span>已附帶貼圖：{activeStickerInfo.label}</span>

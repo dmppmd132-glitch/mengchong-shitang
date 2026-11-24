@@ -81,7 +81,17 @@ function drawCutePetVector(
   ctx.scale(scale, scale);
 
   const bodyColor =
-    species === 'pig' ? '#FFB8C8' : species === 'rabbit' ? '#FFF2F6' : '#F4CA9B';
+    species === 'pig'
+      ? '#FFB8C8'
+      : species === 'rabbit'
+      ? '#FFF2F6'
+      : species === 'cat'
+      ? '#FFD7BA'
+      : species === 'duck'
+      ? '#FFE784'
+      : species === 'hamster'
+      ? '#F7CBA0'
+      : '#F4CA9B';
   const strokeColor = '#6B4842';
   const cheekColor = '#FF8FA8';
 
@@ -96,6 +106,27 @@ function drawCutePetVector(
     ctx.stroke();
     ctx.beginPath();
     ctx.ellipse(42, -98, 20, 48, 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (species === 'cat') {
+    ctx.beginPath();
+    ctx.moveTo(-72, -38);
+    ctx.lineTo(-56, -100);
+    ctx.lineTo(-18, -62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(72, -38);
+    ctx.lineTo(56, -100);
+    ctx.lineTo(18, -62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (species === 'duck') {
+    // Cute tuft on top
+    ctx.beginPath();
+    ctx.ellipse(-6, -80, 12, 20, -0.3, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   } else {
@@ -120,10 +151,10 @@ function drawCutePetVector(
   ctx.fillStyle = cheekColor;
   ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  ctx.ellipse(-52, 8, 16, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(-52, 8, species === 'hamster' ? 22 : 16, species === 'hamster' ? 14 : 10, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(52, 8, 16, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(52, 8, species === 'hamster' ? 22 : 16, species === 'hamster' ? 14 : 10, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
 
@@ -141,7 +172,7 @@ function drawCutePetVector(
   ctx.arc(29, -15, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Snout / Mouth
+  // Snout / Beak / Mouth
   if (species === 'pig') {
     ctx.fillStyle = '#FF93AE';
     ctx.strokeStyle = strokeColor;
@@ -155,6 +186,14 @@ function drawCutePetVector(
     ctx.arc(-9, 12, 3.5, 0, Math.PI * 2);
     ctx.arc(9, 12, 3.5, 0, Math.PI * 2);
     ctx.fill();
+  } else if (species === 'duck') {
+    ctx.fillStyle = '#FF9C38';
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, 14, 24, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   } else {
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = 4;

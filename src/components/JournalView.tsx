@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { getRoundnessTier } from '../data/growth';
+import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
 import {
   CloudSyncStatus,
@@ -88,6 +89,7 @@ interface JournalViewProps {
   onShareRecapToBoard?: (recap: MonthlyRecap) => Promise<string | null>;
   onShareTextToBoard?: (title: string, body: string) => Promise<string | null>;
   onGoToKitchen?: (recipeId?: string) => void;
+  onOpenPetList?: () => void;
 }
 
 interface ChartPoint {
@@ -145,6 +147,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onShareRecapToBoard,
   onShareTextToBoard,
   onGoToKitchen,
+  onOpenPetList,
 }) => {
   const [section, setSection] = useState<JournalSection>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
@@ -158,13 +161,24 @@ export const JournalView: React.FC<JournalViewProps> = ({
     setSection(initialSection);
   }, [initialSection]);
 
+  useEffect(() => {
+    setInputWeight(pet.weight.toFixed(1));
+    setSelectedPoint(null);
+  }, [pet.id, pet.weight]);
+
   const roundnessTier = getRoundnessTier(pet.roundness);
+  const petSpeciesInfo = getPetSpeciesInfo(pet.species);
+  const petAbility = PET_ABILITIES[pet.species];
+
+  const petWeightLogs = useMemo(() => {
+    return weightLogs.filter((rec) => (rec.petId ?? 'pet_1') === pet.id);
+  }, [weightLogs, pet.id]);
 
   const chartPoints = useMemo<ChartPoint[]>(() => {
     const today = new Date();
     const mapByDate = new Map<string, number>();
 
-    const sorted = [...weightLogs].sort((a, b) => a.timestamp - b.timestamp);
+    const sorted = [...petWeightLogs].sort((a, b) => a.timestamp - b.timestamp);
     for (const rec of sorted) {
       mapByDate.set(rec.date, rec.weight);
     }
@@ -219,7 +233,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
     }
 
     return pts;
-  }, [weightLogs, rangeDays, pet.weight]);
+  }, [petWeightLogs, rangeDays, pet.weight]);
 
   const svgW = 340;
   const svgH = 160;
@@ -280,6 +294,32 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   return (
     <div className="px-4 pt-3 pb-24 space-y-4">
+      {/* Active Pet Banner with Quick Switch */}
+      <div className="rounded-2xl bg-[#FFFDF8] border-2 border-[#F4DFD7] px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-lg leading-none shrink-0" aria-hidden="true">
+            {petSpeciesInfo.emoji}
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-extrabold text-[#4A3531] truncate">
+              {pet.name} · {petSpeciesInfo.shortName} Lv.{pet.level}
+            </p>
+            <p className="text-[10px] font-bold text-[#256D57] truncate">
+              {petAbility.emoji} {petAbility.title}（{petAbility.summary}）
+            </p>
+          </div>
+        </div>
+        {onOpenPetList && (
+          <button
+            type="button"
+            onClick={onOpenPetList}
+            className="min-h-[36px] px-2.5 rounded-xl bg-[#FFEAF0] border border-[#F5C6D4] text-[11px] font-extrabold text-[#B83B64] whitespace-nowrap shrink-0 hover:bg-[#FFDDE8] active:scale-95 transition"
+          >
+            🐾 切換寵物
+          </button>
+        )}
+      </div>
+
       <div className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
@@ -671,19 +711,19 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-extrabold text-[#4A3531]">餵食與體重紀錄</h2>
+          <h2 className="text-base font-extrabold text-[#4A3531]">{pet.name}的餵食與體重紀錄</h2>
           <span className="text-xs font-bold text-[#826862] tabular-nums">
-            共 {weightLogs.length} 筆
+            共 {petWeightLogs.length} 筆
           </span>
         </div>
 
-        {weightLogs.length === 0 ? (
+        {petWeightLogs.length === 0 ? (
           <p className="py-6 text-center text-xs text-[#8D746E]">
             目前還沒有紀錄喔，餵 {pet.name} 吃飯或手動量體重就會自動記在手帳裡！
           </p>
         ) : (
           <div className="divide-y divide-[#F4E6DF]">
-            {weightLogs.slice(0, 30).map((rec) => {
+            {petWeightLogs.slice(0, 30).map((rec) => {
               const deltaText =
                 rec.weightDelta > 0
                   ? `+${rec.weightDelta.toFixed(1)} kg`

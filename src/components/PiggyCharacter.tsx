@@ -140,6 +140,30 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           limb: '#F9D68D',
           blush: '#FF8D8D',
         }
+      : species === 'cat'
+      ? {
+          body: stage.level >= 4 ? '#FFD4A3' : '#FFE0B8',
+          belly: '#FFF7EB',
+          bellyLine: '#E2A472',
+          limb: '#FFD19C',
+          blush: '#FF8F9B',
+        }
+      : species === 'duck'
+      ? {
+          body: stage.level >= 4 ? '#FFE373' : '#FFEC94',
+          belly: '#FFF9D6',
+          bellyLine: '#E5B649',
+          limb: '#FFA247',
+          blush: '#FF8E88',
+        }
+      : species === 'hamster'
+      ? {
+          body: stage.level >= 4 ? '#F5C48E' : '#F9D1A5',
+          belly: '#FFF8ED',
+          bellyLine: '#D69B65',
+          limb: '#FFCCA8',
+          blush: '#FF8FA0',
+        }
       : {
           body: stage.level >= 4 ? '#FFACC3' : '#FFB7CB',
           belly: '#FFD3E0',
@@ -545,7 +569,7 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 </g>
               )}
 
-              {/* Rear Ears (no inner pink ear details) */}
+              {/* Rear Ears / Tuft (no inner pink ear details) */}
               {species === 'rabbit' ? (
                 <g>
                   <ellipse cx="86" cy="48" rx="14" ry="38" transform="rotate(-12 86 58)" fill="#FFFDF9" stroke="#5A3E36" strokeWidth="4.5" />
@@ -555,6 +579,20 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 <g>
                   <ellipse cx="56" cy="104" rx="17" ry="34" transform="rotate(24 56 104)" fill="#E4AA68" stroke="#5A3E36" strokeWidth="4.5" />
                   <ellipse cx="184" cy="104" rx="17" ry="34" transform="rotate(-24 184 104)" fill="#E4AA68" stroke="#5A3E36" strokeWidth="4.5" />
+                </g>
+              ) : species === 'cat' ? (
+                <g>
+                  <path d="M 60 92 L 62 46 Q 66 42 74 47 L 100 76 Z" fill="#F6BA7E" stroke="#5A3E36" strokeWidth="4.5" strokeLinejoin="round" />
+                  <path d="M 180 92 L 178 46 Q 174 42 166 47 L 140 76 Z" fill="#F6BA7E" stroke="#5A3E36" strokeWidth="4.5" strokeLinejoin="round" />
+                </g>
+              ) : species === 'duck' ? (
+                <g>
+                  <path d="M 114 75 C 106 54 118 46 122 68 C 127 50 139 58 128 75 Z" fill="#FFEC94" stroke="#5A3E36" strokeWidth="4" strokeLinejoin="round" />
+                </g>
+              ) : species === 'hamster' ? (
+                <g>
+                  <circle cx="72" cy="76" r="17" fill="#EDAF74" stroke="#5A3E36" strokeWidth="4.5" />
+                  <circle cx="168" cy="76" r="17" fill="#EDAF74" stroke="#5A3E36" strokeWidth="4.5" />
                 </g>
               ) : (
                 <g>
@@ -735,6 +773,16 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                   <path d="M 120 176 Q 140 166 134 146" fill="none" stroke="#E4AA68" strokeWidth="12" strokeLinecap="round" />
                   <path d="M 120 176 Q 140 166 134 146" fill="none" stroke="#5A3E36" strokeWidth="4" strokeLinecap="round" opacity="0.38" />
                 </g>
+              ) : species === 'cat' ? (
+                <g>
+                  <path d="M 120 176 Q 152 164 146 132" fill="none" stroke="#5A3E36" strokeWidth="15" strokeLinecap="round" />
+                  <path d="M 120 176 Q 152 164 146 132" fill="none" stroke="#F6BA7E" strokeWidth="9" strokeLinecap="round" />
+                  <circle cx="146" cy="132" r="5" fill="#FFF7EB" />
+                </g>
+              ) : species === 'duck' ? (
+                <path d="M 110 176 Q 120 154 132 174 Q 120 184 110 176 Z" fill="#FFE373" stroke="#5A3E36" strokeWidth="3.8" strokeLinejoin="round" />
+              ) : species === 'hamster' ? (
+                <circle cx="120" cy="178" r="9.5" fill="#FFF8ED" stroke="#5A3E36" strokeWidth="3.8" />
               ) : (
                 <path
                   d="M 116 178 C 128 176, 134 164, 122 162 C 113 161, 113 171, 124 171 C 132 171, 136 164, 132 157"
@@ -767,6 +815,41 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               stroke="#E4AA68"
               strokeWidth="12"
               strokeLinecap="round"
+            />
+          ) : species === 'cat' ? (
+            <g>
+              <path
+                d="M 182 162 Q 212 146 206 116"
+                fill="none"
+                stroke="#5A3E36"
+                strokeWidth="15"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 182 162 Q 212 146 206 116"
+                fill="none"
+                stroke="#F6BA7E"
+                strokeWidth="9"
+                strokeLinecap="round"
+              />
+              <circle cx="206" cy="116" r="5" fill="#FFF7EB" />
+            </g>
+          ) : species === 'duck' ? (
+            <path
+              d="M 182 158 Q 204 146 196 168 Z"
+              fill="#FFE373"
+              stroke="#5A3E36"
+              strokeWidth="3.8"
+              strokeLinejoin="round"
+            />
+          ) : species === 'hamster' ? (
+            <circle
+              cx="186"
+              cy="164"
+              r="9"
+              fill="#FFF8ED"
+              stroke="#5A3E36"
+              strokeWidth="3.8"
             />
           ) : (
             <path
@@ -1182,6 +1265,42 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 opacity="0.7"
               />
             </g>
+          ) : species === 'cat' ? (
+            <g>
+              <path
+                d="M 60 92 L 62 46 Q 66 42 74 47 L 100 76 Z"
+                fill="#F6BA7E"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+                strokeLinejoin="round"
+              />
+              <path d="M 67 82 L 68 56 L 88 75 Z" fill="#FFB5C6" />
+              <path
+                d="M 180 92 L 178 46 Q 174 42 166 47 L 140 76 Z"
+                fill="#F6BA7E"
+                stroke="#5A3E36"
+                strokeWidth="4.5"
+                strokeLinejoin="round"
+              />
+              <path d="M 173 82 L 172 56 L 152 75 Z" fill="#FFB5C6" />
+            </g>
+          ) : species === 'duck' ? (
+            <g>
+              <path
+                d="M 114 75 C 106 54 118 46 122 68 C 127 50 139 58 128 75 Z"
+                fill="#FFEC94"
+                stroke="#5A3E36"
+                strokeWidth="4"
+                strokeLinejoin="round"
+              />
+            </g>
+          ) : species === 'hamster' ? (
+            <g>
+              <circle cx="72" cy="76" r="17" fill="#EDAF74" stroke="#5A3E36" strokeWidth="4.5" />
+              <circle cx="72" cy="77" r="9.5" fill="#FFD1DF" />
+              <circle cx="168" cy="76" r="17" fill="#EDAF74" stroke="#5A3E36" strokeWidth="4.5" />
+              <circle cx="168" cy="77" r="9.5" fill="#FFD1DF" />
+            </g>
           ) : (
             <g>
               <ellipse
@@ -1233,6 +1352,23 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
             stroke="#5A3E36"
             strokeWidth="4.5"
           />
+
+          {/* Cat forehead tabby stripes */}
+          {species === 'cat' && (
+            <g stroke="#E39A54" strokeWidth="4" strokeLinecap="round" opacity="0.85">
+              <path d="M 120 77 L 120 89" />
+              <path d="M 107 79 L 110 90" />
+              <path d="M 133 79 L 130 90" />
+            </g>
+          )}
+
+          {/* Hamster puffy cream cheek pouches */}
+          {species === 'hamster' && (
+            <g fill="#FFF8EC" opacity="0.92">
+              <ellipse cx="78" cy="136" rx="18" ry="15" />
+              <ellipse cx="162" cy="136" rx="18" ry="15" />
+            </g>
+          )}
 
           <ellipse
             cx="120"
@@ -1648,6 +1784,57 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               />
               <ellipse cx="117" cy="124" rx="3" ry="1.8" fill="#8C675B" />
             </g>
+          ) : species === 'cat' ? (
+            <g>
+              <g stroke="#B87A4B" strokeWidth="2.4" strokeLinecap="round">
+                <path d="M 54 122 L 73 126" />
+                <path d="M 52 132 L 72 132" />
+                <path d="M 56 141 L 74 138" />
+                <path d="M 186 122 L 167 126" />
+                <path d="M 188 132 L 168 132" />
+                <path d="M 184 141 L 166 138" />
+              </g>
+              <path
+                d="M 114 123 Q 120 120 126 123 Q 123 130 120 130 Q 117 130 114 123 Z"
+                fill="#FF85A6"
+                stroke="#5A3E36"
+                strokeWidth="2.8"
+                strokeLinejoin="round"
+              />
+            </g>
+          ) : species === 'duck' ? (
+            <g>
+              <ellipse
+                cx="120"
+                cy="132"
+                rx="22"
+                ry="12"
+                fill="#FF9E3D"
+                stroke="#5A3E36"
+                strokeWidth="3.8"
+              />
+              <path d="M 103 131 Q 120 137 137 131" fill="none" stroke="#5A3E36" strokeWidth="2.6" strokeLinecap="round" />
+              <ellipse cx="114" cy="126" rx="2.5" ry="1.5" fill="#7B4B24" />
+              <ellipse cx="126" cy="126" rx="2.5" ry="1.5" fill="#7B4B24" />
+            </g>
+          ) : species === 'hamster' ? (
+            <g>
+              <g stroke="#B58258" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M 60 128 L 76 130" />
+                <path d="M 59 136 L 75 135" />
+                <path d="M 164 130 L 180 128" />
+                <path d="M 165 135 L 181 136" />
+              </g>
+              <ellipse
+                cx="120"
+                cy="127"
+                rx="6.5"
+                ry="4.8"
+                fill="#FF85A6"
+                stroke="#5A3E36"
+                strokeWidth="2.8"
+              />
+            </g>
           ) : (
             <g>
               <ellipse
@@ -1727,7 +1914,16 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               strokeWidth="3.4"
               strokeLinecap="round"
             />
-          ) : species === 'rabbit' || species === 'dog' ? (
+          ) : species === 'duck' ? (
+            <path
+              d="M 112 141 Q 120 147 128 141"
+              fill="none"
+              stroke="#5A3E36"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+              opacity="0.7"
+            />
+          ) : species === 'rabbit' || species === 'dog' || species === 'cat' || species === 'hamster' ? (
             <g>
               <path
                 d="M 108 144 Q 114 150 120 142 Q 126 150 132 144"
@@ -1737,7 +1933,10 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {species === 'dog' && action === 'petted' && (
+              {species === 'hamster' && (
+                <rect x="117" y="145" width="6" height="4.5" rx="1.5" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="1.8" />
+              )}
+              {(species === 'dog' || species === 'cat') && action === 'petted' && (
                 <path
                   d="M 115 146 Q 120 160 125 146 Z"
                   fill="#FF7A9E"

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Cloud, Users } from 'lucide-react';
 import { FOODS } from '../data/foods';
-import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
+import { PET_SPECIES_INFO, STARTER_PET_SPECIES } from '../data/species';
 import { PetSpecies } from '../types';
 import { PiggyCharacter } from './PiggyCharacter';
 
@@ -78,7 +78,7 @@ export const IntroHatching: React.FC<IntroHatchingProps> = ({
                 先選擇想孵化的寵物蛋
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {PET_SPECIES_LIST.map((sp) => {
+                {STARTER_PET_SPECIES.map((sp) => {
                   const info = PET_SPECIES_INFO[sp];
                   const active = selectedSpecies === sp;
                   return (

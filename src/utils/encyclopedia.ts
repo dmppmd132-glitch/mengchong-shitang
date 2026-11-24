@@ -17,6 +17,7 @@ import {
   StageBackgroundId,
   TitleId,
 } from '../types';
+import { updateActivePet } from './pets';
 
 export function createInitialEncyclopediaState(
   seedFoodIds: string[] = []
@@ -135,11 +136,14 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     newlyUnlockedTitles.push('fashion_stylist');
   }
 
+  const anyHatched = state.pets.some((p) => p.hatched || p.level >= 1);
+  const maxPetLevel = Math.max(...state.pets.map((p) => p.level), 1);
+
   const stageTitleRules: Array<{ titleId: TitleId; condition: boolean }> = [
-    { titleId: 'growth_sprout', condition: state.pet.hatched || state.pet.level >= 1 },
-    { titleId: 'growth_chubby', condition: state.pet.level >= 2 },
-    { titleId: 'growth_radiant', condition: state.pet.level >= 3 },
-    { titleId: 'growth_superstar', condition: state.pet.level >= 4 },
+    { titleId: 'growth_sprout', condition: anyHatched },
+    { titleId: 'growth_chubby', condition: maxPetLevel >= 2 },
+    { titleId: 'growth_radiant', condition: maxPetLevel >= 3 },
+    { titleId: 'growth_superstar', condition: maxPetLevel >= 4 },
   ];
   for (const rule of stageTitleRules) {
     if (rule.condition && !unlockedTitles.includes(rule.titleId)) {
@@ -166,21 +170,24 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     };
   }
 
-  const nextGrowth = state.pet.growth + bonusGrowth;
   const nextActiveTitle =
     state.encyclopedia.activeTitle ??
     (unlockedTitles.length > 0 ? unlockedTitles[0] : null);
 
+  const withPetGrowth = updateActivePet(state, (pet) => {
+    const nextGrowth = pet.growth + bonusGrowth;
+    return {
+      ...pet,
+      growth: nextGrowth,
+      level: getGrowthStage(nextGrowth).level,
+    };
+  });
+
   return {
     nextState: {
-      ...state,
-      coins: state.coins + bonusCoins,
+      ...withPetGrowth,
+      coins: withPetGrowth.coins + bonusCoins,
       unlockedBackgrounds,
-      pet: {
-        ...state.pet,
-        growth: nextGrowth,
-        level: getGrowthStage(nextGrowth).level,
-      },
       encyclopedia: {
         ...state.encyclopedia,
         claimedRecipeMilestones: [

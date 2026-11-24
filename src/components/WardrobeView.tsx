@@ -18,7 +18,7 @@ import {
 } from '../data/accessories';
 import { getGrowthStage } from '../data/growth';
 import { PERSONALITY_DEFINITIONS } from '../data/personality';
-import { PET_SPECIES_INFO, PET_SPECIES_LIST } from '../data/species';
+import { PET_SPECIES_INFO, STARTER_PET_SPECIES } from '../data/species';
 import {
   Accessory,
   AccessorySlot,
@@ -47,6 +47,7 @@ interface WardrobeViewProps {
   onOpenPhotoStudio?: () => void;
   onOpenEncyclopedia?: () => void;
   onOpenGrowthRoadmap?: () => void;
+  onOpenPetList?: () => void;
   lastReactionText?: string | null;
 }
 
@@ -61,6 +62,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   onOpenPhotoStudio,
   onOpenEncyclopedia,
   onOpenGrowthRoadmap,
+  onOpenPetList,
   lastReactionText = null,
 }) => {
   const [activeSlot, setActiveSlot] = useState<AccessorySlot>('head');
@@ -135,6 +137,15 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {onOpenPetList && (
+                  <button
+                    type="button"
+                    onClick={onOpenPetList}
+                    className="min-h-[40px] px-2.5 rounded-2xl bg-white/95 border border-[#F2D5DF] text-[#B83B64] text-[11px] font-extrabold inline-flex items-center gap-1 hover:bg-white active:scale-95 transition"
+                  >
+                    <span>🐾 換寵物</span>
+                  </button>
+                )}
                 {onOpenEncyclopedia && (
                   <button
                     type="button"
@@ -220,7 +231,7 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   切換寵物造型（共用目前成長與好感度）
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {PET_SPECIES_LIST.map((sp) => {
+                  {STARTER_PET_SPECIES.map((sp) => {
                     const info = PET_SPECIES_INFO[sp];
                     const isSelected = pet.species === sp;
                     return (

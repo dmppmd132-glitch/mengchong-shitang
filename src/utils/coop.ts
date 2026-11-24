@@ -39,6 +39,7 @@ import {
   GameState,
   IngredientId,
   KitchenRecipe,
+  Pet,
   PhotoComment,
   PlacedRoomItem,
   RoomPhotoRecord,
@@ -50,6 +51,7 @@ import { syncAllAccessoryProgress } from './accessories';
 import { mergeDialogueRemoteState } from './dialogue';
 import { getEffectiveGrowDurationMs, getEffectiveHarvestYield, syncHouseProgress } from './house';
 import { mergeMemoryAlbumRemoteState, recordMemoryEntry } from './memories';
+import { getActivePet, isSharedCoopPet, updatePetById } from './pets';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -906,6 +908,10 @@ export function cookCoopOrderRecipe(
   const nextDraft: GameState = {
     ...state,
     foods: nextFoodsInventory,
+    completedTownOrdersCount:
+      isOrderNowCompleted && !order.overdue
+        ? (state.completedTownOrdersCount ?? 0) + 1
+        : state.completedTownOrdersCount ?? 0,
     encyclopedia: {
       ...state.encyclopedia,
       collectedFoodIds: nextCollectedFoodIds,
@@ -965,15 +971,12 @@ export function claimCoopReward(
     ? ` · 稱號「${getTitleDefinition('coop_partner').name}」已解鎖`
     : '';
 
-  const nextDraft: GameState = {
+  const sharedPet = state.pets.find((p) => isSharedCoopPet(p)) ?? getActivePet(state);
+  const nextDraftBase: GameState = {
     ...state,
     coins: state.coins + target.coins,
     furnitureShards: state.furnitureShards + target.furnitureShards,
     ingredients: nextIngredients,
-    pet: {
-      ...state.pet,
-      intimacy: state.pet.intimacy + target.intimacy,
-    },
     coop: {
       ...state.coop,
       pendingRewards: nextRewards,
@@ -982,11 +985,15 @@ export function claimCoopReward(
         : state.coop.dailyFarmOrder,
     },
   };
+  const nextDraft = updatePetById(nextDraftBase, sharedPet.id, (pet) => ({
+    ...pet,
+    intimacy: pet.intimacy + target.intimacy,
+  }));
 
   return {
     nextState: syncAllAccessoryProgress(nextDraft).nextState,
     ok: true,
-    notice: `領取合作獎勵：+${target.coins} 金幣、+${target.furnitureShards} 家具碎片、+${target.intimacy} 親密度${unlockedTitleMsg}`,
+    notice: `領取合作獎勵：+${target.coins} 金幣、+${target.furnitureShards} 家具碎片、+${target.intimacy} 親密度（${sharedPet.name}）${unlockedTitleMsg}`,
   };
 }
 
@@ -1291,7 +1298,8 @@ export function markCoopVisitorPhotoShared(
  */
 export function mergeCoopRemoteState(
   localState: GameState,
-  remoteState: GameState
+  remoteState: GameState,
+  currentUserId = ''
 ): GameState {
   const occupiedCells = new Set<string>();
   const mergedPlaced: PlacedRoomItem[] = [];
@@ -1419,8 +1427,87 @@ export function mergeCoopRemoteState(
       })
     : remoteOrders;
 
+  // Multi-pet ownership & permissions:
+  // - Only the first shared coop pet (isSharedCoopPet) is synced across partners.
+  // - Personal pets (!isSharedCoopPet) remain strictly owned by their adopter and cannot be overwritten by remote.
+  const remoteSharedPet =
+    remoteState.pets.find((p) => isSharedCoopPet(p)) ?? remoteState.pets[0];
+  const localPersonalPets = localState.pets.filter((p) => !isSharedCoopPet(p));
+  const localSharedPet = localState.pets.find((p) => isSharedCoopPet(p));
+  const mergedSharedPet: Pet | undefined = remoteSharedPet
+    ? { ...remoteSharedPet, isSharedCoopPet: true }
+    : localSharedPet;
+  const mergedPets: Pet[] = mergedSharedPet
+    ? [mergedSharedPet, ...localPersonalPets]
+    : [...localState.pets];
+
+  // Collect partner's personal pets as read-only showcase entries in Shared House
+  const partnerShowcaseMap = new Map<string, Pet>();
+  for (const p of localState.coop.partnerShowcasePets ?? []) {
+    if (!isSharedCoopPet(p) && (!currentUserId || p.ownerId !== currentUserId)) {
+      partnerShowcaseMap.set(p.id, p);
+    }
+  }
+  for (const p of remoteState.coop.partnerShowcasePets ?? []) {
+    if (!isSharedCoopPet(p) && (!currentUserId || p.ownerId !== currentUserId)) {
+      partnerShowcaseMap.set(p.id, p);
+    }
+  }
+  for (const p of remoteState.pets) {
+    if (
+      !isSharedCoopPet(p) &&
+      p.ownerId &&
+      p.ownerId !== 'local' &&
+      (!currentUserId || p.ownerId !== currentUserId)
+    ) {
+      partnerShowcaseMap.set(p.id, p);
+    }
+  }
+  const partnerShowcasePets = Array.from(partnerShowcaseMap.values()).slice(0, 6);
+
+  const nextActivePetId = mergedPets.some((p) => p.id === localState.activePetId)
+    ? localState.activePetId
+    : mergedPets[0]?.id ?? 'pet_1';
+  const nextActivePet =
+    mergedPets.find((p) => p.id === nextActivePetId) ?? mergedPets[0];
+
+  // Keep personal pet logs local; merge shared pet logs safely
+  const weightLogMap = new Map(localState.weightLogs.map((w) => [w.id, w]));
+  for (const rw of remoteState.weightLogs) {
+    if (!rw.petId || rw.petId === 'pet_1') {
+      weightLogMap.set(rw.id, rw);
+    }
+  }
+  const mergedWeightLogs = Array.from(weightLogMap.values()).sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
+
+  const feedLogMap = new Map(localState.feedLogs.map((f) => [f.id, f]));
+  for (const rf of remoteState.feedLogs) {
+    if (!rf.petId || rf.petId === 'pet_1') {
+      feedLogMap.set(rf.id, rf);
+    }
+  }
+  const mergedFeedLogs = Array.from(feedLogMap.values());
+
   return {
     ...remoteState,
+    pets: mergedPets,
+    activePetId: nextActivePetId,
+    personality:
+      nextActivePet?.personality ?? localState.personality ?? remoteState.personality,
+    weightLogs: mergedWeightLogs,
+    feedLogs: mergedFeedLogs,
+    familyDailyTasks: localState.familyDailyTasks ?? remoteState.familyDailyTasks,
+    familyDailyTasksDate:
+      localState.familyDailyTasksDate ?? remoteState.familyDailyTasksDate,
+    claimedPetSlots: localState.claimedPetSlots ?? remoteState.claimedPetSlots,
+    completedTownOrdersCount: Math.max(
+      localState.completedTownOrdersCount ?? 0,
+      remoteState.completedTownOrdersCount ?? 0
+    ),
+    reservedSpecialPets:
+      localState.reservedSpecialPets ?? remoteState.reservedSpecialPets,
     // Keep personal visitor progress/inventory local when receiving partner sync
     visitorState: localState.visitorState ?? remoteState.visitorState,
     visitorTreats: localState.visitorTreats ?? remoteState.visitorTreats,
@@ -1452,6 +1539,7 @@ export function mergeCoopRemoteState(
         ...localState.coop.lastSeenByUserId,
         ...remoteState.coop.lastSeenByUserId,
       },
+      partnerShowcasePets,
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(

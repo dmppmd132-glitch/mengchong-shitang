@@ -24,6 +24,7 @@ import {
   isCareBalanced,
 } from '../data/growth';
 import { STAGE_BACKGROUNDS } from '../data/noviceGrowth';
+import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
 import { VISITOR_BY_ID } from '../data/visitors';
@@ -106,6 +107,10 @@ interface HomeViewProps {
   pendingOrderCount?: number;
   onOpenVisitorModal?: () => void;
   onOpenTownOrders?: () => void;
+  pets?: Pet[];
+  maxPetSlots?: number;
+  onSwitchPet?: (petId: string) => void;
+  onOpenPetList?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -174,6 +179,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   pendingOrderCount = 0,
   onOpenVisitorModal,
   onOpenTownOrders,
+  pets = [],
+  maxPetSlots = 1,
+  onSwitchPet,
+  onOpenPetList,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -341,6 +350,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const careBalanced = isCareBalanced(pet);
   const roundnessTier = getRoundnessTier(pet.roundness);
   const speciesInfo = getPetSpeciesInfo(pet.species);
+  const petAbility = PET_ABILITIES[pet.species];
   const stageBgConfig = STAGE_BACKGROUNDS[activeBackground] ?? STAGE_BACKGROUNDS.default;
   const activeTitleDef = activeTitle ? getTitleDefinition(activeTitle) : null;
   const timePeriod = getTimeOfDayPeriod();
@@ -360,8 +370,54 @@ export const HomeView: React.FC<HomeViewProps> = ({
     setDraggingFoodId(null);
   };
 
+  const householdPets = pets.length > 0 ? pets : [pet];
+  const companionPets = householdPets.filter((p) => p.id !== pet.id);
+
   return (
-    <div className="px-4 pt-3 pb-24 space-y-3.5">
+    <div className="px-4 pt-3 pb-24 space-y-3.5 overflow-x-clip">
+      {/* Multi-Pet Quick Switcher & Pet List Entry */}
+      {(onOpenPetList || householdPets.length > 1) && (
+        <section
+          aria-label="多寵物快速切換"
+          className="rounded-2xl bg-[#FFFDF8] border-2 border-[#F5DFD7] px-2.5 py-2 flex items-center justify-between gap-2"
+        >
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+            {householdPets.map((item) => {
+              const sp = getPetSpeciesInfo(item.species);
+              const isCurrent = item.id === pet.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (!isCurrent && onSwitchPet) {
+                      onSwitchPet(item.id);
+                    }
+                  }}
+                  className={`min-h-[34px] px-2.5 rounded-xl border text-[11px] font-extrabold inline-flex items-center gap-1 transition active:scale-95 ${
+                    isCurrent
+                      ? 'bg-[#FFEAF0] border-[#FF7A9E] text-[#B83B64] shadow-2xs'
+                      : 'bg-[#FAF3ED] border-[#EAD9D0] text-[#6E544E] hover:bg-[#FFF5EE]'
+                  }`}
+                >
+                  <span aria-hidden="true">{sp.emoji}</span>
+                  <span className="truncate max-w-[70px]">{item.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          {onOpenPetList && (
+            <button
+              type="button"
+              onClick={onOpenPetList}
+              className="min-h-[34px] px-2.5 rounded-xl bg-[#E8F8F2] border border-[#9BE0C4] text-[11px] font-extrabold text-[#1F6B54] whitespace-nowrap shrink-0 hover:bg-[#D7F3E9] active:scale-95 transition tabular-nums"
+            >
+              🐾 寵物清單 {householdPets.length}/{maxPetSlots}
+            </button>
+          )}
+        </section>
+      )}
+
       <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F5DFD7] p-3.5 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -394,6 +450,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
             <p className="text-xs text-[#826862] mt-0.5 tabular-nums">
               體重 {pet.weight.toFixed(1)} kg · {roundnessTier.label}
+            </p>
+            <p className="text-[11px] font-extrabold text-[#256D57] mt-0.5 truncate">
+              {petAbility.emoji} {petAbility.title}：{petAbility.summary}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -854,7 +913,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
       )}
 
       {onOpenHouse && house && (
-        <HomeHousePreview pet={pet} house={house} onOpenHouse={onOpenHouse} />
+        <HomeHousePreview
+          pet={pet}
+          companionPets={companionPets}
+          house={house}
+          onOpenHouse={onOpenHouse}
+        />
       )}
 
       {(sharedRoom && onOpenCoopGames) ||
