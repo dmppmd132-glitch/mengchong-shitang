@@ -26,6 +26,8 @@ import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { QuestsView } from './components/QuestsView';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SharedPetModal } from './components/SharedPetModal';
+import { TownOrderBoardModal } from './components/visitors/TownOrderBoardModal';
+import { VisitorModal } from './components/visitors/VisitorModal';
 import { WardrobePhotoModal } from './components/WardrobePhotoModal';
 import { WardrobeView } from './components/WardrobeView';
 import { ACCESSORY_THEME_BY_ID } from './data/accessories';
@@ -50,6 +52,7 @@ import {
   pickRandomNonRepeating,
 } from './data/species';
 import { getStickerById } from './data/stickers';
+import { VISITOR_BY_ID } from './data/visitors';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   fetchCloudSave,
@@ -108,16 +111,22 @@ import {
   TabKey,
   ThemeSetId,
   TitleId,
+  VisitorId,
+  VisitorOffering,
+  VisitorTreatId,
   WeightLog,
 } from './types';
 import { MinigameResult, MinigameWeeklyChallengeId } from './types/minigame';
 import {
   acknowledgeOfflinePartnerEvents,
   claimCoopReward,
+  claimCoopVisitorReward,
+  contributeCoopVisitorItem,
   cookCoopOrderRecipe,
   depositIngredientToCoopWarehouse,
   getOfflinePartnerEvents,
   harvestCoopCropToWarehouse,
+  markCoopVisitorPhotoShared,
   mergeCoopRemoteState,
   placeCoopCandidateInRoom,
   plantCoopCrop,
@@ -195,6 +204,20 @@ import {
   saveGameState,
   syncDailyTasks,
 } from './utils/storage';
+import {
+  claimTownOrderReward,
+  deliverTownOrderItem,
+  syncTownOrders,
+} from './utils/townOrders';
+import {
+  buyVisitorTreat,
+  captureVisitorPhoto,
+  craftShardFurniture,
+  dismissVisitorArrivalNotice,
+  feedVisitor,
+  syncVisitorSystem,
+  useFarmSpeedTicket,
+} from './utils/visitors';
 
 export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
@@ -230,6 +253,8 @@ export default function App() {
   const [messageModalOpen, setMessageModalOpen] = useState<boolean>(false);
   const [minigameOpen, setMinigameOpen] = useState<boolean>(false);
   const [coopModalOpen, setCoopModalOpen] = useState<boolean>(false);
+  const [visitorModalOpen, setVisitorModalOpen] = useState<boolean>(false);
+  const [townOrderModalOpen, setTownOrderModalOpen] = useState<boolean>(false);
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
@@ -304,6 +329,9 @@ export default function App() {
   );
   const prevTitlesCountRef = useRef<number>(
     game.encyclopedia.unlockedTitles.length
+  );
+  const lastAnnouncedVisitIdRef = useRef<string | null>(
+    game.visitorState?.activeVisit?.visitId ?? null
   );
 
   gameRef.current = game;
@@ -882,27 +910,58 @@ export default function App() {
 
   useEffect(() => {
     if (!game.pet.hatched) return;
-    const timer = window.setInterval(() => {
+    const hasShared = Boolean(sharedRoom);
+
+    const runWorldSync = (applyDecay: boolean) => {
+      const now = Date.now();
       setGame((prev) => {
         const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-        const decayedPet = applyTimeDecay(prev.pet, 20000);
-        const syncedCoop = syncCoopHubState(prev.coop);
-        const draft: GameState = {
+        const decayedPet = applyDecay ? applyTimeDecay(prev.pet, 20000) : prev.pet;
+        const syncedCoop = syncCoopHubState(prev.coop, undefined, now, hasShared);
+        let draft: GameState = {
           ...prev,
           dailyTasks: synced.dailyTasks,
           dailyTasksDate: synced.dailyTasksDate,
           pet: decayedPet,
           coop: syncedCoop,
         };
+        draft = syncTownOrders(draft, now);
+        draft = syncVisitorSystem(draft, now).nextState;
         const nextDialogue = evaluateAndSelectDialogue(draft, currentUserId);
         return {
           ...draft,
           dialogue: nextDialogue,
         };
       });
-    }, 20000);
-    return () => window.clearInterval(timer);
-  }, [game.pet.hatched, currentUserId]);
+    };
+
+    const bootTimer = window.setTimeout(() => runWorldSync(false), 400);
+    const timer = window.setInterval(() => runWorldSync(true), 20000);
+    return () => {
+      window.clearTimeout(bootTimer);
+      window.clearInterval(timer);
+    };
+  }, [game.pet.hatched, currentUserId, sharedRoom?.id]);
+
+  // 新訪客到達時發出提醒
+  useEffect(() => {
+    const activeVisit = game.visitorState?.activeVisit ?? null;
+    if (!activeVisit) return;
+    if (
+      game.visitorState?.arrivalNoticeUnread &&
+      activeVisit.visitId !== lastAnnouncedVisitIdRef.current
+    ) {
+      lastAnnouncedVisitIdRef.current = activeVisit.visitId;
+      soundFX.heart(game.soundEnabled);
+      const info = VISITOR_BY_ID[activeVisit.visitorId];
+      pushFeedback('庭院好像有客人來了！', info.emoji);
+      setSpeech('庭院好像有客人來了！快去看看是誰吧～');
+    }
+  }, [
+    game.visitorState?.activeVisit?.visitId,
+    game.visitorState?.arrivalNoticeUnread,
+    game.soundEnabled,
+  ]);
 
   const clearAnimationTimers = () => {
     if (actionTimerRef.current) {
@@ -3195,6 +3254,152 @@ export default function App() {
     return handleSendMessage(`💌 ${title}：${body}`, 'heart');
   };
 
+  const handleOpenVisitorModal = () => {
+    setGame((prev) => dismissVisitorArrivalNotice(prev));
+    setVisitorModalOpen(true);
+  };
+
+  const handleFeedVisitor = (offering: VisitorOffering) => {
+    const res = feedVisitor(gameRef.current, offering, actorName);
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🎁');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleBuyVisitorTreat = (treatId: VisitorTreatId) => {
+    const res = buyVisitorTreat(gameRef.current, treatId, 1);
+    if (res.ok) {
+      soundFX.pop(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) pushFeedback(res.notice, '🍪');
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleCaptureVisitorPhoto = (visitorId: VisitorId, shareToBoard = false) => {
+    const isCoopPhoto = shareToBoard && Boolean(sharedRoom);
+    const res = captureVisitorPhoto(gameRef.current, {
+      visitorId,
+      isCoopPhoto,
+    });
+    if (!res.ok) return;
+    soundFX.heart(game.soundEnabled);
+    const capturedPhoto = res.nextState.house.photos[0];
+    let finalState = res.nextState;
+    if (shareToBoard && finalState.coop.coopVisitor?.visitorId === visitorId) {
+      finalState = markCoopVisitorPhotoShared(finalState);
+    }
+    setGame(finalState);
+    if (res.notice) pushFeedback(res.notice, '📸');
+    if (shareToBoard && capturedPhoto) {
+      void handleSharePhotoToBoard(capturedPhoto, capturedPhoto.caption);
+    }
+  };
+
+  const handleUseFarmSpeedTicket = (plotId: number) => {
+    const res = useFarmSpeedTicket(gameRef.current, plotId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '⚡');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleDeliverTownOrderItem = (orderId: string, itemKey: string) => {
+    const res = deliverTownOrderItem(gameRef.current, orderId, itemKey);
+    if (res.ok) {
+      soundFX.pop(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) pushFeedback(res.notice, '📦');
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleClaimTownOrderReward = (orderId: string) => {
+    const res = claimTownOrderReward(gameRef.current, orderId, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🎁');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleCraftShardFurniture = (itemId: string) => {
+    const res = craftShardFurniture(gameRef.current, itemId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🧩');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleContributeCoopVisitor = (itemKey: string) => {
+    const res = contributeCoopVisitorItem(
+      gameRef.current,
+      currentUserId,
+      actorName,
+      itemKey
+    );
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🐾');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
+  const handleClaimCoopVisitorReward = () => {
+    const res = claimCoopVisitorReward(gameRef.current, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🎁');
+        setSpeech(res.notice);
+      }
+    } else {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) pushFeedback(res.error, '⚠️');
+    }
+    return { ok: res.ok, error: res.error, notice: res.notice };
+  };
+
   const handleConfirmReset = () => {
     clearAnimationTimers();
     if (sharedRoom) {
@@ -3210,6 +3415,7 @@ export default function App() {
     prevMilestonesCountRef.current = fresh.encyclopedia.claimedAccessoryMilestones.length;
     prevRecipeMilestonesCountRef.current = (fresh.encyclopedia.claimedRecipeMilestones ?? []).length;
     prevTitlesCountRef.current = fresh.encyclopedia.unlockedTitles.length;
+    lastAnnouncedVisitIdRef.current = null;
     setGame(fresh);
     setActiveTab('home');
     setQuestsInitialSection('daily');
@@ -3224,6 +3430,8 @@ export default function App() {
     setLevelUpPrestigeStar(null);
     setLevelUpRewardText(null);
     setGrowthRoadmapOpen(false);
+    setVisitorModalOpen(false);
+    setTownOrderModalOpen(false);
     setResetModalOpen(false);
   };
 
@@ -3351,7 +3559,17 @@ export default function App() {
     game.coop,
     currentUserId
   ).length;
-  const coopBadgeCount = unclaimedCoopRewardsCount + offlinePartnerEventsCount;
+  const coopVisitorClaimable =
+    game.coop.coopVisitor &&
+    game.coop.coopVisitor.completed &&
+    !game.coop.coopVisitor.claimedByUserIds.includes(currentUserId)
+      ? 1
+      : 0;
+  const coopBadgeCount =
+    unclaimedCoopRewardsCount + offlinePartnerEventsCount + coopVisitorClaimable;
+  const pendingOrderCount = (game.townOrders ?? []).filter(
+    (o) => !o.claimedByUserIds.includes(currentUserId)
+  ).length;
   const [farmClockNow, setFarmClockNow] = useState<number>(() => Date.now());
   const hasGrowingUnreadyCrops = game.farmPlots.some(
     (p) =>
@@ -3604,6 +3822,11 @@ export default function App() {
                     setCanteenInitialSection('farm');
                     setActiveTab('canteen');
                   }}
+                  activeVisitor={game.visitorState?.activeVisit ?? null}
+                  arrivalNoticeUnread={game.visitorState?.arrivalNoticeUnread ?? false}
+                  pendingOrderCount={pendingOrderCount}
+                  onOpenVisitorModal={handleOpenVisitorModal}
+                  onOpenTownOrders={() => setTownOrderModalOpen(true)}
                 />
               )}
 
@@ -3644,6 +3867,10 @@ export default function App() {
                   cropNotifyEnabled={cropNotifyEnabled}
                   onToggleCropNotify={() => void handleToggleCropNotify()}
                   timeOfDay={getTimeOfDayPeriod(new Date(farmClockNow))}
+                  farmSpeedTickets={game.farmSpeedTickets ?? 0}
+                  onUseSpeedTicket={handleUseFarmSpeedTicket}
+                  onOpenTownOrders={() => setTownOrderModalOpen(true)}
+                  pendingOrderCount={pendingOrderCount}
                 />
               )}
 
@@ -3690,6 +3917,8 @@ export default function App() {
                     setCanteenInitialSection('farm');
                     setActiveTab('canteen');
                   }}
+                  onOpenVisitorModal={handleOpenVisitorModal}
+                  onOpenTownOrders={() => setTownOrderModalOpen(true)}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
                   onTogglePhotoLike={handleTogglePhotoLike}
                   onAddPhotoComment={handleAddPhotoComment}
@@ -3969,6 +4198,38 @@ export default function App() {
           onClaimReward={handleClaimCoopReward}
           onAcknowledgeOfflineEvents={handleAcknowledgeOfflineEvents}
           onShareCardToBoard={handleShareCoopCardToBoard}
+          onContributeCoopVisitor={handleContributeCoopVisitor}
+          onClaimCoopVisitorReward={handleClaimCoopVisitorReward}
+          onCaptureCoopVisitorPhoto={handleCaptureVisitorPhoto}
+        />
+
+        <VisitorModal
+          open={visitorModalOpen}
+          game={game}
+          hasSharedRoom={Boolean(sharedRoom)}
+          onClose={() => setVisitorModalOpen(false)}
+          onFeedVisitor={handleFeedVisitor}
+          onBuyTreat={handleBuyVisitorTreat}
+          onCapturePhoto={handleCaptureVisitorPhoto}
+          onOpenOrderBoard={() => {
+            setVisitorModalOpen(false);
+            setTownOrderModalOpen(true);
+          }}
+        />
+
+        <TownOrderBoardModal
+          open={townOrderModalOpen}
+          game={game}
+          currentUserId={currentUserId}
+          hasSharedRoom={Boolean(sharedRoom)}
+          onClose={() => setTownOrderModalOpen(false)}
+          onDeliverOrderItem={handleDeliverTownOrderItem}
+          onClaimOrderReward={handleClaimTownOrderReward}
+          onContributeCoopVisitor={handleContributeCoopVisitor}
+          onClaimCoopVisitorReward={handleClaimCoopVisitorReward}
+          onCaptureVisitorPhoto={handleCaptureVisitorPhoto}
+          onCraftShardFurniture={handleCraftShardFurniture}
+          onBuyTreat={handleBuyVisitorTreat}
         />
       </div>
     </div>

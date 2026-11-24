@@ -26,6 +26,7 @@ import {
 import { STAGE_BACKGROUNDS } from '../data/noviceGrowth';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
+import { VISITOR_BY_ID } from '../data/visitors';
 import {
   DialogueLine,
   FeedingVisualEffect,
@@ -43,6 +44,7 @@ import {
   SharedPetRoom,
   StageBackgroundId,
   TitleId,
+  VisitorVisit,
   WeatherState,
 } from '../types';
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
@@ -99,6 +101,11 @@ interface HomeViewProps {
   onOpenGrowthRoadmap?: () => void;
   overnightReadyCount?: number;
   onGoToFarm?: () => void;
+  activeVisitor?: VisitorVisit | null;
+  arrivalNoticeUnread?: boolean;
+  pendingOrderCount?: number;
+  onOpenVisitorModal?: () => void;
+  onOpenTownOrders?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -162,6 +169,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenGrowthRoadmap,
   overnightReadyCount = 0,
   onGoToFarm,
+  activeVisitor = null,
+  arrivalNoticeUnread = false,
+  pendingOrderCount = 0,
+  onOpenVisitorModal,
+  onOpenTownOrders,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -818,6 +830,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </section>
       )}
 
+      {activeVisitor && onOpenVisitorModal && (
+        <button
+          type="button"
+          onClick={onOpenVisitorModal}
+          className="w-full min-h-[52px] rounded-2xl bg-gradient-to-r from-[#E6F8F1] via-[#FFF8E6] to-[#FFEAF2] border-2 border-[#9ADBC2] px-3.5 py-2 flex items-center justify-between gap-2 text-left shadow-xs active:scale-[0.99] transition"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xl shrink-0">{VISITOR_BY_ID[activeVisitor.visitorId].emoji}</span>
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold text-[#1F6B54] truncate">
+                {arrivalNoticeUnread ? '✨ 庭院好像有客人來了！' : `🌿 ${VISITOR_BY_ID[activeVisitor.visitorId].name}正在庭院作客`}
+              </div>
+              <div className="text-[10px] font-bold text-[#6E544E] truncate">
+                點擊前往餵點心、累積好感度與拍照留念！
+              </div>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-xl bg-white border border-[#9ADBC2] text-[11px] font-extrabold text-[#1F6B54] shrink-0">
+            去招待 ›
+          </span>
+        </button>
+      )}
+
       {onOpenHouse && house && (
         <HomeHousePreview pet={pet} house={house} onOpenHouse={onOpenHouse} />
       )}
@@ -826,8 +861,47 @@ export const HomeView: React.FC<HomeViewProps> = ({
       onOpenMinigame ||
       onOpenNoviceGrowth ||
       onOpenMessageBoard ||
+      onOpenTownOrders ||
       onOpenMemories ? (
         <section className="grid grid-cols-2 gap-2.5" aria-label="快捷功能中心">
+          {(onOpenTownOrders || onOpenVisitorModal) && (
+            <>
+              {onOpenVisitorModal && (
+                <button
+                  type="button"
+                  onClick={onOpenVisitorModal}
+                  className="min-h-[52px] rounded-2xl bg-[#E8F8F2] border-2 border-[#AEE4D1] px-3 py-2 flex items-center justify-between gap-2 text-left active:scale-[0.99] transition"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-[#1F6B54] truncate">
+                      🐾 庭院訪客
+                    </div>
+                    <div className="text-[10px] font-bold text-[#5A8B7A] truncate">
+                      {activeVisitor ? `${VISITOR_BY_ID[activeVisitor.visitorId].speciesLabel}來訪中` : '好感度＆圖鑑'}
+                    </div>
+                  </div>
+                  <span className="text-xs font-extrabold text-[#1F6B54] shrink-0">›</span>
+                </button>
+              )}
+              {onOpenTownOrders && (
+                <button
+                  type="button"
+                  onClick={onOpenTownOrders}
+                  className="min-h-[52px] rounded-2xl bg-[#FFF6DF] border-2 border-[#F2CE6D] px-3 py-2 flex items-center justify-between gap-2 text-left active:scale-[0.99] transition"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-[#8A5610] truncate">
+                      📋 小鎮訂單板
+                    </div>
+                    <div className="text-[10px] font-bold text-[#9D6B2A] truncate tabular-nums">
+                      {pendingOrderCount > 0 ? `${pendingOrderCount} 筆待完成` : '接單賺碎片＆加速券'}
+                    </div>
+                  </div>
+                  <span className="text-xs font-extrabold text-[#8A5610] shrink-0">›</span>
+                </button>
+              )}
+            </>
+          )}
           {sharedRoom && onOpenCoopGames && (
             <button
               type="button"

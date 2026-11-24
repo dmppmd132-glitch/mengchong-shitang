@@ -271,6 +271,10 @@ export const INITIAL_FOOD_INVENTORY: Record<string, number> = {
   cocoa_mint_latte: 0,
 };
 
+export const FOOD_BY_ID: Record<string, Food> = Object.fromEntries(
+  FOODS.map((f) => [f.id, f])
+);
+
 export function getFoodById(id: string): Food | undefined {
   return FOODS.find((f) => f.id === id);
 }

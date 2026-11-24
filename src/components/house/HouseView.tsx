@@ -49,6 +49,7 @@ import {
 } from '../../data/house';
 import { INGREDIENTS } from '../../data/kitchen';
 import { PHOTO_STICKERS } from '../../data/photoStudio';
+import { VISITOR_BY_ID, VISITOR_DECORS } from '../../data/visitors';
 import { PicnicSnackId, SYSTEM_COOKIE_ID } from '../../hooks/useYardActivities';
 import {
   CropPlot,
@@ -68,8 +69,10 @@ import {
   SharedMilestoneId,
   SharedPetRoom,
   ThemeSetId,
+  VisitorDecorId,
   WallpaperId,
 } from '../../types';
+import { buyOrToggleVisitorDecor, craftShardFurniture } from '../../utils/visitors';
 import {
   HouseActionOutcome,
   PaymentSource,
@@ -133,6 +136,8 @@ interface HouseViewProps {
   onOpenCoopGames?: () => void;
   onOpenHouseEncyclopedia: () => void;
   onGoToFarm: () => void;
+  onOpenVisitorModal?: () => void;
+  onOpenTownOrders?: () => void;
   onSharePhotoToBoard: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
   onTogglePhotoLike: (photoId: string) => void;
   onAddPhotoComment: (photoId: string, content: string) => void;
@@ -162,6 +167,8 @@ export const HouseView: React.FC<HouseViewProps> = ({
   onOpenCoopGames,
   onOpenHouseEncyclopedia,
   onGoToFarm,
+  onOpenVisitorModal,
+  onOpenTownOrders,
   onSharePhotoToBoard,
   onTogglePhotoLike,
   onAddPhotoComment,
@@ -2266,6 +2273,8 @@ export const HouseView: React.FC<HouseViewProps> = ({
             ingredients={game.ingredients}
             buffPeriods={game.yardMoodBuffPeriods ?? []}
             soundEnabled={game.soundEnabled}
+            visitorState={game.visitorState}
+            coopVisitor={game.coop.coopVisitor}
             onAddCoins={addYardCoins}
             onSwingReward={rewardYardSwing}
             onFeedSnack={usePicnicSnack}
@@ -2274,9 +2283,42 @@ export const HouseView: React.FC<HouseViewProps> = ({
               setYardRenameOpen(true);
             }}
             onGoToFarm={onGoToFarm}
+            onOpenVisitorModal={onOpenVisitorModal}
+            onOpenTownOrders={onOpenTownOrders}
           />
 
-          <div className="-mt-2 flex justify-end">
+          <div className="-mt-2 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              {onOpenVisitorModal && (
+                <button
+                  type="button"
+                  onClick={onOpenVisitorModal}
+                  className={`min-h-[44px] rounded-full border px-3 inline-flex items-center gap-1.5 text-[11px] font-extrabold shadow-sm transition active:scale-95 ${
+                    game.visitorState?.activeVisit
+                      ? 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]'
+                      : 'bg-[#FFFDF8]/95 border-[#E8D8CE] text-[#5A3E36]'
+                  }`}
+                >
+                  <span>🐾</span>
+                  <span>
+                    {game.visitorState?.activeVisit
+                      ? `招待${VISITOR_BY_ID[game.visitorState.activeVisit.visitorId].speciesLabel}`
+                      : '訪客圖鑑'}
+                  </span>
+                </button>
+              )}
+              {onOpenTownOrders && (
+                <button
+                  type="button"
+                  onClick={onOpenTownOrders}
+                  className="min-h-[44px] rounded-full border border-[#F2CE6D] bg-[#FFF3D8] px-3 inline-flex items-center gap-1.5 text-[11px] font-extrabold text-[#8A5610] shadow-sm transition active:scale-95"
+                >
+                  <span>📋</span>
+                  <span>小鎮訂單板</span>
+                </button>
+              )}
+            </div>
+
             <button
               ref={yardManagementTriggerRef}
               type="button"
@@ -2544,6 +2586,140 @@ export const HouseView: React.FC<HouseViewProps> = ({
                           </article>
                         );
                       })}
+                    </div>
+
+                    {/* Yard Visitor Attraction Decors */}
+                    <div className="pt-2.5 border-t border-[#EFE0D8] space-y-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold text-[#4A3531]">
+                          🌳 訪客吸引庭院擺飾（擺出可提高對應小動物來訪機率）
+                        </h4>
+                        <p className="text-[10px] text-[#7D635D]">
+                          樹木、盆栽、餵鳥器吸引小鳥；堅果盆吸引松鼠；花拱門吸引小兔子！
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {VISITOR_DECORS.map((dec) => {
+                          const owned =
+                            game.visitorState?.ownedYardDecors.includes(dec.id) ?? false;
+                          const placed =
+                            game.visitorState?.placedYardDecors.includes(dec.id) ?? false;
+                          const isLockedAffinity =
+                            Boolean(dec.unlockByAffinity) && !owned;
+                          const canAct =
+                            owned || (!isLockedAffinity && game.coins >= dec.price);
+
+                          return (
+                            <article
+                              key={dec.id}
+                              className={`rounded-2xl border p-2.5 flex flex-col justify-between gap-1.5 ${
+                                placed
+                                  ? 'bg-[#E6F8F1] border-[#9ADBC2]'
+                                  : owned
+                                  ? 'bg-[#F8FCFA] border-[#D7EAE1]'
+                                  : 'bg-[#FAF6F2] border-[#E7DCD5]'
+                              }`}
+                            >
+                              <div>
+                                <div className="text-xs font-extrabold text-[#4A3531]">
+                                  {dec.emoji} {dec.name}
+                                </div>
+                                <div className="text-[10px] font-bold text-[#1F6B54]">
+                                  吸引：{VISITOR_BY_ID[dec.attractsVisitorId].speciesLabel}
+                                </div>
+                                <p className="text-[10px] text-[#7D635D] mt-0.5 leading-snug">
+                                  {dec.description}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!canAct}
+                                onClick={() => {
+                                  let outcomeMsg = '';
+                                  onUpdateGame((prev) => {
+                                    const res = buyOrToggleVisitorDecor(
+                                      prev,
+                                      dec.id as VisitorDecorId
+                                    );
+                                    outcomeMsg = res.notice ?? res.error ?? '';
+                                    return res.nextState;
+                                  });
+                                  if (outcomeMsg) showNotice(outcomeMsg);
+                                }}
+                                className={`w-full min-h-[40px] rounded-xl text-[11px] font-extrabold transition ${
+                                  placed
+                                    ? 'bg-[#5CC9A7] text-white'
+                                    : owned
+                                    ? 'bg-white border border-[#B8DFCE] text-[#256D57]'
+                                    : canAct
+                                    ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E]'
+                                    : 'bg-[#EAE0D9] text-[#9E8B84] cursor-not-allowed'
+                                }`}
+                              >
+                                {placed
+                                  ? '擺設中 · 點擊收起'
+                                  : owned
+                                  ? '擺進庭院'
+                                  : isLockedAffinity && dec.unlockByAffinity
+                                  ? `${VISITOR_BY_ID[dec.unlockByAffinity.visitorId].speciesLabel} Lv.${dec.unlockByAffinity.level} 解鎖`
+                                  : `購買 (${dec.price} 幣)`}
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Shard Limited Furniture Quick Crafting */}
+                    <div className="pt-2.5 border-t border-[#EFE0D8] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-extrabold text-[#4A3531]">
+                          🧩 碎片限定家具合成
+                        </h4>
+                        <span className="text-[10px] font-extrabold text-[#355A9C] tabular-nums">
+                          持有碎片：{game.furnitureShards}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {ROOM_ITEMS.filter(
+                          (item) => typeof item.shardCost === 'number' && item.shardCost > 0
+                        ).map((item) => {
+                          const cost = item.shardCost ?? 8;
+                          const ownedCnt = house.ownedFurnitureCounts[item.id] ?? 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className="rounded-2xl bg-[#FAF5F0] border border-[#EAD9D0] px-2.5 py-2 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-xs font-extrabold text-[#4A3531]">
+                                  {item.emoji} {item.name}{' '}
+                                  {ownedCnt > 0 && (
+                                    <span className="text-[10px] text-[#1F6B54]">(已有 {ownedCnt})</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-[#7D635D] truncate">{item.description}</p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={game.furnitureShards < cost}
+                                onClick={() => {
+                                  let msg = '';
+                                  onUpdateGame((prev) => {
+                                    const res = craftShardFurniture(prev, item.id);
+                                    msg = res.notice ?? res.error ?? '';
+                                    return res.nextState;
+                                  });
+                                  if (msg) showNotice(msg);
+                                }}
+                                className="min-h-[38px] px-2.5 rounded-xl bg-[#5CC9A7] text-white text-[11px] font-extrabold disabled:opacity-45 shrink-0 tabular-nums"
+                              >
+                                🧩 {cost} 合成
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </section>
 

@@ -3,17 +3,21 @@ import { Sprout, X } from 'lucide-react';
 import { ROOM_ITEM_BY_ID, STORAGE_CAPS_BY_LEVEL } from '../../data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from '../../data/kitchen';
 import { PicnicSnackId, SYSTEM_COOKIE_ID, useYardActivities } from '../../hooks/useYardActivities';
+import { VISITOR_BEHAVIOR_META, VISITOR_BY_ID, VISITOR_DECOR_BY_ID } from '../../data/visitors';
 import {
+  CoopVisitorSession,
   IngredientId,
   Pet,
   PetExpression,
   PiggyActionState,
   SharedHouse,
+  VisitorSystemState,
   YardMoodBuffPeriod,
 } from '../../types';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { getActiveYardBuffExpiresAt } from '../../utils/farmGrowth';
 import { PiggyCharacter } from '../PiggyCharacter';
+import { VisitorDecorSvg, VisitorSprite } from '../visitors/VisitorIllustrations';
 import { CropIllustration } from './FarmIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
 import {
@@ -52,11 +56,15 @@ interface FarmSceneBannerProps {
   ingredients: Record<IngredientId, number>;
   buffPeriods: YardMoodBuffPeriod[];
   soundEnabled: boolean;
+  visitorState?: VisitorSystemState;
+  coopVisitor?: CoopVisitorSession | null;
   onAddCoins: (amount: number) => void;
   onSwingReward: () => void;
   onFeedSnack: (snackId: PicnicSnackId) => void;
   onEditHouseName: () => void;
   onGoToFarm: () => void;
+  onOpenVisitorModal?: () => void;
+  onOpenTownOrders?: () => void;
 }
 
 export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
@@ -65,11 +73,15 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   ingredients,
   buffPeriods,
   soundEnabled,
+  visitorState,
+  coopVisitor,
   onAddCoins,
   onSwingReward,
   onFeedSnack,
   onEditHouseName,
   onGoToFarm,
+  onOpenVisitorModal,
+  onOpenTownOrders,
 }) => {
   const { fenceId, flowerbedId, signId } = house.activeFarmDecor;
   const hasSprinkler = house.farmUpgrades.sprinklerLevel > 0;
@@ -223,6 +235,74 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
 
         {/* 2. MIDDLE OUTDOOR LAWN PLAYGROUND: Left Fountain + Center Picnic Blanket & Live Pet + Right Flower Swing */}
         <div className="relative w-full h-[252px] sm:h-[280px] -mt-3 px-2 select-none">
+          {/* Placed Yard Visitor Decorations */}
+          {visitorState && visitorState.placedYardDecors.length > 0 && (
+            <div className="pointer-events-none absolute inset-x-3 top-2 z-[8] flex items-center justify-center gap-2 opacity-95">
+              {visitorState.placedYardDecors.slice(0, 5).map((decorId) => (
+                <div
+                  key={decorId}
+                  title={VISITOR_DECOR_BY_ID[decorId]?.name}
+                  className="drop-shadow-xs"
+                >
+                  <VisitorDecorSvg decorId={decorId} size={36} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Arrival Prompt Banner */}
+          {visitorState?.activeVisit && onOpenVisitorModal && (
+            <button
+              type="button"
+              onClick={onOpenVisitorModal}
+              className="absolute left-1/2 top-1 z-[65] -translate-x-1/2 max-w-[92%] rounded-full border-2 border-[#6B5344] bg-[#FFFDF8]/95 px-3 py-1 text-[11px] font-extrabold text-[#B83B64] shadow-sm inline-flex items-center gap-1.5 hover:bg-white active:scale-95 transition whitespace-nowrap"
+            >
+              <span>{VISITOR_BY_ID[visitorState.activeVisit.visitorId].emoji}</span>
+              <span>
+                {visitorState.arrivalNoticeUnread
+                  ? '庭院好像有客人來了！'
+                  : `${VISITOR_BY_ID[visitorState.activeVisit.visitorId].name}正在庭院作客`}
+              </span>
+              <span className="text-[10px] text-[#1F6B54]">點擊招待 ›</span>
+            </button>
+          )}
+
+          {/* Animated Clickable Active Visitor on Lawn */}
+          {visitorState?.activeVisit && onOpenVisitorModal && (
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.heart(soundEnabled);
+                onOpenVisitorModal();
+              }}
+              aria-label={`點擊查看訪客 ${VISITOR_BY_ID[visitorState.activeVisit.visitorId].name}`}
+              className="absolute left-[18%] bottom-[26%] z-30 min-w-[66px] min-h-[66px] flex flex-col items-center justify-center rounded-2xl focus-visible:outline-2 focus-visible:outline-[#FF7A9E] hover:scale-105 active:scale-95 transition"
+            >
+              <span className="mb-0.5 rounded-full border border-[#6B5344] bg-[#FFFDF8]/95 px-1.5 py-0.5 text-[9px] font-extrabold text-[#5A3E36] shadow-xs whitespace-nowrap">
+                {VISITOR_BEHAVIOR_META[visitorState.activeVisit.behavior].emoji}{' '}
+                {VISITOR_BY_ID[visitorState.activeVisit.visitorId].speciesLabel}
+              </span>
+              <VisitorSprite
+                visitorId={visitorState.activeVisit.visitorId}
+                behavior={visitorState.activeVisit.behavior}
+                reaction={visitorState.activeVisit.lastFeedReaction}
+                size={60}
+                showAffinityBadge={visitorState.affinities[visitorState.activeVisit.visitorId]?.level}
+              />
+            </button>
+          )}
+
+          {/* Quick Town Orders & Co-op Visitor Chip */}
+          {(onOpenTownOrders || coopVisitor) && (
+            <button
+              type="button"
+              onClick={onOpenTownOrders ?? onOpenVisitorModal}
+              className="absolute right-2 bottom-2 z-40 rounded-full border-[1.5px] border-[#6B5344] bg-[#FFFDF8]/95 px-2.5 py-1 text-[10px] font-extrabold text-[#8A5610] shadow-xs hover:bg-white active:scale-95 transition"
+            >
+              📋 小鎮訂單{coopVisitor && !coopVisitor.completed ? ' · 💞共同訪客' : ''}
+            </button>
+          )}
+
           {yard.rewardToast && (
             <div
               key={yard.rewardToast}

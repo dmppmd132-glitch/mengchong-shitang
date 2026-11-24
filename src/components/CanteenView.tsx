@@ -107,6 +107,10 @@ interface CanteenViewProps {
   cropNotifyEnabled?: boolean;
   onToggleCropNotify?: () => void;
   timeOfDay?: TimeOfDayPeriod;
+  farmSpeedTickets?: number;
+  onUseSpeedTicket?: (plotId: number) => void;
+  onOpenTownOrders?: () => void;
+  pendingOrderCount?: number;
 }
 
 export type CanteenSection = 'shop' | 'farm' | 'kitchen';
@@ -165,6 +169,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   cropNotifyEnabled = false,
   onToggleCropNotify,
   timeOfDay,
+  farmSpeedTickets = 0,
+  onUseSpeedTicket,
+  onOpenTownOrders,
+  pendingOrderCount = 0,
 }) => {
   const [section, setSection] = useState<CanteenSection>(initialSection);
   const [filter, setFilter] = useState<CategoryFilter>('all');
@@ -759,6 +767,22 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       <span>拍照</span>
                     </button>
                   )}
+                  {onOpenTownOrders && (
+                    <button
+                      type="button"
+                      onClick={onOpenTownOrders}
+                      aria-label="開啟小鎮訂單板"
+                      className="min-h-[40px] px-2.5 rounded-2xl bg-[#FFF3D8] border-2 border-[#6B5344] text-[#7A4B08] text-xs font-extrabold shadow-[0_2px_0_#C99D2B] inline-flex items-center gap-1 hover:brightness-105 active:translate-y-0.5 transition"
+                    >
+                      <span>📋</span>
+                      <span>小鎮訂單</span>
+                      {pendingOrderCount > 0 && (
+                        <span className="px-1 rounded-md bg-[#FF7A9E] text-white text-[10px] tabular-nums">
+                          {pendingOrderCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   <div className="rounded-2xl bg-[#FFF9EE]/95 border-2 border-[#6B5344] px-2.5 py-1 text-right shadow-[0_2px_0_#9AB865]">
                     <div className="text-[10px] font-extrabold text-[#4E3629] leading-tight tabular-nums">
                       倉庫 Lv.{house.farmUpgrades.storageLevel + 1} · {storageCap}份
@@ -1179,7 +1203,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                                     : `點擊可採收 +${effectiveYield}`}
                                 </span>
                               ) : (
-                                <div className="w-full max-w-[112px] space-y-1 mt-0.5">
+                                <div className="w-full max-w-[118px] space-y-1 mt-0.5">
                                   <p className="text-[10px] font-extrabold text-[#462E20] tabular-nums">
                                     剩餘 {remainingLabel}
                                   </p>
@@ -1189,6 +1213,18 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                                       style={{ width: `${progressPct}%` }}
                                     />
                                   </div>
+                                  {farmSpeedTickets > 0 && onUseSpeedTicket && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUseSpeedTicket(plot.id);
+                                      }}
+                                      className="w-full min-h-[26px] rounded-xl bg-[#FFF3D8] border border-[#C99D2B] text-[#7A4B08] text-[10px] font-extrabold inline-flex items-center justify-center gap-0.5 active:scale-95 transition"
+                                    >
+                                      <span>⚡ 加速券 (剩{farmSpeedTickets})</span>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>

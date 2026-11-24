@@ -1,3 +1,4 @@
+import type { FarmDecorationId } from './house';
 import type { MinigameHubState } from './minigame';
 
 export type TabKey = 'home' | 'canteen' | 'wardrobe' | 'house' | 'journal' | 'quests';
@@ -38,7 +39,7 @@ export type PhotoFrame =
   | 'golden_memory'
   | 'coop_heart';
 
-export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album';
+export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor';
 
 export type PhotoStickerId = 'heart' | 'kiss' | 'burger' | 'fries' | 'carrot' | 'star';
 
@@ -262,7 +263,11 @@ export type TitleId =
   | 'growth_chubby'
   | 'growth_radiant'
   | 'growth_superstar'
-  | 'recipe_master';
+  | 'recipe_master'
+  | 'bird_whisperer'
+  | 'squirrel_friend'
+  | 'rabbit_guardian'
+  | 'coop_best_host';
 
 export type PersonalityId =
   | 'greedy'
@@ -306,11 +311,15 @@ export interface Toy {
   petAction: PiggyActionState;
 }
 
-export type CoopGameType = 'room_decor' | 'farm_relay';
+export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop';
 
 export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
 
-export type CoopBadgeId = 'best_partner' | 'room_stylist' | 'farm_relay_master';
+export type CoopBadgeId =
+  | 'best_partner'
+  | 'room_stylist'
+  | 'farm_relay_master'
+  | 'town_host';
 
 export interface CoopGoal {
   id: string;
@@ -403,6 +412,206 @@ export interface CoopFarmOrderState {
   rewardId: string | null;
 }
 
+export type VisitorId = 'bird' | 'squirrel' | 'rabbit';
+
+export type VisitorBehavior = 'walking' | 'sitting' | 'smelling' | 'looking_farm';
+
+export type VisitorTreatId =
+  | 'seeds_mix'
+  | 'roasted_nuts'
+  | 'fresh_lettuce'
+  | 'red_chili';
+
+export type VisitorOffering =
+  | { kind: 'ingredient'; id: IngredientId }
+  | { kind: 'food'; id: string }
+  | { kind: 'treat'; id: VisitorTreatId };
+
+export type VisitorDecorId =
+  | 'oak_tree'
+  | 'potted_herbs'
+  | 'bird_feeder'
+  | 'nut_bowl'
+  | 'flower_arch'
+  | 'feather_windchime'
+  | 'acorn_ornament'
+  | 'rabbit_garden_statue';
+
+export interface VisitorDecorItem {
+  id: VisitorDecorId;
+  name: string;
+  emoji: string;
+  price: number;
+  description: string;
+  attractsVisitorId: VisitorId;
+  unlockByAffinity?: { visitorId: VisitorId; level: number };
+}
+
+export interface VisitorTreat {
+  id: VisitorTreatId;
+  name: string;
+  emoji: string;
+  price: number;
+  description: string;
+}
+
+export interface VisitorPreference {
+  favoriteOfferingKeys: string[];
+  neutralOfferingKeys: string[];
+  dislikedOfferingKeys: string[];
+  favoriteTagsLabel: string;
+  dislikedTagsLabel: string;
+  preferredYardDecorIds: VisitorDecorId[];
+  preferredFarmDecorIds: FarmDecorationId[];
+  preferredCropIds: IngredientId[];
+}
+
+export interface VisitorLevelReward {
+  level: 1 | 2 | 3 | 4 | 5;
+  title: string;
+  description: string;
+  decorId?: VisitorDecorId;
+  accessoryId?: string;
+  titleId?: TitleId;
+}
+
+export interface Visitor {
+  id: VisitorId;
+  name: string;
+  speciesLabel: string;
+  emoji: string;
+  accentColor: string;
+  bgGradient: string;
+  description: string;
+  yardTip: string;
+  baseWeight: number;
+  stayDurationMs: number;
+  preference: VisitorPreference;
+  arrivalLines: string[];
+  favoriteFeedLines: string[];
+  neutralFeedLines: string[];
+  dislikedFeedLines: string[];
+  yardLikeLine: string;
+  levelRewards: VisitorLevelReward[];
+}
+
+export interface VisitorVisit {
+  visitId: string;
+  visitorId: VisitorId;
+  arrivedAt: number;
+  departAt: number;
+  behavior: VisitorBehavior;
+  behaviorChangedAt: number;
+  fedCount: number;
+  maxFeedCount: number;
+  lastFeedReaction: 'favorite' | 'neutral' | 'disliked' | null;
+  lastFeedLine: string | null;
+  lastRewardSummary: string | null;
+  photoTaken: boolean;
+  likesYard: boolean;
+  yardMatchReasons: string[];
+}
+
+export interface VisitorAffinity {
+  visitorId: VisitorId;
+  level: number;
+  exp: number;
+  totalVisits: number;
+  totalFed: number;
+  unlockedCostume: boolean;
+  unlockedDecor: boolean;
+  firstHostedAt: number | null;
+}
+
+export interface VisitorSystemState {
+  dateKey: string;
+  dailyVisitCount: number;
+  maxDailyVisits: number;
+  nextSpawnAt: number;
+  activeVisit: VisitorVisit | null;
+  affinities: Record<VisitorId, VisitorAffinity>;
+  ownedYardDecors: VisitorDecorId[];
+  placedYardDecors: VisitorDecorId[];
+  arrivalNoticeUnread: boolean;
+}
+
+export interface CoopVisitorRequirement {
+  key: string;
+  kind: 'ingredient' | 'food' | 'treat';
+  itemId: string;
+  label: string;
+  emoji: string;
+  requiredQty: number;
+  contributedQty: number;
+}
+
+export interface CoopVisitorContribution {
+  id: string;
+  userId: string;
+  userName: string;
+  itemKey: string;
+  itemLabel: string;
+  qty: number;
+  createdAt: number;
+}
+
+export interface CoopVisitorSession {
+  id: string;
+  dateKey: string;
+  visitorId: VisitorId;
+  title: string;
+  description: string;
+  requirements: CoopVisitorRequirement[];
+  contributions: CoopVisitorContribution[];
+  completed: boolean;
+  completedAt: number | null;
+  rewardCoins: number;
+  rewardShards: number;
+  rewardTickets: number;
+  rewardRareIngredients: Partial<Record<IngredientId, number>>;
+  claimedByUserIds: string[];
+  photoTaken: boolean;
+  sharedToBoard: boolean;
+}
+
+export type TownOrderCategory = 'visitor' | 'coop' | 'advanced';
+
+export interface TownOrderItemReq {
+  key: string;
+  kind: 'ingredient' | 'food' | 'treat';
+  itemId: string;
+  label: string;
+  emoji: string;
+  requiredQty: number;
+  deliveredQty: number;
+}
+
+export interface TownOrderReward {
+  coins: number;
+  furnitureShards: number;
+  farmSpeedTickets: number;
+  rareIngredients: Partial<Record<IngredientId, number>>;
+  treats?: Partial<Record<VisitorTreatId, number>>;
+}
+
+export interface TownOrder {
+  id: string;
+  dateKey: string;
+  category: TownOrderCategory;
+  visitorId?: VisitorId;
+  title: string;
+  description: string;
+  emoji: string;
+  requirements: TownOrderItemReq[];
+  reward: TownOrderReward;
+  createdAt: number;
+  expiresAt: number;
+  completed: boolean;
+  completedAt: number | null;
+  overdue: boolean;
+  claimedByUserIds: string[];
+}
+
 export interface CoopHubState {
   activeRoomSession: CoopSession | null;
   dailyFarmOrder: CoopFarmOrderState;
@@ -415,6 +624,9 @@ export interface CoopHubState {
   lastCoopCompletedDate: string | null;
   offlineEvents: CoopOfflineEvent[];
   lastSeenByUserId: Record<string, number>;
+  coopVisitor?: CoopVisitorSession | null;
+  visitorStreakDays?: number;
+  lastVisitorCompletedDate?: string | null;
 }
 
 export type DialogueId = string;
@@ -635,7 +847,8 @@ export type MemoryType =
   | 'cooperation'
   | 'festival'
   | 'dialogue'
-  | 'milestone';
+  | 'milestone'
+  | 'visitor';
 
 export interface MemoryEntry {
   id: string;
@@ -787,6 +1000,10 @@ export interface GameState {
   coop: CoopHubState;
   dialogue: DialogueState;
   memoryAlbum: MemoryAlbumState;
+  farmSpeedTickets?: number;
+  visitorTreats?: Partial<Record<VisitorTreatId, number>>;
+  visitorState?: VisitorSystemState;
+  townOrders?: TownOrder[];
 }
 
 export interface FloatingFeedback {

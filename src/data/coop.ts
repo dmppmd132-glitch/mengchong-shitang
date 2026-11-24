@@ -163,6 +163,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '完成任一次「農場訂單接力」',
     badgeClass: 'bg-[#E6F8F0] border-[#A7DFC6] text-[#1F6B54]',
   },
+  town_host: {
+    id: 'town_host',
+    name: '小鎮招待員',
+    emoji: '🏡',
+    description: '連續 3 天與夥伴共同招待來訪的庭院小動物，小鎮人見人愛！',
+    conditionText: '連續 3 天完成共養共同訪客',
+    badgeClass: 'bg-[#FFF0F6] border-[#F4B4CB] text-[#B83B64]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

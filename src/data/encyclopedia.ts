@@ -146,6 +146,38 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '收集完所有料理食譜圖鑑',
     badgeClass: 'bg-[#FFF0E5] border-[#F0B892] text-[#9A4816]',
   },
+  bird_whisperer: {
+    id: 'bird_whisperer',
+    name: '林間鳥語友',
+    emoji: '🐦',
+    description: '成為小鳥啾啾最信任的朋友，清晨總會聽見牠在窗邊歌唱！',
+    unlockCondition: '小鳥好感度達到 Lv.5',
+    badgeClass: 'bg-[#E6F5FF] border-[#9ECFF0] text-[#225C82]',
+  },
+  squirrel_friend: {
+    id: 'squirrel_friend',
+    name: '橡果收藏家',
+    emoji: '🐿️',
+    description: '松鼠果果把最閃亮的秘密橡果寶藏都與你分享！',
+    unlockCondition: '松鼠好感度達到 Lv.5',
+    badgeClass: 'bg-[#FFF4E0] border-[#E7BC78] text-[#8C4D16]',
+  },
+  rabbit_guardian: {
+    id: 'rabbit_guardian',
+    name: '花田守護兔友',
+    emoji: '🐇',
+    description: '與小兔子雪球一起守護繽紛花圃，庭院每天都飄著花香與甜紅蘿蔔味！',
+    unlockCondition: '小兔子好感度達到 Lv.5',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
+  coop_best_host: {
+    id: 'coop_best_host',
+    name: '最佳招待搭檔',
+    emoji: '🌟',
+    description: '連續 7 天攜手招待庭院共同訪客，小鎮居民公認最暖心的神仙搭檔！',
+    unlockCondition: '連續 7 天完成共養共同訪客',
+    badgeClass: 'bg-[#FFF3C4] border-[#E6A222] text-[#7A540E]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

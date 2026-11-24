@@ -18,6 +18,12 @@ import {
   KITCHEN_RECIPES,
   createInitialFarmPlots,
 } from '../data/kitchen';
+import { FOOD_BY_ID } from '../data/foods';
+import {
+  VISITOR_BY_ID,
+  VISITOR_TREAT_BY_ID,
+  buildCoopVisitorSession,
+} from '../data/visitors';
 import {
   CoopBadgeId,
   CoopFarmOrderState,
@@ -27,6 +33,9 @@ import {
   CoopOfflineEvent,
   CoopReward,
   CoopSession,
+  CoopVisitorContribution,
+  CoopVisitorRequirement,
+  CoopVisitorSession,
   GameState,
   IngredientId,
   KitchenRecipe,
@@ -34,11 +43,13 @@ import {
   PlacedRoomItem,
   RoomPhotoRecord,
   ThemeSetId,
+  TownOrder,
+  VisitorTreatId,
 } from '../types';
 import { syncAllAccessoryProgress } from './accessories';
 import { mergeDialogueRemoteState } from './dialogue';
 import { getEffectiveGrowDurationMs, getEffectiveHarvestYield, syncHouseProgress } from './house';
-import { mergeMemoryAlbumRemoteState } from './memories';
+import { mergeMemoryAlbumRemoteState, recordMemoryEntry } from './memories';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -123,13 +134,17 @@ export function createInitialCoopHubState(dateKey: string = getCoopDateKey()): C
     lastCoopCompletedDate: null,
     offlineEvents: [],
     lastSeenByUserId: {},
+    coopVisitor: null,
+    visitorStreakDays: 0,
+    lastVisitorCompletedDate: null,
   };
 }
 
 export function syncCoopHubState(
   coop: CoopHubState,
   todayKey: string = getCoopDateKey(),
-  now: number = Date.now()
+  now: number = Date.now(),
+  hasSharedRoom = false
 ): CoopHubState {
   let nextFarmOrder = coop.dailyFarmOrder;
   if (coop.dailyFarmOrder.dateKey !== todayKey) {
@@ -162,10 +177,25 @@ export function syncCoopHubState(
     }
   }
 
+  let visitorStreakDays = coop.visitorStreakDays ?? 0;
+  if (coop.lastVisitorCompletedDate) {
+    const vDiff = getDayIndexFromKey(todayKey) - getDayIndexFromKey(coop.lastVisitorCompletedDate);
+    if (vDiff > 1) {
+      visitorStreakDays = 0;
+    }
+  }
+
+  let nextCoopVisitor = coop.coopVisitor ?? null;
+  if ((hasSharedRoom || nextCoopVisitor !== null) && (!nextCoopVisitor || nextCoopVisitor.dateKey !== todayKey)) {
+    nextCoopVisitor = buildCoopVisitorSession(todayKey, getDayIndexFromKey(todayKey));
+  }
+
   if (
     nextFarmOrder === coop.dailyFarmOrder &&
     nextSession === coop.activeRoomSession &&
-    streakDays === coop.streakDays
+    streakDays === coop.streakDays &&
+    visitorStreakDays === (coop.visitorStreakDays ?? 0) &&
+    nextCoopVisitor === (coop.coopVisitor ?? null)
   ) {
     return coop;
   }
@@ -175,6 +205,8 @@ export function syncCoopHubState(
     dailyFarmOrder: nextFarmOrder,
     activeRoomSession: nextSession,
     streakDays,
+    visitorStreakDays,
+    coopVisitor: nextCoopVisitor,
   };
 }
 
@@ -988,6 +1020,270 @@ export function getRecipeForOutputFood(foodId: string): KitchenRecipe | undefine
   return KITCHEN_RECIPES.find((r) => r.outputFoodId === foodId);
 }
 
+// =========================================================================
+// Game 3: 共養共同訪客 (Daily Shared Yard Visitor)
+// =========================================================================
+
+export function contributeCoopVisitorItem(
+  state: GameState,
+  userId: string,
+  userName: string,
+  itemKey: string
+): CoopActionResult {
+  const todayKey = getCoopDateKey();
+  const session =
+    state.coop.coopVisitor && state.coop.coopVisitor.dateKey === todayKey
+      ? state.coop.coopVisitor
+      : buildCoopVisitorSession(todayKey, getDayIndexFromKey(todayKey));
+
+  if (session.completed) {
+    return {
+      nextState: state,
+      ok: false,
+      error: '今天的共同訪客已經招待完成，快去領取共同獎勵吧！',
+    };
+  }
+
+  const req = session.requirements.find((r) => r.key === itemKey);
+  if (!req) {
+    return { nextState: state, ok: false, error: '共同訪客不需要這個項目喔！' };
+  }
+  if (req.contributedQty >= req.requiredQty) {
+    return {
+      nextState: state,
+      ok: false,
+      error: `「${req.label}」已經備齊了，可以請夥伴或自己補齊另一項！`,
+    };
+  }
+
+  let nextIngredients = state.ingredients;
+  let nextFoods = state.foods;
+  let nextTreats = { ...(state.visitorTreats ?? {}) };
+
+  if (req.kind === 'ingredient') {
+    const ingKey = req.itemId as IngredientId;
+    if ((nextIngredients[ingKey] ?? 0) <= 0) {
+      return {
+        nextState: state,
+        ok: false,
+        error: `倉庫裡沒有「${INGREDIENTS[ingKey]?.name ?? req.label}」了，先去種植或採收吧！`,
+      };
+    }
+    nextIngredients = {
+      ...nextIngredients,
+      [ingKey]: (nextIngredients[ingKey] ?? 0) - 1,
+    };
+  } else if (req.kind === 'treat') {
+    const tKey = req.itemId as VisitorTreatId;
+    if ((nextTreats[tKey] ?? 0) <= 0) {
+      return {
+        nextState: state,
+        ok: false,
+        error: `小點心袋沒有「${VISITOR_TREAT_BY_ID[tKey]?.name ?? req.label}」，可在小鎮點心鋪購買！`,
+      };
+    }
+    nextTreats = {
+      ...nextTreats,
+      [tKey]: (nextTreats[tKey] ?? 0) - 1,
+    };
+  } else {
+    if ((nextFoods[req.itemId] ?? 0) <= 0) {
+      return {
+        nextState: state,
+        ok: false,
+        error: `食堂沒有「${FOOD_BY_ID[req.itemId]?.name ?? req.label}」了，去廚房做一份吧！`,
+      };
+    }
+    nextFoods = {
+      ...nextFoods,
+      [req.itemId]: (nextFoods[req.itemId] ?? 0) - 1,
+    };
+  }
+
+  const now = Date.now();
+  const nextReqs: CoopVisitorRequirement[] = session.requirements.map((r) =>
+    r.key === itemKey ? { ...r, contributedQty: r.contributedQty + 1 } : r
+  );
+  const doneTotal = nextReqs.reduce((s, r) => s + r.contributedQty, 0);
+  const reqTotal = nextReqs.reduce((s, r) => s + r.requiredQty, 0);
+  const allCompleted = nextReqs.every((r) => r.contributedQty >= r.requiredQty);
+
+  const contribution: CoopVisitorContribution = {
+    id: `cvc_${now}_${Math.random().toString(36).slice(2, 6)}`,
+    userId,
+    userName: userName.trim() || '飼主',
+    itemKey,
+    itemLabel: req.label,
+    qty: 1,
+    createdAt: now,
+  };
+
+  const visitor = VISITOR_BY_ID[session.visitorId];
+  let nextStreak = state.coop.visitorStreakDays ?? 0;
+  let nextLastDate = state.coop.lastVisitorCompletedDate ?? null;
+  let nextBadges = [...state.coop.unlockedBadges];
+  let nextTitles = [...state.encyclopedia.unlockedTitles];
+  let nextCards = [...state.coop.earnedCards];
+  let extraNotices: string[] = [];
+
+  let nextOfflineEvents = appendOfflineEvent(
+    state.coop.offlineEvents,
+    userId,
+    userName,
+    'visitor_coop',
+    `${userName} 為共同訪客「${visitor.name}」提供了 ${req.label}（進度 ${doneTotal}/${reqTotal}）`
+  );
+
+  if (allCompleted) {
+    if (nextLastDate === todayKey) {
+      nextStreak = Math.max(1, nextStreak);
+    } else if (nextLastDate) {
+      const diff = getDayIndexFromKey(todayKey) - getDayIndexFromKey(nextLastDate);
+      nextStreak = diff === 1 ? nextStreak + 1 : 1;
+    } else {
+      nextStreak = 1;
+    }
+    nextLastDate = todayKey;
+
+    if (nextStreak >= 3 && !nextBadges.includes('town_host')) {
+      nextBadges.push('town_host');
+      extraNotices.push('解鎖共養徽章「小鎮招待員」');
+    }
+    if (nextStreak >= 7 && !nextTitles.includes('coop_best_host')) {
+      nextTitles.push('coop_best_host');
+      extraNotices.push('解鎖稱號「最佳招待搭檔」');
+    }
+
+    const cardTitle = `我們一起招待了${visitor.speciesLabel}！`;
+    const cardBody = `${visitor.name}開心地享用了我們準備的點心，連續共同招待達 ${nextStreak} 天！`;
+    const newCard: CoopMessageCard = {
+      id: `ccard_vis_${todayKey}`,
+      title: cardTitle,
+      body: cardBody,
+      emoji: visitor.emoji,
+      earnedDate: todayKey,
+      createdAt: now,
+    };
+    if (!nextCards.some((c) => c.id === newCard.id)) {
+      nextCards = [newCard, ...nextCards].slice(0, 20);
+    }
+
+    nextOfflineEvents = appendOfflineEvent(
+      nextOfflineEvents,
+      userId,
+      userName,
+      'visitor_coop',
+      `太棒了！我們一起完成招待「${visitor.name}」，雙方可領取相同獎勵！`
+    );
+  }
+
+  const nextSession: CoopVisitorSession = {
+    ...session,
+    requirements: nextReqs,
+    contributions: [contribution, ...session.contributions].slice(0, 20),
+    completed: allCompleted,
+    completedAt: allCompleted ? now : null,
+  };
+
+  let nextState: GameState = {
+    ...state,
+    ingredients: nextIngredients,
+    foods: nextFoods,
+    visitorTreats: nextTreats,
+    encyclopedia: {
+      ...state.encyclopedia,
+      unlockedTitles: nextTitles,
+      activeTitle: state.encyclopedia.activeTitle ?? nextTitles[0] ?? null,
+    },
+    coop: {
+      ...state.coop,
+      coopVisitor: nextSession,
+      visitorStreakDays: nextStreak,
+      lastVisitorCompletedDate: nextLastDate,
+      unlockedBadges: nextBadges,
+      earnedCards: nextCards,
+      offlineEvents: nextOfflineEvents,
+    },
+  };
+
+  if (allCompleted) {
+    nextState = recordMemoryEntry(nextState, {
+      uniqueKey: `coop_visitor_done_${todayKey}`,
+      type: 'visitor',
+      title: `我們一起招待了${visitor.speciesLabel}！`,
+      description: `兩人攜手備齊「${session.title}」全部點心，兩位飼主獲得相同的珍貴謝禮！`,
+      emoji: visitor.emoji,
+      dateKey: todayKey,
+      actorName: userName,
+      isShared: true,
+    });
+  }
+
+  return {
+    nextState: syncAllAccessoryProgress(nextState).nextState,
+    ok: true,
+    notice: allCompleted
+      ? `我們一起招待了${visitor.speciesLabel}！兩人都可領取相同獎勵！${extraNotices.length > 0 ? ' · ' + extraNotices.join(' · ') : ''}`
+      : `已為共同訪客提供 1 份「${req.label}」（${doneTotal} / ${reqTotal} 項）`,
+  };
+}
+
+export function claimCoopVisitorReward(
+  state: GameState,
+  userId: string
+): CoopActionResult {
+  const session = state.coop.coopVisitor;
+  if (!session || !session.completed) {
+    return { nextState: state, ok: false, error: '共同訪客還沒完成招待喔！' };
+  }
+  if (session.claimedByUserIds.includes(userId)) {
+    return { nextState: state, ok: false, error: '你已經領取過今日共同訪客獎勵囉！' };
+  }
+
+  const nextIngredients = { ...state.ingredients };
+  for (const ingId of INGREDIENT_IDS) {
+    const qty = session.rewardRareIngredients[ingId] ?? 0;
+    if (qty > 0) {
+      nextIngredients[ingId] = (nextIngredients[ingId] ?? 0) + qty;
+    }
+  }
+
+  return {
+    nextState: {
+      ...state,
+      coins: state.coins + session.rewardCoins,
+      furnitureShards: state.furnitureShards + session.rewardShards,
+      farmSpeedTickets: (state.farmSpeedTickets ?? 0) + session.rewardTickets,
+      ingredients: nextIngredients,
+      coop: {
+        ...state.coop,
+        coopVisitor: {
+          ...session,
+          claimedByUserIds: [...session.claimedByUserIds, userId],
+        },
+      },
+    },
+    ok: true,
+    notice: `領取共同訪客相同獎勵：+${session.rewardCoins} 金幣、+${session.rewardShards} 家具碎片、+${session.rewardTickets} 加速券！`,
+  };
+}
+
+export function markCoopVisitorPhotoShared(
+  state: GameState
+): GameState {
+  if (!state.coop.coopVisitor) return state;
+  return {
+    ...state,
+    coop: {
+      ...state.coop,
+      coopVisitor: {
+        ...state.coop.coopVisitor,
+        sharedToBoard: true,
+      },
+    },
+  };
+}
+
 /**
  * Conflict-safe remote merge for Supabase Realtime updates:
  * - Prevents duplicate cell occupancy in house.roomLayout.placedItems
@@ -1061,8 +1357,75 @@ export function mergeCoopRemoteState(
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 36);
 
+  // Merge daily Co-op Shared Visitor safely
+  let mergedCoopVisitor = remoteState.coop.coopVisitor ?? localState.coop.coopVisitor ?? null;
+  const localCV = localState.coop.coopVisitor;
+  const remoteCV = remoteState.coop.coopVisitor;
+  if (localCV && remoteCV && localCV.id === remoteCV.id) {
+    const contribMap = new Map<string, CoopVisitorContribution>();
+    for (const c of remoteCV.contributions) contribMap.set(c.id, c);
+    for (const c of localCV.contributions) contribMap.set(c.id, c);
+    const mergedContribs = Array.from(contribMap.values())
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 20);
+    const mergedReqs = remoteCV.requirements.map((rReq) => {
+      const lReq = localCV.requirements.find((x) => x.key === rReq.key);
+      const maxQty = Math.min(
+        rReq.requiredQty,
+        Math.max(rReq.contributedQty, lReq?.contributedQty ?? 0)
+      );
+      return { ...rReq, contributedQty: maxQty };
+    });
+    const completed = mergedReqs.every((r) => r.contributedQty >= r.requiredQty);
+    mergedCoopVisitor = {
+      ...remoteCV,
+      requirements: mergedReqs,
+      contributions: mergedContribs,
+      completed: remoteCV.completed || localCV.completed || completed,
+      completedAt: remoteCV.completedAt ?? localCV.completedAt ?? (completed ? Date.now() : null),
+      claimedByUserIds: Array.from(
+        new Set([...remoteCV.claimedByUserIds, ...localCV.claimedByUserIds])
+      ),
+      photoTaken: remoteCV.photoTaken || localCV.photoTaken,
+      sharedToBoard: remoteCV.sharedToBoard || localCV.sharedToBoard,
+    };
+  }
+
+  // Merge co-op Town Orders progress if matching same id
+  const localOrders = localState.townOrders ?? [];
+  const remoteOrders = remoteState.townOrders ?? [];
+  const mergedTownOrders: TownOrder[] = localOrders.length > 0
+    ? localOrders.map((lo) => {
+        if (lo.category !== 'coop') return lo;
+        const ro = remoteOrders.find((r) => r.id === lo.id);
+        if (!ro) return lo;
+        const reqs = lo.requirements.map((lReq) => {
+          const rReq = ro.requirements.find((x) => x.key === lReq.key);
+          return {
+            ...lReq,
+            deliveredQty: Math.min(
+              lReq.requiredQty,
+              Math.max(lReq.deliveredQty, rReq?.deliveredQty ?? 0)
+            ),
+          };
+        });
+        const done = reqs.every((r) => r.deliveredQty >= r.requiredQty);
+        return {
+          ...lo,
+          requirements: reqs,
+          completed: lo.completed || ro.completed || done,
+          completedAt: lo.completedAt ?? ro.completedAt ?? (done ? Date.now() : null),
+        };
+      })
+    : remoteOrders;
+
   return {
     ...remoteState,
+    // Keep personal visitor progress/inventory local when receiving partner sync
+    visitorState: localState.visitorState ?? remoteState.visitorState,
+    visitorTreats: localState.visitorTreats ?? remoteState.visitorTreats,
+    farmSpeedTickets: localState.farmSpeedTickets ?? remoteState.farmSpeedTickets,
+    townOrders: mergedTownOrders,
     house: {
       ...remoteState.house,
       roomLayout: {
@@ -1073,6 +1436,15 @@ export function mergeCoopRemoteState(
     },
     coop: {
       ...remoteState.coop,
+      coopVisitor: mergedCoopVisitor,
+      visitorStreakDays: Math.max(
+        remoteState.coop.visitorStreakDays ?? 0,
+        localState.coop.visitorStreakDays ?? 0
+      ),
+      lastVisitorCompletedDate:
+        remoteState.coop.lastVisitorCompletedDate ??
+        localState.coop.lastVisitorCompletedDate ??
+        null,
       pendingRewards: Array.from(rewardMap.values()).sort(
         (a, b) => b.createdAt - a.createdAt
       ),

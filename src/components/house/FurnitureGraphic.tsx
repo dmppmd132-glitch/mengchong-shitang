@@ -410,6 +410,40 @@ export const FurnitureGraphic: React.FC<FurnitureGraphicProps> = ({
           </g>
         );
 
+      case 'visitor_birdhouse_clock':
+        return (
+          <g>
+            <path d="M 16 26 L 32 12 L 48 26 V 48 H 16 Z" fill="#FFF2D6" stroke={COCOA} strokeWidth="2.2" strokeLinejoin="round" />
+            <path d="M 13 27 L 32 10 L 51 27" stroke="#6ABCE2" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="32" cy="34" r="9" fill="#FFFFFF" stroke={COCOA} strokeWidth="2" />
+            <path d="M 32 34 V 29 M 32 34 L 36 36" stroke={COCOA} strokeWidth="2" strokeLinecap="round" />
+            <circle cx="32" cy="21" r="3.5" fill="#8CE0FF" stroke={COCOA} strokeWidth="1.8" />
+          </g>
+        );
+
+      case 'visitor_acorn_lamp':
+        return (
+          <g>
+            <path d="M 24 52 H 40" stroke={COCOA} strokeWidth="3" strokeLinecap="round" />
+            <line x1="32" y1="42" x2="32" y2="52" stroke={COCOA} strokeWidth="2.8" />
+            <path d="M 20 28 C 20 40 26 44 32 44 C 38 44 44 40 44 28 Z" fill="#FFE699" stroke={COCOA} strokeWidth="2.2" />
+            <path d="M 17 28 Q 32 14 47 28 Z" fill="#A65E2E" stroke={COCOA} strokeWidth="2.2" strokeLinejoin="round" />
+            <circle cx="32" cy="14" r="2.2" fill={COCOA} />
+          </g>
+        );
+
+      case 'visitor_carrot_sofa':
+        return (
+          <g>
+            <ellipse cx="22" cy="20" rx="4" ry="8" fill="#FFFDF9" stroke={COCOA} strokeWidth="2" />
+            <ellipse cx="42" cy="20" rx="4" ry="8" fill="#FFFDF9" stroke={COCOA} strokeWidth="2" />
+            <rect x="12" y="25" width="40" height="22" rx="10" fill="#FFB38A" stroke={COCOA} strokeWidth="2.2" />
+            <rect x="16" y="34" width="32" height="14" rx="7" fill="#FFE0CC" stroke={COCOA} strokeWidth="2" />
+            <circle cx="24" cy="39" r="2" fill="#FF7A45" />
+            <circle cx="40" cy="39" r="2" fill="#FF7A45" />
+          </g>
+        );
+
       default: {
         const item = ROOM_ITEM_BY_ID[itemId];
         return (

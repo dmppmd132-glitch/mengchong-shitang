@@ -580,6 +580,33 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="0" cy="1" r="4" fill="#FFD54F" stroke="#5A3E36" strokeWidth="2.2" />
         </g>
       )}
+      {accessoryId === 'visitor_feather_clip' && (
+        <g transform="translate(32, 34)">
+          <path d="M -16 6 L 16 6" stroke="#E5A93B" strokeWidth="4.2" strokeLinecap="round" />
+          <path d="M -4 4 C -10 -16 8 -22 14 -6 C 10 2 2 5 -4 4 Z" fill="#8CE0FF" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M 4 4 C 4 -12 20 -14 22 -2 C 17 5 9 6 4 4 Z" fill="#FFE082" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+          <circle cx="-4" cy="5" r="4" fill="#FFD54F" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'visitor_acorn_charm' && (
+        <g transform="translate(32, 32)">
+          <path d="M -20 -10 Q 0 2 20 -10" fill="none" stroke="#68B984" strokeWidth="4.6" strokeLinecap="round" />
+          <line x1="0" y1="-8" x2="0" y2="-3" stroke="#5A3E36" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M -11 3 C -11 16 -5 22 0 22 C 5 22 11 16 11 3 Z" fill="#D98A4E" stroke="#5A3E36" strokeWidth="2.6" />
+          <path d="M -14 3 Q 0 -9 14 3 Z" fill="#8C4E27" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+        </g>
+      )}
+      {accessoryId === 'visitor_rabbit_wreath' && (
+        <g transform="translate(32, 36)">
+          <path d="M -22 6 Q 0 -3 22 6" fill="none" stroke="#7EDBC0" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="-11" cy="-12" rx="4" ry="9" transform="rotate(-10 -11 -12)" fill="#FFFDF9" stroke="#5A3E36" strokeWidth="2.4" />
+          <ellipse cx="11" cy="-12" rx="4" ry="9" transform="rotate(10 11 -12)" fill="#FFFDF9" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="-10" cy="1" r="5" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="0" cy="-2" r="5.5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="10" cy="1" r="5" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="0" cy="-2" r="2.4" fill="#FFE066" />
+        </g>
+      )}
     </svg>
   );
 };

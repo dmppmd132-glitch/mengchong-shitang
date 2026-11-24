@@ -8,6 +8,7 @@ import type {
   PhotoScene,
   PhotoStickerId,
   PiggyActionState,
+  VisitorId,
 } from './index';
 
 export type RoomZone = 'sleep' | 'play' | 'dining' | 'decor';
@@ -66,6 +67,7 @@ export interface RoomItem {
   petReactionText: string;
   petAction: PiggyActionState;
   craftIngredients?: Record<string, number>;
+  shardCost?: number;
 }
 
 export interface PlacedRoomItem {
@@ -172,7 +174,9 @@ export interface RoomPhotoRecord {
   flooringId: FlooringId;
   placedItems: PlacedRoomItem[];
   noteHighlight?: string;
-  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album';
+  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album' | 'visitor';
+  visitorId?: VisitorId;
+  isCoopPhoto?: boolean;
   scene?: PhotoScene;
   wardrobePoseId?: PhotoPose;
   facing?: PetViewDirection;

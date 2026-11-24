@@ -312,6 +312,13 @@ export const PHOTO_SCENES: PhotoSceneOption[] = [
     defaultTitleSuffix: '幸福時刻',
     badgeClass: 'bg-[#EEF4FF] border-[#B6D1FA] text-[#2F5B9E]',
   },
+  {
+    id: 'visitor',
+    label: '庭院訪客',
+    emoji: '🐾',
+    defaultTitleSuffix: '訪客紀念照',
+    badgeClass: 'bg-[#E6F8F0] border-[#9ADBC2] text-[#1F6B54]',
+  },
 ];
 
 export const PHOTO_POSE_BY_ID: Record<PhotoPose, PhotoPoseOption> = PHOTO_POSES.reduce(

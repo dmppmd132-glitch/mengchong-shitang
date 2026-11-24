@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Award, Bell, Flame, Gift, Home, Sprout, X } from 'lucide-react';
 import { COOP_BADGES } from '../../data/coop';
 import { INGREDIENTS } from '../../data/kitchen';
+import { VISITOR_BY_ID } from '../../data/visitors';
 import {
   CoopGameType,
   GameState,
@@ -9,8 +10,11 @@ import {
   KitchenRecipe,
   SharedPetRoom,
   ThemeSetId,
+  VisitorId,
 } from '../../types';
 import { getOfflinePartnerEvents } from '../../utils/coop';
+import { getPlayerStockForRequirement } from '../../utils/townOrders';
+import { VisitorSprite } from '../visitors/VisitorIllustrations';
 import { CoopFarmRelayGame } from './CoopFarmRelayGame';
 import { CoopRoomDecorGame } from './CoopRoomDecorGame';
 
@@ -43,6 +47,9 @@ interface CoopHubModalProps {
   onClaimReward: (rewardId: string) => { ok: boolean; error?: string; notice?: string };
   onAcknowledgeOfflineEvents: () => void;
   onShareCardToBoard?: (title: string, body: string) => Promise<string | null>;
+  onContributeCoopVisitor?: (itemKey: string) => { ok: boolean; error?: string; notice?: string };
+  onClaimCoopVisitorReward?: () => { ok: boolean; error?: string; notice?: string };
+  onCaptureCoopVisitorPhoto?: (visitorId: VisitorId, shareToBoard: boolean) => void;
 }
 
 export const CoopHubModal: React.FC<CoopHubModalProps> = ({
@@ -63,6 +70,9 @@ export const CoopHubModal: React.FC<CoopHubModalProps> = ({
   onClaimReward,
   onAcknowledgeOfflineEvents,
   onShareCardToBoard,
+  onContributeCoopVisitor,
+  onClaimCoopVisitorReward,
+  onCaptureCoopVisitorPhoto,
 }) => {
   const [gameTab, setGameTab] = useState<CoopGameType>('room_decor');
   const [rewardToast, setRewardToast] = useState<string>('');
@@ -259,31 +269,43 @@ export const CoopHubModal: React.FC<CoopHubModalProps> = ({
             </section>
           )}
 
-          {/* Two Co-op Games Switcher */}
-          <nav className="grid grid-cols-2 gap-1.5 bg-[#F2E5DE] p-1.5 rounded-2xl">
+          {/* Three Co-op Games Switcher */}
+          <nav className="grid grid-cols-3 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
             <button
               type="button"
               onClick={() => setGameTab('room_decor')}
-              className={`min-h-[44px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+              className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
                 gameTab === 'room_decor'
                   ? 'bg-white text-[#D64470] shadow-xs'
                   : 'text-[#6E544E]'
               }`}
             >
-              <Home className="w-4 h-4" />
-              <span>一起布置房間</span>
+              <Home className="w-3.5 h-3.5" />
+              <span>佈置房間</span>
             </button>
             <button
               type="button"
               onClick={() => setGameTab('farm_relay')}
-              className={`min-h-[44px] rounded-xl text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+              className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
                 gameTab === 'farm_relay'
                   ? 'bg-white text-[#1F6B54] shadow-xs'
                   : 'text-[#6E544E]'
               }`}
             >
-              <Sprout className="w-4 h-4" />
-              <span>農場訂單接力</span>
+              <Sprout className="w-3.5 h-3.5" />
+              <span>農場接力</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setGameTab('visitor_coop')}
+              className={`min-h-[44px] rounded-xl text-[11px] font-extrabold inline-flex items-center justify-center gap-1 transition ${
+                gameTab === 'visitor_coop'
+                  ? 'bg-white text-[#B83B64] shadow-xs'
+                  : 'text-[#6E544E]'
+              }`}
+            >
+              <span>🐾</span>
+              <span>共同訪客</span>
             </button>
           </nav>
 
@@ -297,7 +319,7 @@ export const CoopHubModal: React.FC<CoopHubModalProps> = ({
               onPlaceCandidate={onPlaceCandidate}
               onSettleSession={onSettleRoomSession}
             />
-          ) : (
+          ) : gameTab === 'farm_relay' ? (
             <CoopFarmRelayGame
               game={game}
               onPlantCrop={onPlantCoopCrop}
@@ -306,6 +328,160 @@ export const CoopHubModal: React.FC<CoopHubModalProps> = ({
               onCookRecipe={onCookCoopRecipe}
               onShareCardToBoard={onShareCardToBoard}
             />
+          ) : (
+            <section className="rounded-3xl bg-gradient-to-br from-[#FFF0F6] to-[#FFFDF9] border-2 border-[#F4B4CB] p-3.5 space-y-3">
+              {!game.coop.coopVisitor ? (
+                <div className="text-center py-4 space-y-1.5">
+                  <p className="text-sm font-extrabold text-[#4A3531]">🐾 共養共同訪客</p>
+                  <p className="text-xs font-bold text-[#7D635D]">
+                    建立或加入共養小屋後，每日會自動迎來 1 位共同訪客，完成招待即可領取相同獎勵！
+                  </p>
+                </div>
+              ) : (() => {
+                const cv = game.coop.coopVisitor;
+                const vDef = VISITOR_BY_ID[cv.visitorId];
+                const done = cv.requirements.reduce((s, r) => s + r.contributedQty, 0);
+                const total = cv.requirements.reduce((s, r) => s + r.requiredQty, 0);
+                const vStreak = game.coop.visitorStreakDays ?? 0;
+                const townHostUnlocked = game.coop.unlockedBadges.includes('town_host');
+                const bestHostUnlocked = game.encyclopedia.unlockedTitles.includes('coop_best_host');
+
+                return (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-2xl bg-white border border-[#F4D0DE] p-1.5 shrink-0">
+                        <VisitorSprite
+                          visitorId={cv.visitorId}
+                          behavior="sitting"
+                          reaction={cv.completed ? 'favorite' : null}
+                          size={62}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-extrabold text-[#4A3531]">
+                            {vDef.emoji} {cv.title}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-lg bg-[#FFF3D8] border border-[#F2CE6D] text-[10px] font-extrabold text-[#8A5610] shrink-0">
+                            連續 {vStreak} 天
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-medium text-[#6E544E] mt-0.5">
+                          {cv.description}
+                        </p>
+                        <p className="text-[11px] font-extrabold text-[#B83B64] mt-1 tabular-nums">
+                          已提供 {done} / {total} 項食材（雙方相同獎勵）
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 text-[10px] font-extrabold">
+                      <div
+                        className={`rounded-xl border px-2 py-1.5 ${
+                          townHostUnlocked
+                            ? 'bg-[#E6F8F1] border-[#9ADBC2] text-[#1F6B54]'
+                            : 'bg-white/80 border-[#EAD9D0] text-[#7D635D]'
+                        }`}
+                      >
+                        {townHostUnlocked ? '🏡 已解鎖' : `🔒 ${Math.min(3, vStreak)}/3 天`} · 小鎮招待員徽章
+                      </div>
+                      <div
+                        className={`rounded-xl border px-2 py-1.5 ${
+                          bestHostUnlocked
+                            ? 'bg-[#FFF3D8] border-[#F2CE6D] text-[#8A5610]'
+                            : 'bg-white/80 border-[#EAD9D0] text-[#7D635D]'
+                        }`}
+                      >
+                        {bestHostUnlocked ? '🌟 已解鎖' : `🔒 ${Math.min(7, vStreak)}/7 天`} · 最佳招待搭檔稱號
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {cv.requirements.map((req) => {
+                        const stock = getPlayerStockForRequirement(game, req);
+                        const fulfilled = req.contributedQty >= req.requiredQty;
+                        return (
+                          <div
+                            key={req.key}
+                            className="rounded-2xl bg-white border border-[#F0D7E2] px-3 py-2 flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-xs font-extrabold text-[#4A3531]">
+                                {req.emoji} {req.label} ({req.contributedQty}/{req.requiredQty})
+                              </div>
+                              <div className="text-[10px] font-bold text-[#8E756E] tabular-nums">
+                                持有：{stock} · 夥伴離線時也能先提供自己的份！
+                              </div>
+                            </div>
+                            {fulfilled ? (
+                              <span className="px-2.5 py-1 rounded-xl bg-[#E6F8F1] text-[#1F6B54] text-[10px] font-extrabold shrink-0">
+                                ✓ 已齊全
+                              </span>
+                            ) : (
+                              onContributeCoopVisitor && (
+                                <button
+                                  type="button"
+                                  disabled={stock <= 0}
+                                  onClick={() => {
+                                    const res = onContributeCoopVisitor(req.key);
+                                    if (res.notice) setRewardToast(res.notice);
+                                    else if (res.error) setRewardToast(res.error);
+                                  }}
+                                  className="min-h-[38px] px-3 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold disabled:opacity-40 active:scale-95 shrink-0"
+                                >
+                                  提供 1 份
+                                </button>
+                              )
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {cv.contributions.length > 0 && (
+                      <div className="rounded-2xl bg-white/80 border border-[#F0D7E2] p-2.5 space-y-1">
+                        {cv.contributions.slice(0, 3).map((c) => (
+                          <p key={c.id} className="text-[11px] font-bold text-[#4A3531]">
+                            • <span className="text-[#B83B64]">{c.userName}</span> 提供了 {c.itemLabel} ×{c.qty}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <span className="text-[10px] font-extrabold text-[#6E544E]">
+                        相同獎勵：🪙{cv.rewardCoins} · 🧩{cv.rewardShards} · ⚡{cv.rewardTickets}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {cv.completed && onCaptureCoopVisitorPhoto && (
+                          <button
+                            type="button"
+                            onClick={() => onCaptureCoopVisitorPhoto(cv.visitorId, true)}
+                            className="min-h-[38px] px-3 rounded-xl bg-[#FFF3D8] border border-[#F2CE6D] text-[#8A5610] text-[11px] font-extrabold active:scale-95"
+                          >
+                            📸 合照＆分享留言板
+                          </button>
+                        )}
+                        {cv.completed &&
+                          !cv.claimedByUserIds.includes(currentUserId) &&
+                          onClaimCoopVisitorReward && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const res = onClaimCoopVisitorReward();
+                                if (res.notice) setRewardToast(res.notice);
+                              }}
+                              className="min-h-[38px] px-3 rounded-xl bg-[#5CC9A7] text-white text-[11px] font-extrabold active:scale-95"
+                            >
+                              領取獎勵
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
           )}
         </div>
       </div>

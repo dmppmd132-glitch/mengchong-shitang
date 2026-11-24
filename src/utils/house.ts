@@ -331,6 +331,13 @@ export function buyFurnitureItem(
 ): HouseActionOutcome {
   const item = ROOM_ITEM_BY_ID[itemId];
   if (!item) return { nextState: state, ok: false, error: '找不到此家具' };
+  if (item.shardCost && item.shardCost > 0) {
+    return {
+      nextState: state,
+      ok: false,
+      error: `「${item.name}」為限定碎片家具，請使用 ${item.shardCost} 個家具碎片合成！`,
+    };
+  }
 
   const paid = spendFromSource(state, item.price, paySource);
   if (!paid.ok) return { nextState: state, ok: false, error: paid.error };

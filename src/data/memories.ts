@@ -86,6 +86,12 @@ export const MEMORY_TYPE_META: Record<MemoryType, MemoryTypeMeta> = {
     emoji: '🏆',
     badgeClass: 'bg-[#FFF3C4] border-[#E6A222] text-[#7A540E]',
   },
+  visitor: {
+    id: 'visitor',
+    label: '訪客回憶',
+    emoji: '🐾',
+    badgeClass: 'bg-[#E8F8F0] border-[#9ADBC2] text-[#1F6B54]',
+  },
 };
 
 export const MEMORY_TYPE_ORDER: MemoryType[] = [
@@ -98,6 +104,7 @@ export const MEMORY_TYPE_ORDER: MemoryType[] = [
   'growth',
   'coop',
   'cooperation',
+  'visitor',
   'festival',
   'dialogue',
   'milestone',

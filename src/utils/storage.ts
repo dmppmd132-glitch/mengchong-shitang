@@ -37,6 +37,11 @@ import {
   PHOTO_STICKER_BY_ID,
 } from '../data/photoStudio';
 import {
+  VISITOR_BY_ID,
+  VISITOR_DECOR_BY_ID,
+  VISITOR_TREAT_BY_ID,
+} from '../data/visitors';
+import {
   AccessorySlot,
   AccessoryTheme,
   CoopBadgeId,
@@ -48,6 +53,9 @@ import {
   CoopReward,
   CoopRoomCandidate,
   CoopSession,
+  CoopVisitorContribution,
+  CoopVisitorRequirement,
+  CoopVisitorSession,
   CropPlot,
   DailyTask,
   DialogueCategory,
@@ -95,7 +103,17 @@ import {
   ThemeSetId,
   TimePeriodId,
   TitleId,
+  TownOrder,
+  TownOrderCategory,
+  TownOrderItemReq,
   TreasuryContribution,
+  VisitorAffinity,
+  VisitorBehavior,
+  VisitorDecorId,
+  VisitorId,
+  VisitorSystemState,
+  VisitorTreatId,
+  VisitorVisit,
   WallpaperId,
   WeatherCondition,
   WeatherState,
@@ -143,6 +161,12 @@ import {
   saveNoviceGrowthMirror,
 } from './noviceGrowth';
 import { createInitialPetPersonality } from './personality';
+import { createInitialTownOrders } from './townOrders';
+import {
+  createDefaultAffinities,
+  createInitialVisitorState,
+  getAffinityLevelFromExp,
+} from './visitors';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -228,6 +252,10 @@ export function createInitialGameState(): GameState {
     coop: createInitialCoopHubState(today),
     dialogue: createInitialDialogueState(today),
     memoryAlbum: createInitialMemoryAlbumState('布丁'),
+    farmSpeedTickets: 1,
+    visitorTreats: { seeds_mix: 2, fresh_lettuce: 1 },
+    visitorState: createInitialVisitorState(),
+    townOrders: createInitialTownOrders(today),
   };
 }
 
@@ -552,7 +580,11 @@ function asTitleId(value: unknown): TitleId | null {
     value === 'growth_chubby' ||
     value === 'growth_radiant' ||
     value === 'growth_superstar' ||
-    value === 'recipe_master'
+    value === 'recipe_master' ||
+    value === 'bird_whisperer' ||
+    value === 'squirrel_friend' ||
+    value === 'rabbit_guardian' ||
+    value === 'coop_best_host'
   ) {
     return value;
   }
@@ -1038,9 +1070,11 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             kindRaw === 'wardrobe' ||
             kindRaw === 'room' ||
             kindRaw === 'farm' ||
-            kindRaw === 'album'
+            kindRaw === 'album' ||
+            kindRaw === 'visitor'
               ? kindRaw
               : undefined;
+          const visitorId = asVisitorId(p.visitorId) ?? undefined;
           return {
             id: asString(p.id, `photo_${Date.now()}`),
             title: asString(p.title, '小屋合照'),
@@ -1063,6 +1097,8 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             placedItems: parsePlacedItems(p.placedItems),
             noteHighlight: typeof p.noteHighlight === 'string' ? p.noteHighlight : undefined,
             photoKind,
+            visitorId,
+            isCoopPhoto: typeof p.isCoopPhoto === 'boolean' ? p.isCoopPhoto : undefined,
             scene: asPhotoScene(p.scene),
             wardrobePoseId: asWardrobePose(p.wardrobePoseId),
             facing: asPetViewDirection(p.facing),
@@ -1172,7 +1208,115 @@ function asCoopBadgeId(value: unknown): CoopBadgeId | null {
 }
 
 function asCoopGameType(value: unknown): CoopGameType {
-  return value === 'farm_relay' ? 'farm_relay' : 'room_decor';
+  if (value === 'farm_relay' || value === 'visitor_coop') {
+    return value;
+  }
+  return 'room_decor';
+}
+
+function asVisitorId(value: unknown): VisitorId | null {
+  if (value === 'bird' || value === 'squirrel' || value === 'rabbit') {
+    return value;
+  }
+  return null;
+}
+
+function asVisitorBehavior(value: unknown): VisitorBehavior {
+  if (
+    value === 'walking' ||
+    value === 'sitting' ||
+    value === 'smelling' ||
+    value === 'looking_farm'
+  ) {
+    return value;
+  }
+  return 'walking';
+}
+
+function asVisitorDecorId(value: unknown): VisitorDecorId | null {
+  if (typeof value === 'string' && value in VISITOR_DECOR_BY_ID) {
+    return value as VisitorDecorId;
+  }
+  return null;
+}
+
+function parseCoopVisitorSession(raw: unknown): CoopVisitorSession | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  const visitorId = asVisitorId(raw.visitorId);
+  if (!id || !visitorId) return null;
+
+  const requirements: CoopVisitorRequirement[] = Array.isArray(raw.requirements)
+    ? raw.requirements
+        .filter((r): r is Record<string, unknown> => isRecord(r))
+        .map((r) => {
+          const kind =
+            r.kind === 'ingredient' || r.kind === 'food' || r.kind === 'treat'
+              ? r.kind
+              : 'ingredient';
+          const requiredQty = Math.max(1, Math.floor(asNumber(r.requiredQty, 1)));
+          const contributedQty = Math.min(
+            requiredQty,
+            Math.max(0, Math.floor(asNumber(r.contributedQty, 0)))
+          );
+          const itemId = asString(r.itemId, 'carrot');
+          return {
+            key: asString(r.key, `${kind}:${itemId}`),
+            kind,
+            itemId,
+            label: asString(r.label, '點心'),
+            emoji: asString(r.emoji, '🥕'),
+            requiredQty,
+            contributedQty,
+          };
+        })
+    : [];
+
+  const contributions: CoopVisitorContribution[] = Array.isArray(raw.contributions)
+    ? raw.contributions
+        .filter((c): c is Record<string, unknown> => isRecord(c))
+        .map((c) => ({
+          id: asString(c.id, `cvc_${Date.now()}`),
+          userId: asString(c.userId, 'local'),
+          userName: asString(c.userName, '夥伴'),
+          itemKey: asString(c.itemKey, ''),
+          itemLabel: asString(c.itemLabel, '點心'),
+          qty: Math.max(1, Math.floor(asNumber(c.qty, 1))),
+          createdAt: asNumber(c.createdAt, Date.now()),
+        }))
+        .slice(0, 20)
+    : [];
+
+  const rewardRareIngredients: Partial<Record<IngredientId, number>> = {};
+  if (isRecord(raw.rewardRareIngredients)) {
+    for (const ingId of INGREDIENT_IDS) {
+      const val = raw.rewardRareIngredients[ingId];
+      if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+        rewardRareIngredients[ingId] = Math.floor(val);
+      }
+    }
+  }
+
+  return {
+    id,
+    dateKey: asString(raw.dateKey, formatLocalDate()),
+    visitorId,
+    title: asString(raw.title, `${VISITOR_BY_ID[visitorId].name}的共養茶會`),
+    description: asString(raw.description, ''),
+    requirements,
+    contributions,
+    completed: typeof raw.completed === 'boolean' ? raw.completed : false,
+    completedAt: typeof raw.completedAt === 'number' ? raw.completedAt : null,
+    rewardCoins: Math.max(0, Math.floor(asNumber(raw.rewardCoins, 45))),
+    rewardShards: Math.max(0, Math.floor(asNumber(raw.rewardShards, 3))),
+    rewardTickets: Math.max(0, Math.floor(asNumber(raw.rewardTickets, 1))),
+    rewardRareIngredients,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? raw.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+      : [],
+    photoTaken: typeof raw.photoTaken === 'boolean' ? raw.photoTaken : false,
+    sharedToBoard: typeof raw.sharedToBoard === 'boolean' ? raw.sharedToBoard : false,
+  };
 }
 
 function parseCoopSession(raw: unknown): CoopSession | null {
@@ -1396,9 +1540,215 @@ function parseCoopHubState(raw: unknown): CoopHubState {
         typeof raw.lastCoopCompletedDate === 'string' ? raw.lastCoopCompletedDate : null,
       offlineEvents,
       lastSeenByUserId,
+      coopVisitor: parseCoopVisitorSession(raw.coopVisitor),
+      visitorStreakDays: Math.max(0, Math.floor(asNumber(raw.visitorStreakDays, 0))),
+      lastVisitorCompletedDate:
+        typeof raw.lastVisitorCompletedDate === 'string'
+          ? raw.lastVisitorCompletedDate
+          : null,
     },
     todayStr
   );
+}
+
+function parseVisitorTreats(raw: unknown): Partial<Record<VisitorTreatId, number>> {
+  const result: Partial<Record<VisitorTreatId, number>> = {};
+  if (!isRecord(raw)) {
+    return { seeds_mix: 2, fresh_lettuce: 1 };
+  }
+  for (const key of Object.keys(VISITOR_TREAT_BY_ID) as VisitorTreatId[]) {
+    const val = raw[key];
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+      result[key] = Math.floor(val);
+    }
+  }
+  return result;
+}
+
+function parseVisitorSystemState(raw: unknown): VisitorSystemState {
+  const defaults = createInitialVisitorState();
+  if (!isRecord(raw)) return defaults;
+
+  const defaultAffs = createDefaultAffinities();
+  const affinities: Record<VisitorId, VisitorAffinity> = { ...defaultAffs };
+  if (isRecord(raw.affinities)) {
+    (['bird', 'squirrel', 'rabbit'] as VisitorId[]).forEach((vId) => {
+      const item = raw.affinities && isRecord(raw.affinities) ? raw.affinities[vId] : null;
+      if (isRecord(item)) {
+        const exp = Math.max(0, Math.floor(asNumber(item.exp, 0)));
+        const level = getAffinityLevelFromExp(exp);
+        affinities[vId] = {
+          visitorId: vId,
+          level,
+          exp,
+          totalVisits: Math.max(0, Math.floor(asNumber(item.totalVisits, 0))),
+          totalFed: Math.max(0, Math.floor(asNumber(item.totalFed, 0))),
+          unlockedCostume: level >= 5 || item.unlockedCostume === true,
+          unlockedDecor: level >= 2 || item.unlockedDecor === true,
+          firstHostedAt:
+            typeof item.firstHostedAt === 'number' && Number.isFinite(item.firstHostedAt)
+              ? item.firstHostedAt
+              : null,
+        };
+      }
+    });
+  }
+
+  let activeVisit: VisitorVisit | null = null;
+  if (isRecord(raw.activeVisit)) {
+    const vId = asVisitorId(raw.activeVisit.visitorId);
+    if (vId) {
+      const arrivedAt = asNumber(raw.activeVisit.arrivedAt, Date.now());
+      const departAt = asNumber(raw.activeVisit.departAt, arrivedAt + 3600000);
+      const reactionRaw = raw.activeVisit.lastFeedReaction;
+      activeVisit = {
+        visitId: asString(raw.activeVisit.visitId, `vis_${arrivedAt}`),
+        visitorId: vId,
+        arrivedAt,
+        departAt,
+        behavior: asVisitorBehavior(raw.activeVisit.behavior),
+        behaviorChangedAt: asNumber(raw.activeVisit.behaviorChangedAt, arrivedAt),
+        fedCount: Math.max(0, Math.floor(asNumber(raw.activeVisit.fedCount, 0))),
+        maxFeedCount: Math.max(1, Math.floor(asNumber(raw.activeVisit.maxFeedCount, 2))),
+        lastFeedReaction:
+          reactionRaw === 'favorite' || reactionRaw === 'neutral' || reactionRaw === 'disliked'
+            ? reactionRaw
+            : null,
+        lastFeedLine: asNullableString(raw.activeVisit.lastFeedLine),
+        lastRewardSummary: asNullableString(raw.activeVisit.lastRewardSummary),
+        photoTaken: raw.activeVisit.photoTaken === true,
+        likesYard: raw.activeVisit.likesYard === true,
+        yardMatchReasons: Array.isArray(raw.activeVisit.yardMatchReasons)
+          ? raw.activeVisit.yardMatchReasons.filter((s): s is string => typeof s === 'string')
+          : [],
+      };
+    }
+  }
+
+  const ownedYardDecors = Array.isArray(raw.ownedYardDecors)
+    ? Array.from(
+        new Set([
+          'oak_tree' as VisitorDecorId,
+          ...raw.ownedYardDecors
+            .map(asVisitorDecorId)
+            .filter((d): d is VisitorDecorId => d !== null),
+        ])
+      )
+    : defaults.ownedYardDecors;
+
+  const placedYardDecors = Array.isArray(raw.placedYardDecors)
+    ? Array.from(
+        new Set(
+          raw.placedYardDecors
+            .map(asVisitorDecorId)
+            .filter((d): d is VisitorDecorId => d !== null && ownedYardDecors.includes(d))
+        )
+      )
+    : defaults.placedYardDecors;
+
+  return {
+    dateKey: asString(raw.dateKey, defaults.dateKey),
+    dailyVisitCount: Math.max(0, Math.floor(asNumber(raw.dailyVisitCount, 0))),
+    maxDailyVisits: 3,
+    nextSpawnAt: asNumber(raw.nextSpawnAt, defaults.nextSpawnAt),
+    activeVisit,
+    affinities,
+    ownedYardDecors,
+    placedYardDecors,
+    arrivalNoticeUnread: raw.arrivalNoticeUnread === true,
+  };
+}
+
+function parseTownOrders(raw: unknown): TownOrder[] {
+  const todayStr = formatLocalDate();
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return createInitialTownOrders(todayStr);
+  }
+  const orders: TownOrder[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    const id = asString(item.id, '');
+    if (!id) continue;
+    const catRaw = item.category;
+    const category: TownOrderCategory =
+      catRaw === 'visitor' || catRaw === 'coop' || catRaw === 'advanced'
+        ? catRaw
+        : 'visitor';
+    const requirements: TownOrderItemReq[] = Array.isArray(item.requirements)
+      ? item.requirements
+          .filter((r): r is Record<string, unknown> => isRecord(r))
+          .map((r) => {
+            const kind =
+              r.kind === 'ingredient' || r.kind === 'food' || r.kind === 'treat'
+                ? r.kind
+                : 'ingredient';
+            const requiredQty = Math.max(1, Math.floor(asNumber(r.requiredQty, 1)));
+            const deliveredQty = Math.min(
+              requiredQty,
+              Math.max(0, Math.floor(asNumber(r.deliveredQty, 0)))
+            );
+            const itemId = asString(r.itemId, 'carrot');
+            return {
+              key: asString(r.key, `${kind}:${itemId}`),
+              kind,
+              itemId,
+              label: asString(r.label, '食材'),
+              emoji: asString(r.emoji, '🥕'),
+              requiredQty,
+              deliveredQty,
+            };
+          })
+      : [];
+    const rawReward = isRecord(item.reward) ? item.reward : {};
+    const rareIngredients: Partial<Record<IngredientId, number>> = {};
+    if (isRecord(rawReward.rareIngredients)) {
+      for (const ingId of INGREDIENT_IDS) {
+        const v = rawReward.rareIngredients[ingId];
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+          rareIngredients[ingId] = Math.floor(v);
+        }
+      }
+    }
+    const treats: Partial<Record<VisitorTreatId, number>> = {};
+    if (isRecord(rawReward.treats)) {
+      for (const tId of Object.keys(VISITOR_TREAT_BY_ID) as VisitorTreatId[]) {
+        const v = rawReward.treats[tId];
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+          treats[tId] = Math.floor(v);
+        }
+      }
+    }
+
+    orders.push({
+      id,
+      dateKey: asString(item.dateKey, todayStr),
+      category,
+      visitorId: asVisitorId(item.visitorId) ?? undefined,
+      title: asString(item.title, '小鎮委託單'),
+      description: asString(item.description, ''),
+      emoji: asString(item.emoji, '📋'),
+      requirements,
+      reward: {
+        coins: Math.max(0, Math.floor(asNumber(rawReward.coins, 30))),
+        furnitureShards: Math.max(0, Math.floor(asNumber(rawReward.furnitureShards, 1))),
+        farmSpeedTickets: Math.max(0, Math.floor(asNumber(rawReward.farmSpeedTickets, 1))),
+        rareIngredients,
+        treats: Object.keys(treats).length > 0 ? treats : undefined,
+      },
+      createdAt: asNumber(item.createdAt, Date.now()),
+      expiresAt: asNumber(item.expiresAt, Date.now() + 86400000),
+      completed: item.completed === true,
+      completedAt:
+        typeof item.completedAt === 'number' && Number.isFinite(item.completedAt)
+          ? item.completedAt
+          : null,
+      overdue: item.overdue === true,
+      claimedByUserIds: Array.isArray(item.claimedByUserIds)
+        ? item.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+        : [],
+    });
+  }
+  return orders.length > 0 ? orders : createInitialTownOrders(todayStr);
 }
 
 function asWeatherCondition(value: unknown): WeatherCondition {
@@ -2080,6 +2430,13 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     coop: parseCoopHubState(parsed.coop),
     dialogue: parseDialogueState(parsed.dialogue),
     memoryAlbum: parseMemoryAlbum(parsed.memoryAlbum, pet.name),
+    farmSpeedTickets: Math.max(
+      0,
+      Math.floor(asNumber(parsed.farmSpeedTickets, base.farmSpeedTickets ?? 1))
+    ),
+    visitorTreats: parseVisitorTreats(parsed.visitorTreats),
+    visitorState: parseVisitorSystemState(parsed.visitorState),
+    townOrders: parseTownOrders(parsed.townOrders),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;

@@ -15,8 +15,10 @@ import {
   PHOTO_SCENE_BY_ID,
   PHOTO_STICKER_BY_ID,
 } from '../../data/photoStudio';
+import { VISITOR_BY_ID } from '../../data/visitors';
 import { RoomPhotoRecord } from '../../types';
 import { PiggyCharacter } from '../PiggyCharacter';
+import { VisitorSprite } from '../visitors/VisitorIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
 
 interface RoomPhotoCardProps {
@@ -49,6 +51,7 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
     photo.photoKind === 'wardrobe' ||
     photo.photoKind === 'farm' ||
     photo.photoKind === 'album' ||
+    photo.photoKind === 'visitor' ||
     (Boolean(photo.wardrobePoseId) && photo.placedItems.length === 0);
   const stickers = photo.stickers ?? [];
 
@@ -175,7 +178,7 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
               <span>{pose.label}</span>
             </div>
 
-            <div className="drop-shadow-md">
+            <div className="drop-shadow-md flex items-end justify-center gap-1.5">
               <PiggyCharacter
                 species={photo.species}
                 growth={60}
@@ -186,8 +189,17 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
                 interactive={false}
                 customAnimClass={pose.animClass}
                 viewDirection={photo.facing ?? 'front'}
-                size={compact ? 86 : 118}
+                size={compact ? 82 : 112}
               />
+              {photo.visitorId && (
+                <div className="mb-1">
+                  <VisitorSprite
+                    visitorId={photo.visitorId}
+                    behavior="sitting"
+                    size={compact ? 58 : 74}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -302,6 +314,12 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
           <span className="px-1.5 py-0.5 rounded-md bg-[#FAF3EE] border border-[#EAD9D0] text-[#5A3E36]">
             🐾 {photo.petName}
           </span>
+          {photo.visitorId && (
+            <span className="px-1.5 py-0.5 rounded-md bg-[#E8F8F0] border border-[#9ADBC2] text-[#1F6B54]">
+              {VISITOR_BY_ID[photo.visitorId].emoji} {VISITOR_BY_ID[photo.visitorId].name}
+              {photo.isCoopPhoto ? ' · 共養紀念' : ''}
+            </span>
+          )}
           {typeof photo.weightAtCapture === 'number' && (
             <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3FF] border border-[#B6D1FA] text-[#2F5B9E] tabular-nums">
               ⚖️ {photo.weightAtCapture.toFixed(1)} kg

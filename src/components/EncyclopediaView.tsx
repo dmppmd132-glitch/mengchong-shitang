@@ -128,6 +128,10 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'little_master_chef',
     'starlight_voyager',
     'party_superstar',
+    'bird_whisperer',
+    'squirrel_friend',
+    'rabbit_guardian',
+    'coop_best_host',
   ];
 
   return (

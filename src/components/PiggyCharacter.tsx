@@ -327,6 +327,39 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <circle cx="-5" cy="0" r="2" fill="#FFFDF7" />
         </g>
       )}
+      {equipped.head === 'visitor_feather_clip' && (
+        <g transform="translate(148, 72) rotate(18)">
+          <path d="M -14 4 L 14 4" stroke="#E5A93B" strokeWidth="4.2" strokeLinecap="round" />
+          <path
+            d="M -2 2 C -8 -16 8 -22 14 -6 C 10 1 2 4 -2 2 Z"
+            fill="#8CE0FF"
+            stroke="#5A3E36"
+            strokeWidth="2.6"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M 4 2 C 4 -12 18 -14 20 -2 C 16 4 8 5 4 2 Z"
+            fill="#FFE082"
+            stroke="#5A3E36"
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+          />
+          <circle cx="-2" cy="3" r="3.6" fill="#FFD54F" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
+      {equipped.head === 'visitor_rabbit_wreath' && (
+        <g transform="translate(120, 72)">
+          <path d="M -32 6 Q 0 -6 32 6" fill="none" stroke="#7EDBC0" strokeWidth="4.5" strokeLinecap="round" />
+          <ellipse cx="-16" cy="-12" rx="4" ry="9" transform="rotate(-12 -16 -12)" fill="#FFFDF9" stroke="#5A3E36" strokeWidth="2.4" />
+          <ellipse cx="-16" cy="-12" rx="1.8" ry="5" transform="rotate(-12 -16 -12)" fill="#FFB8D0" />
+          <ellipse cx="16" cy="-12" rx="4" ry="9" transform="rotate(12 16 -12)" fill="#FFFDF9" stroke="#5A3E36" strokeWidth="2.4" />
+          <ellipse cx="16" cy="-12" rx="1.8" ry="5" transform="rotate(12 16 -12)" fill="#FFB8D0" />
+          <circle cx="-10" cy="-2" r="5" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="0" cy="-4" r="5.5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="10" cy="-2" r="5" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="0" cy="-4" r="2.5" fill="#FFE066" />
+        </g>
+      )}
     </>
   );
 
@@ -611,6 +644,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                       ? '#FF6B6B'
                       : equipped.neck === 'galaxy_necklace'
                       ? '#C5B4F5'
+                      : equipped.neck === 'visitor_acorn_charm'
+                      ? '#77BA82'
                       : '#FF8EB0'
                   }
                   strokeWidth="7"
@@ -1864,6 +1899,14 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               <path d="M 0 0 L 24 -13 L 22 10 Z" fill="#6EC6FF" stroke="#5A3E36" strokeWidth="3" strokeLinejoin="round" />
               <path d="M -4 4 L -11 22 M 4 4 L 11 22" stroke="#FFD54F" strokeWidth="3.6" strokeLinecap="round" />
               <circle cx="0" cy="0" r="6" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.8" />
+            </g>
+          )}
+          {equipped.neck === 'visitor_acorn_charm' && (
+            <g transform="translate(120, 166)">
+              <path d="M -28 -6 Q 0 10 28 -6" fill="none" stroke="#68B984" strokeWidth="5.5" strokeLinecap="round" />
+              <path d="M 0 3 C -7 3 -9 16 0 21 C 9 16 7 3 0 3 Z" fill="#D98A4E" stroke="#5A3E36" strokeWidth="2.6" />
+              <path d="M -8 5 Q 0 -3 8 5 Z" fill="#8C4E27" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+              <line x1="0" y1="0" x2="0" y2="-3" stroke="#5A3E36" strokeWidth="2.4" strokeLinecap="round" />
             </g>
           )}
 
