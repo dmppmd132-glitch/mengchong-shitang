@@ -149,3 +149,42 @@ export function formatWaterBoostLabel(boostMs: number): string {
   }
   return `-${sec}s`;
 }
+
+export type TimeOfDayPeriod = 'morning' | 'day' | 'night';
+
+export function getTimeOfDayPeriod(date: Date = new Date()): TimeOfDayPeriod {
+  const hour = date.getHours();
+  if (hour >= 5 && hour <= 10) return 'morning';
+  if (hour >= 11 && hour <= 17) return 'day';
+  return 'night';
+}
+
+export function getTimeOfDayMeta(period: TimeOfDayPeriod): {
+  label: string;
+  emoji: string;
+  badgeClass: string;
+  stageTintClass: string;
+} {
+  if (period === 'morning') {
+    return {
+      label: '早安晨光',
+      emoji: '🌅',
+      badgeClass: 'bg-[#FFF3DC]/90 border-[#F2CE8A] text-[#8E5311]',
+      stageTintClass: 'bg-gradient-to-b from-[#FFE6C7]/35 via-transparent to-[#FFF8D8]/25',
+    };
+  }
+  if (period === 'night') {
+    return {
+      label: '星夜微風',
+      emoji: '🌙',
+      badgeClass: 'bg-[#EDE9FC]/92 border-[#C7BBE8] text-[#4C3885]',
+      stageTintClass: 'bg-gradient-to-b from-[#342F63]/16 via-[#675FA8]/8 to-transparent',
+    };
+  }
+  return {
+    label: '暖陽白天',
+    emoji: '☀️',
+    badgeClass: 'bg-[#FFFDF5]/90 border-[#EED9C4] text-[#7A5942]',
+    stageTintClass: '',
+  };
+}

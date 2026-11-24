@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowUp,
+  Bell,
+  BellOff,
   Camera,
   Check,
   Coins,
@@ -40,12 +42,14 @@ import {
   getIngredientStorageCap,
 } from '../utils/house';
 import {
+  TimeOfDayPeriod,
   formatCropDurationLabel,
   formatRemainingTime,
   formatWaterBoostLabel,
   getActiveYardBuffExpiresAt,
   getCropGrowthState,
   getExpectedCropDurationMs,
+  getTimeOfDayPeriod,
   getWaterBoostMs,
 } from '../utils/farmGrowth';
 import { PiggyCharacter } from './PiggyCharacter';
@@ -83,6 +87,7 @@ interface CanteenViewProps {
   onFeed: (food: Food) => void;
   onBuyFood: (food: Food) => void;
   onPlantCrop: (plotId: number, ingredientId: IngredientId) => void;
+  onPlantAllCrops?: (ingredientId: IngredientId) => void;
   onWaterCrop?: (plotId: number) => void;
   onWaterAllCrops?: () => void;
   onHarvestCrop: (plotId: number) => void;
@@ -97,10 +102,16 @@ interface CanteenViewProps {
   onUpdateHouseName: (newName: string) => void;
   initialSection?: CanteenSection;
   learnedRecipeIds?: string[];
+  collectedFoodIds?: string[];
+  highlightedRecipeId?: string | null;
+  cropNotifyEnabled?: boolean;
+  onToggleCropNotify?: () => void;
+  timeOfDay?: TimeOfDayPeriod;
 }
 
 export type CanteenSection = 'shop' | 'farm' | 'kitchen';
 type CategoryFilter = 'all' | FoodCategory;
+type ShopQuickFilter = 'all' | 'favorite' | 'inStock' | 'uncollected' | 'overnight';
 
 const FILTER_OPTIONS: { key: CategoryFilter; label: string }[] = [
   { key: 'all', label: '全部' },
@@ -108,6 +119,14 @@ const FILTER_OPTIONS: { key: CategoryFilter; label: string }[] = [
     key: cat,
     label: FOOD_CATEGORY_LABELS[cat],
   })),
+];
+
+const QUICK_FILTER_OPTIONS: { key: ShopQuickFilter; label: string }[] = [
+  { key: 'all', label: '不限條件' },
+  { key: 'favorite', label: '♥ 最愛' },
+  { key: 'inStock', label: '📦 有庫存' },
+  { key: 'uncollected', label: '🆕 未收錄' },
+  { key: 'overnight', label: '🌙 過夜特製' },
 ];
 
 export const CanteenView: React.FC<CanteenViewProps> = ({
@@ -126,6 +145,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onFeed,
   onBuyFood,
   onPlantCrop,
+  onPlantAllCrops,
   onWaterCrop,
   onWaterAllCrops,
   onHarvestCrop,
@@ -140,9 +160,15 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onUpdateHouseName,
   initialSection = 'shop',
   learnedRecipeIds = [],
+  collectedFoodIds = [],
+  highlightedRecipeId = null,
+  cropNotifyEnabled = false,
+  onToggleCropNotify,
+  timeOfDay,
 }) => {
   const [section, setSection] = useState<CanteenSection>(initialSection);
   const [filter, setFilter] = useState<CategoryFilter>('all');
+  const [quickFilter, setQuickFilter] = useState<ShopQuickFilter>('all');
   const [selectedSeed, setSelectedSeed] = useState<IngredientId>('carrot');
   const [farmPaySource, setFarmPaySource] = useState<PaymentSource>('personal');
   const [editingSignName, setEditingSignName] = useState<boolean>(false);
@@ -163,6 +189,16 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   useEffect(() => {
     setSection(initialSection);
   }, [initialSection]);
+
+  useEffect(() => {
+    if (section !== 'kitchen' || !highlightedRecipeId) return;
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`kitchen-recipe-${highlightedRecipeId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [section, highlightedRecipeId]);
 
   useEffect(() => {
     if (section === 'farm') {
@@ -354,11 +390,31 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   };
 
   const speciesInfo = getPetSpeciesInfo(pet.species);
-  const items = filter === 'all' ? FOODS : FOODS.filter((f) => f.category === filter);
+  const collectedFoodSet = new Set(collectedFoodIds);
+  const overnightFoodIds = new Set(
+    KITCHEN_RECIPES.filter((r) =>
+      (Object.keys(r.ingredients) as IngredientId[]).some((id) =>
+        Boolean(INGREDIENTS[id]?.isOvernight)
+      )
+    ).map((r) => r.outputFoodId)
+  );
+  const categoryItems = filter === 'all' ? FOODS : FOODS.filter((f) => f.category === filter);
+  const items = categoryItems.filter((food) => {
+    if (quickFilter === 'favorite') return speciesInfo.favoriteFoodIds.includes(food.id);
+    if (quickFilter === 'inStock') return (inventory[food.id] ?? 0) > 0;
+    if (quickFilter === 'uncollected') return !collectedFoodSet.has(food.id);
+    if (quickFilter === 'overnight') return overnightFoodIds.has(food.id);
+    return true;
+  });
   const isFull = pet.hunger >= 100;
   const storageCap = getIngredientStorageCap(house);
   const availableFarmCoins = farmPaySource === 'treasury' ? house.treasuryCoins : coins;
+  const activeTimeOfDay = timeOfDay ?? getTimeOfDayPeriod(new Date(now));
 
+  const emptyPlotsCount = farmPlots.filter((plot) => plot.cropId === null).length;
+  const selectedSeedInfo = INGREDIENTS[selectedSeed];
+  const canPlantAtLeastOne =
+    (freeSeeds[selectedSeed] ?? 0) > 0 || coins >= selectedSeedInfo.seedCost;
   const readyCropsCount = farmPlots.filter(
     (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods).isReady
   ).length;
@@ -472,106 +528,160 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             </button>
           )}
 
-          <div className="grid grid-cols-4 gap-1.5 bg-[#F6ECE6] p-1.5 rounded-2xl">
-            {FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setFilter(opt.key)}
-                className={`min-h-[40px] rounded-xl text-xs font-extrabold transition whitespace-nowrap ${
-                  filter === opt.key
-                    ? 'bg-white text-[#D64470] shadow-xs'
-                    : 'text-[#7D635D] hover:text-[#4A3531]'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="space-y-2">
+            <div className="grid grid-cols-4 gap-1.5 bg-[#F6ECE6] p-1.5 rounded-2xl">
+              {FILTER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setFilter(opt.key)}
+                  className={`min-h-[40px] rounded-xl text-xs font-extrabold transition whitespace-nowrap ${
+                    filter === opt.key
+                      ? 'bg-white text-[#D64470] shadow-xs'
+                      : 'text-[#7D635D] hover:text-[#4A3531]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 px-0.5">
+              {QUICK_FILTER_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setQuickFilter(opt.key)}
+                  className={`min-h-[30px] px-2.5 rounded-xl border text-[11px] font-extrabold transition whitespace-nowrap ${
+                    quickFilter === opt.key
+                      ? 'bg-[#FFEAF0] border-[#FF8AA8] text-[#B83B64]'
+                      : 'bg-[#FFFDF8] border-[#EAD9D0] text-[#7D635D] hover:text-[#4A3531]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-3">
-            {items.map((food) => {
-              const count = inventory[food.id] ?? 0;
-              const canBuy = coins >= food.price;
-              const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
-
-              return (
-                <article
-                  key={food.id}
-                  className={`rounded-3xl bg-[#FFFDF8] border-2 p-3.5 space-y-2.5 ${
-                    isFavorite ? 'border-[#FFACC3]' : 'border-[#F4DFD7]'
-                  }`}
+            {items.length === 0 ? (
+              <div className="rounded-3xl bg-[#FFFDF8] border-2 border-[#EFE0D8] p-6 text-center space-y-2.5">
+                <div className="text-3xl">🍽️</div>
+                <p className="text-sm font-extrabold text-[#4A3531]">
+                  目前分類與篩選條件下沒有符合的料理喔！
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilter('all');
+                    setQuickFilter('all');
+                  }}
+                  className="min-h-[36px] px-4 rounded-xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_2px_0_#D9577B] active:translate-y-0.5 transition"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-14 h-14 rounded-2xl bg-[#FFF4DC] border border-[#F5DFA8] flex items-center justify-center text-3xl shrink-0">
-                      <span aria-hidden="true">{food.emoji}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="text-base font-extrabold text-[#4A3531] truncate">
-                          {food.name}
-                        </h3>
-                        <span className="text-xs font-bold text-[#826862] tabular-nums whitespace-nowrap">
-                          {FOOD_CATEGORY_LABELS[food.category]} · 庫存 {count}
-                        </span>
+                  顯示全部料理
+                </button>
+              </div>
+            ) : (
+              items.map((food) => {
+                const count = inventory[food.id] ?? 0;
+                const canBuy = coins >= food.price;
+                const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
+                const isOvernightSpecial = overnightFoodIds.has(food.id);
+                const isUncollected = collectedFoodIds.length > 0 && !collectedFoodSet.has(food.id);
+
+                return (
+                  <article
+                    key={food.id}
+                    className={`rounded-3xl bg-[#FFFDF8] border-2 p-3.5 space-y-2.5 ${
+                      isFavorite ? 'border-[#FFACC3]' : 'border-[#F4DFD7]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-[#FFF4DC] border border-[#F5DFA8] flex items-center justify-center text-3xl shrink-0">
+                        <span aria-hidden="true">{food.emoji}</span>
                       </div>
-                      {isFavorite && (
-                        <p className="text-[11px] font-extrabold text-[#D64470] mt-0.5">
-                          ♥ {speciesInfo.shortName}最愛料理 · 心情與成長額外加成
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-base font-extrabold text-[#4A3531] truncate">
+                            {food.name}
+                          </h3>
+                          <span className="text-xs font-bold text-[#826862] tabular-nums whitespace-nowrap">
+                            {FOOD_CATEGORY_LABELS[food.category]} · 庫存 {count}
+                          </span>
+                        </div>
+                        {(isFavorite || isOvernightSpecial || isUncollected) && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {isFavorite && (
+                              <span className="text-[11px] font-extrabold text-[#D64470]">
+                                ♥ {speciesInfo.shortName}最愛料理
+                              </span>
+                            )}
+                            {isOvernightSpecial && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#F3E8FC] text-[#613D84] text-[10px] font-extrabold">
+                                🌙 過夜特製
+                              </span>
+                            )}
+                            {isUncollected && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#FFF1D6] text-[#9A581B] text-[10px] font-extrabold">
+                                🆕 未收錄圖鑑
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
+                          {food.description}
                         </p>
-                      )}
-                      <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
-                        {food.description}
-                      </p>
-                      <p className="text-[11px] font-bold text-[#9A7A73] mt-1 tabular-nums">
-                        飽食 +{food.hunger} · 心情 +{food.mood} · 體重 +{food.weightGain.toFixed(1)} kg · 圓滾 +{food.roundness}
-                      </p>
+                        <p className="text-[11px] font-bold text-[#9A7A73] mt-1 tabular-nums">
+                          飽食 +{food.hunger} · 心情 +{food.mood} · 體重 +{food.weightGain.toFixed(1)} kg · 圓滾 +{food.roundness}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
-                    <button
-                      type="button"
-                      disabled={!canBuy}
-                      onClick={() => onBuyFood(food)}
-                      className={`min-h-[44px] rounded-2xl px-3 text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
-                        canBuy
-                          ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E] hover:bg-[#FFEAA8] active:scale-[0.98]'
-                          : 'bg-[#F2EAE6] text-[#A89690] cursor-not-allowed'
-                      }`}
-                    >
-                      <Coins className="w-4 h-4" />
-                      <span className="tabular-nums">購買 ({food.price} 金幣)</span>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        disabled={!canBuy}
+                        onClick={() => onBuyFood(food)}
+                        className={`min-h-[44px] rounded-2xl px-3 text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+                          canBuy
+                            ? 'bg-[#FFF3D1] border border-[#F2CE6D] text-[#7A540E] hover:bg-[#FFEAA8] active:scale-[0.98]'
+                            : 'bg-[#F2EAE6] text-[#A89690] cursor-not-allowed'
+                        }`}
+                      >
+                        <Coins className="w-4 h-4" />
+                        <span className="tabular-nums">購買 ({food.price} 金幣)</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      disabled={count <= 0}
-                      onClick={() => onFeed(food)}
-                      className={`min-h-[44px] rounded-2xl px-3 text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
-                        count <= 0
-                          ? 'bg-[#EFE6E2] text-[#A89690] cursor-not-allowed'
-                          : isFull
-                          ? 'bg-[#F8DCE4] text-[#B05B74]'
-                          : 'bg-[#FF7A9E] text-white shadow-[0_3px_0_#D9577B] hover:bg-[#F45D86] active:translate-y-0.5'
-                      }`}
-                    >
-                      {count <= 0 ? (
-                        <>
-                          <ShoppingBag className="w-4 h-4" />
-                          <span>請先購買</span>
-                        </>
-                      ) : (
-                        <>
-                          <Utensils className="w-4 h-4" />
-                          <span>餵食給{pet.name}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                      <button
+                        type="button"
+                        disabled={count <= 0}
+                        onClick={() => onFeed(food)}
+                        className={`min-h-[44px] rounded-2xl px-3 text-xs font-extrabold inline-flex items-center justify-center gap-1.5 transition ${
+                          count <= 0
+                            ? 'bg-[#EFE6E2] text-[#A89690] cursor-not-allowed'
+                            : isFull
+                            ? 'bg-[#F8DCE4] text-[#B05B74]'
+                            : 'bg-[#FF7A9E] text-white shadow-[0_3px_0_#D9577B] hover:bg-[#F45D86] active:translate-y-0.5'
+                        }`}
+                      >
+                        {count <= 0 ? (
+                          <>
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>請先購買</span>
+                          </>
+                        ) : (
+                          <>
+                            <Utensils className="w-4 h-4" />
+                            <span>餵食給{pet.name}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            )}
           </div>
         </>
       )}
@@ -582,7 +692,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
           <div className="relative rounded-[28px] border-[3px] border-[#6B5344] bg-[#C6E189] shadow-[0_6px_0_#9AB865] overflow-hidden">
             {/* Upper Pastel Sky, Flanking Leafy Trees, Rolling Hills & Right Red Barn Backdrop */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-[350px] z-0">
-              <PastoralHorizonBackdrop />
+              <PastoralHorizonBackdrop timeOfDay={activeTimeOfDay} />
             </div>
 
             {/* Glass Greenhouse Subtle Roof Sparkle if Upgraded */}
@@ -605,7 +715,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                     setSignNameDraft(house.houseName);
                     setEditingSignName((prev) => !prev);
                   }}
-                  className={`min-h-[40px] px-2.5 py-1 rounded-2xl border-2 border-[#6B5344] text-left inline-flex items-center gap-1.5 max-w-[65%] shadow-[0_2px_0_#A67E58] transition active:translate-y-0.5 ${
+                  className={`min-h-[40px] px-2.5 py-1 rounded-2xl border-2 border-[#6B5344] text-left inline-flex items-center gap-1.5 max-w-[54%] shadow-[0_2px_0_#A67E58] transition active:translate-y-0.5 ${
                     house.activeFarmDecor.signId === 'berry_arch_sign'
                       ? 'bg-[#FFEAF2] text-[#A22E58]'
                       : 'bg-[#FFF9EE]/95 text-[#5C3919]'
@@ -619,6 +729,25 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 </button>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {onToggleCropNotify && (
+                    <button
+                      type="button"
+                      onClick={onToggleCropNotify}
+                      aria-label={cropNotifyEnabled ? '關閉作物成熟通知' : '開啟作物成熟通知'}
+                      title={cropNotifyEnabled ? '作物成熟通知：已開啟' : '開啟作物成熟通知'}
+                      className={`min-h-[40px] px-2 rounded-2xl border-2 border-[#6B5344] text-[11px] font-extrabold inline-flex items-center gap-1 transition active:translate-y-0.5 ${
+                        cropNotifyEnabled
+                          ? 'bg-[#FFF0B8] text-[#7A4B08] shadow-[0_2px_0_#C99D2B]'
+                          : 'bg-[#FFF9EE]/95 text-[#6E544E] shadow-[0_2px_0_#9AB865]'
+                      }`}
+                    >
+                      {cropNotifyEnabled ? (
+                        <Bell className="w-3.5 h-3.5 shrink-0" />
+                      ) : (
+                        <BellOff className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                    </button>
+                  )}
                   {onOpenFarmPhotoStudio && (
                     <button
                       type="button"
@@ -864,9 +993,27 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
               {/* Cardless Soil Plots Sitting Directly on Green Meadow Grass */}
               <section className="relative z-10 px-4 pt-3 space-y-3">
-                {((waterableCropsCount > 0 && onWaterAllCrops) ||
+                {((emptyPlotsCount > 0 && onPlantAllCrops) ||
+                  (waterableCropsCount > 0 && onWaterAllCrops) ||
                   (readyCropsCount > 0 && onHarvestAllCrops)) && (
                   <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {emptyPlotsCount > 0 && onPlantAllCrops && (
+                      <button
+                        type="button"
+                        disabled={!canPlantAtLeastOne}
+                        onClick={() => onPlantAllCrops(selectedSeed)}
+                        className={`min-h-[38px] px-3 rounded-2xl border-2 border-[#6B5344] text-xs font-extrabold inline-flex items-center gap-1 transition ${
+                          canPlantAtLeastOne
+                            ? 'bg-gradient-to-b from-[#FF8AA8] to-[#FF6D92] text-white shadow-[0_3px_0_#C94D70] hover:brightness-105 active:translate-y-0.5'
+                            : 'bg-[#E5DCD4] text-[#8E7C71] shadow-[0_3px_0_#BFB2A7] cursor-not-allowed'
+                        }`}
+                      >
+                        <span aria-hidden="true">🌱</span>
+                        <span>
+                          一鍵種{selectedSeedInfo.name} ({emptyPlotsCount})
+                        </span>
+                      </button>
+                    )}
                     {waterableCropsCount > 0 && onWaterAllCrops && (
                       <button
                         type="button"
@@ -1354,8 +1501,13 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             return (
               <article
                 key={recipe.id}
-                className={`rounded-3xl bg-[#FFFDF8] border-2 p-3.5 space-y-2.5 ${
-                  isFavorite ? 'border-[#FFACC3]' : 'border-[#F4DFD7]'
+                id={`kitchen-recipe-${recipe.id}`}
+                className={`rounded-3xl border-2 p-3.5 space-y-2.5 transition-all ${
+                  highlightedRecipeId === recipe.id
+                    ? 'bg-[#FFF7EA] border-[#FF8552] ring-4 ring-[#FF9A6C]/45'
+                    : isFavorite
+                    ? 'bg-[#FFFDF8] border-[#FFACC3]'
+                    : 'bg-[#FFFDF8] border-[#F4DFD7]'
                 }`}
               >
                 <div className="flex items-start gap-3">

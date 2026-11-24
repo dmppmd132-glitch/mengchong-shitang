@@ -18,7 +18,11 @@ import {
   createInitialFarmPlots,
   createInitialIngredients,
 } from '../data/kitchen';
-import { createInitialDailyTasks } from '../data/quests';
+import {
+  DAILY_TASK_TEMPLATES,
+  createDailyTasksForDate,
+  createInitialDailyTasks,
+} from '../data/quests';
 import { isValidStickerId } from '../data/stickers';
 import { PERSONALITY_IDS } from '../data/personality';
 import { COOP_BADGES, COOP_FARM_DAILY_ORDERS } from '../data/coop';
@@ -209,7 +213,7 @@ export function createInitialGameState(): GameState {
     accessories: [...INITIAL_UNLOCKED_ACCESSORIES],
     weightLogs: [],
     feedLogs: [],
-    dailyTasks: createInitialDailyTasks(),
+    dailyTasks: createInitialDailyTasks(today),
     dailyTasksDate: today,
     messages: [],
     soundEnabled: true,
@@ -253,7 +257,7 @@ export function syncDailyTasks(
     return { dailyTasks: tasks, dailyTasksDate: tasksDate };
   }
   return {
-    dailyTasks: createInitialDailyTasks(),
+    dailyTasks: createDailyTasksForDate(today),
     dailyTasksDate: today,
   };
 }
@@ -455,26 +459,27 @@ function parsePetMessages(raw: unknown): PetMessage[] {
   return messages.slice(-80);
 }
 
-function parseDailyTasks(raw: unknown): DailyTask[] {
-  const defaults = createInitialDailyTasks();
-  if (!Array.isArray(raw)) return defaults;
-  const byId = new Map<string, Record<string, unknown>>();
+function parseDailyTasks(raw: unknown, tasksDate?: string): DailyTask[] {
+  const fallbackTasks = createDailyTasksForDate(tasksDate || formatLocalDate());
+  if (!Array.isArray(raw) || raw.length === 0) return fallbackTasks;
+  const templateById = new Map(DAILY_TASK_TEMPLATES.map((t) => [t.id, t]));
+  const parsed: DailyTask[] = [];
+  const seen = new Set<string>();
   for (const item of raw) {
-    if (isRecord(item) && typeof item.id === 'string') {
-      byId.set(item.id, item);
-    }
-  }
-  return defaults.map((template) => {
-    const saved = byId.get(template.id);
-    if (!saved) return template;
-    const progress = Math.min(template.target, asNumber(saved.progress, 0));
-    return {
+    if (!isRecord(item) || typeof item.id !== 'string' || seen.has(item.id)) continue;
+    const template = templateById.get(item.id);
+    if (!template) continue;
+    seen.add(item.id);
+    const progress = Math.min(template.target, Math.max(0, asNumber(item.progress, 0)));
+    parsed.push({
       ...template,
+      reward: { ...template.reward },
       progress,
-      completed: typeof saved.completed === 'boolean' ? saved.completed : progress >= template.target,
-      claimed: typeof saved.claimed === 'boolean' ? saved.claimed : false,
-    };
-  });
+      completed: typeof item.completed === 'boolean' ? item.completed : progress >= template.target,
+      claimed: typeof item.claimed === 'boolean' ? item.claimed : false,
+    });
+  }
+  return parsed.length > 0 ? parsed : fallbackTasks;
 }
 
 function parseNoviceGrowth(
@@ -546,7 +551,8 @@ function asTitleId(value: unknown): TitleId | null {
     value === 'growth_sprout' ||
     value === 'growth_chubby' ||
     value === 'growth_radiant' ||
-    value === 'growth_superstar'
+    value === 'growth_superstar' ||
+    value === 'recipe_master'
   ) {
     return value;
   }
@@ -625,9 +631,20 @@ function parseEncyclopedia(
       ? candidateActive
       : unlockedTitles[0] ?? null;
 
+  const claimedRecipeMilestones = Array.isArray(raw.claimedRecipeMilestones)
+    ? Array.from(
+        new Set(
+          raw.claimedRecipeMilestones.filter(
+            (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 4
+          )
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
   return {
     collectedFoodIds: mergedFoods,
     learnedRecipeIds,
+    claimedRecipeMilestones,
     claimedAccessoryMilestones,
     claimedAccessoryThemeSets,
     unlockedTitles,
@@ -1998,9 +2015,10 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     ? parsed.accessories.filter((x): x is string => typeof x === 'string')
     : [];
 
+  const parsedTasksDate = asString(parsed.dailyTasksDate, formatLocalDate());
   const syncedTasks = syncDailyTasks(
-    parseDailyTasks(parsed.dailyTasks),
-    asString(parsed.dailyTasksDate, formatLocalDate())
+    parseDailyTasks(parsed.dailyTasks, parsedTasksDate),
+    parsedTasksDate
   );
 
   const parsedWeightLogs = parseWeightLogs(parsed.weightLogs);

@@ -46,6 +46,7 @@ import {
   WeatherState,
 } from '../types';
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
+import { getTimeOfDayMeta, getTimeOfDayPeriod } from '../utils/farmGrowth';
 import { PetDialogueBubble } from './dialogue/PetDialogueBubble';
 import { HomeHousePreview } from './house/HomeHousePreview';
 import { HouseSubTab } from './house/HouseView';
@@ -96,6 +97,8 @@ interface HomeViewProps {
   onSaveDialogueToMemory?: (line: DialogueLine) => void;
   onOpenMemories?: () => void;
   onOpenGrowthRoadmap?: () => void;
+  overnightReadyCount?: number;
+  onGoToFarm?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -157,6 +160,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onSaveDialogueToMemory,
   onOpenMemories,
   onOpenGrowthRoadmap,
+  overnightReadyCount = 0,
+  onGoToFarm,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -326,6 +331,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const speciesInfo = getPetSpeciesInfo(pet.species);
   const stageBgConfig = STAGE_BACKGROUNDS[activeBackground] ?? STAGE_BACKGROUNDS.default;
   const activeTitleDef = activeTitle ? getTitleDefinition(activeTitle) : null;
+  const timePeriod = getTimeOfDayPeriod();
+  const timeMeta = getTimeOfDayMeta(timePeriod);
 
   const filteredFoods = FOODS.filter((f) => f.category === selectedCategory);
 
@@ -487,6 +494,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       )}
 
+      {overnightReadyCount > 0 && onGoToFarm && (
+        <div className="rounded-2xl bg-gradient-to-r from-[#FFF3D8] to-[#F3E9FF] border border-[#E5CEF5] px-3.5 py-2.5 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs font-extrabold text-[#4D3466] leading-snug">
+              {timePeriod === 'morning'
+                ? '🌅 早安大豐收！昨晚種下的過夜作物已經成熟囉！'
+                : '🌙 過夜特製作物熟透了，散發香甜氣息！'}
+            </p>
+            <p className="text-[11px] font-bold text-[#74568F] mt-0.5 tabular-nums">
+              共 {overnightReadyCount} 塊過夜農田等待採收
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onGoToFarm}
+            className="min-h-[36px] px-3 rounded-xl bg-[#5CC9A7] text-white text-xs font-extrabold shadow-[0_2px_0_#3BA886] whitespace-nowrap shrink-0 active:scale-95 transition"
+          >
+            去農場採收 ›
+          </button>
+        </div>
+      )}
+
       <section
         ref={stageRef}
         onDragOver={(e) => {
@@ -503,6 +532,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
             : 'border-[#F5DFD7]'
         }`}
       >
+        {activeBackground === 'default' && timeMeta.stageTintClass && (
+          <div
+            className={`pointer-events-none absolute inset-0 ${timeMeta.stageTintClass}`}
+            aria-hidden="true"
+          />
+        )}
+
         {activeBackground === 'starlight_garden' && (
           <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
             <span className="absolute left-5 top-4 text-sm">✨</span>
@@ -539,6 +575,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {activeBackground === 'starlight_garden' ? '🌌 星光花園' : '☀️ 暖陽食堂'}
           </button>
         )}
+
+        <div
+          className={`relative z-10 mb-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-extrabold ${timeMeta.badgeClass}`}
+        >
+          <span aria-hidden="true">{timeMeta.emoji}</span>
+          <span>{timeMeta.label}</span>
+        </div>
 
         {activeDialogue && onRespondDialogue && onDismissDialogue ? (
           <PetDialogueBubble

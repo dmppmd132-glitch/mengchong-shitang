@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CalendarHeart, CheckCircle2, Coins, Gift, Sparkles } from 'lucide-react';
+import { formatDailyTaskDescription } from '../data/quests';
 import { getFoodById } from '../data/foods';
 import { DailyTask, GameState, StageBackgroundId } from '../types';
 import { evaluateAllNoviceDays } from '../utils/noviceGrowth';
@@ -143,7 +144,7 @@ export const QuestsView: React.FC<QuestsViewProps> = ({
                         {task.title}
                       </h3>
                       <p className="text-xs text-[#7D635D] mt-0.5 leading-relaxed">
-                        {task.description}
+                        {formatDailyTaskDescription(task.description, game.pet.name)}
                       </p>
                     </div>
                     <span className="text-xs font-extrabold text-[#D64470] tabular-nums shrink-0">

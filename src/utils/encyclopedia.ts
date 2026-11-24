@@ -3,9 +3,13 @@ import {
   ACCESSORY_MILESTONE_COINS,
   ACCESSORY_MILESTONE_GROWTH,
   ACCESSORY_MILESTONE_STEP,
+  RECIPE_MILESTONE_COINS,
+  RECIPE_MILESTONE_GROWTH,
+  RECIPE_MILESTONE_THRESHOLDS,
 } from '../data/encyclopedia';
 import { FOODS } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
+import { KITCHEN_RECIPES } from '../data/kitchen';
 import {
   AccessoryTheme,
   EncyclopediaState,
@@ -25,6 +29,7 @@ export function createInitialEncyclopediaState(
   return {
     collectedFoodIds: uniqueFoods,
     learnedRecipeIds: [],
+    claimedRecipeMilestones: [],
     claimedAccessoryMilestones: [],
     claimedAccessoryThemeSets: [],
     unlockedTitles: [],
@@ -40,9 +45,14 @@ export function getAccessoryMilestoneThresholds(): number[] {
   return thresholds;
 }
 
+export function getRecipeMilestoneThresholds(): number[] {
+  return RECIPE_MILESTONE_THRESHOLDS.filter((t) => t <= KITCHEN_RECIPES.length);
+}
+
 export interface EncyclopediaSyncOutcome {
   nextState: GameState;
   newlyAwardedMilestones: number[];
+  newlyAwardedRecipeMilestones: number[];
   newlyCompletedThemes: AccessoryTheme[];
   newlyUnlockedTitles: TitleId[];
   bonusCoins: number;
@@ -61,8 +71,22 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
       !state.encyclopedia.claimedAccessoryMilestones.includes(threshold)
   );
 
-  let bonusCoins = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_COINS;
-  let bonusGrowth = newlyAwardedMilestones.length * ACCESSORY_MILESTONE_GROWTH;
+  const validRecipeIds = new Set(KITCHEN_RECIPES.map((r) => r.id));
+  const learnedRecipeCount = (state.encyclopedia.learnedRecipeIds ?? []).filter((id) =>
+    validRecipeIds.has(id)
+  ).length;
+  const claimedRecipeMilestones = state.encyclopedia.claimedRecipeMilestones ?? [];
+  const newlyAwardedRecipeMilestones = getRecipeMilestoneThresholds().filter(
+    (threshold) =>
+      learnedRecipeCount >= threshold && !claimedRecipeMilestones.includes(threshold)
+  );
+
+  let bonusCoins =
+    newlyAwardedMilestones.length * ACCESSORY_MILESTONE_COINS +
+    newlyAwardedRecipeMilestones.length * RECIPE_MILESTONE_COINS;
+  let bonusGrowth =
+    newlyAwardedMilestones.length * ACCESSORY_MILESTONE_GROWTH +
+    newlyAwardedRecipeMilestones.length * RECIPE_MILESTONE_GROWTH;
 
   const validFoodIds = new Set(FOODS.map((f) => f.id));
   const collectedFoodCount = state.encyclopedia.collectedFoodIds.filter((id) =>
@@ -101,6 +125,11 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     newlyUnlockedTitles.push('gourmet_owner');
   }
 
+  if (learnedRecipeCount >= KITCHEN_RECIPES.length && !unlockedTitles.includes('recipe_master')) {
+    unlockedTitles.push('recipe_master');
+    newlyUnlockedTitles.push('recipe_master');
+  }
+
   if (ownedCount >= ACCESSORIES.length && !unlockedTitles.includes('fashion_stylist')) {
     unlockedTitles.push('fashion_stylist');
     newlyUnlockedTitles.push('fashion_stylist');
@@ -121,6 +150,7 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
 
   if (
     newlyAwardedMilestones.length === 0 &&
+    newlyAwardedRecipeMilestones.length === 0 &&
     newlyCompletedThemes.length === 0 &&
     newlyUnlockedTitles.length === 0 &&
     unlockedBackgrounds.length === state.unlockedBackgrounds.length
@@ -128,6 +158,7 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
     return {
       nextState: state,
       newlyAwardedMilestones: [],
+      newlyAwardedRecipeMilestones: [],
       newlyCompletedThemes: [],
       newlyUnlockedTitles: [],
       bonusCoins: 0,
@@ -152,6 +183,10 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
       },
       encyclopedia: {
         ...state.encyclopedia,
+        claimedRecipeMilestones: [
+          ...claimedRecipeMilestones,
+          ...newlyAwardedRecipeMilestones,
+        ].sort((a, b) => a - b),
         claimedAccessoryMilestones: [
           ...state.encyclopedia.claimedAccessoryMilestones,
           ...newlyAwardedMilestones,
@@ -162,6 +197,7 @@ export function syncEncyclopediaRewards(state: GameState): EncyclopediaSyncOutco
       },
     },
     newlyAwardedMilestones,
+    newlyAwardedRecipeMilestones,
     newlyCompletedThemes,
     newlyUnlockedTitles,
     bonusCoins,

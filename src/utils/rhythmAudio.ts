@@ -1,6 +1,8 @@
 import { MinigameDifficultyTier } from '../types/minigame';
 import { getSharedAudioContext } from './sound';
 
+export type RhythmLane = 'left' | 'right';
+
 export interface ScheduledRhythmNote {
   id: number;
   beat: number;
@@ -8,22 +10,50 @@ export interface ScheduledRhythmNote {
   emoji: string;
   isDownbeat: boolean;
   isSyncopated: boolean;
+  lane: RhythmLane;
+}
+
+export interface RhythmSongConfig {
+  id: MinigameDifficultyTier;
+  title: string;
+  keyLabel: string;
+  bpm: number;
+  travelSeconds: number;
+  isDualLane: boolean;
 }
 
 const NOTE_ICONS_ONBEAT = ['🎵', '🍎', '🍮', '🍓'];
 const NOTE_ICONS_ACCENT = ['🩷', '🌟'];
 
-export function getRhythmConfigForTier(tier: MinigameDifficultyTier): {
-  bpm: number;
-  travelSeconds: number;
-} {
-  if (tier === 'relaxed') {
-    return { bpm: 104, travelSeconds: 2.1 };
-  }
-  if (tier === 'pro') {
-    return { bpm: 120, travelSeconds: 1.6 };
-  }
-  return { bpm: 112, travelSeconds: 1.85 };
+const SONG_CONFIGS: Record<MinigameDifficultyTier, RhythmSongConfig> = {
+  relaxed: {
+    id: 'relaxed',
+    title: '晨間散步曲',
+    keyLabel: 'C大調 · 單軌',
+    bpm: 104,
+    travelSeconds: 2.1,
+    isDualLane: false,
+  },
+  standard: {
+    id: 'standard',
+    title: '草莓派對曲',
+    keyLabel: 'F大調 · 單軌',
+    bpm: 116,
+    travelSeconds: 1.85,
+    isDualLane: false,
+  },
+  pro: {
+    id: 'pro',
+    title: '星夜可可舞曲',
+    keyLabel: 'A小調 · 雙軌挑戰',
+    bpm: 128,
+    travelSeconds: 1.6,
+    isDualLane: true,
+  },
+};
+
+export function getRhythmConfigForTier(tier: MinigameDifficultyTier): RhythmSongConfig {
+  return SONG_CONFIGS[tier] ?? SONG_CONFIGS.standard;
 }
 
 /**
@@ -37,8 +67,9 @@ export function generateRhythmChart(
 ): ScheduledRhythmNote[] {
   const beatSec = 60 / bpm;
   const maxBeat = Math.floor((roundSeconds - 1.0) / beatSec);
+  const isDual = tier === 'pro';
 
-  // Beat offsets within each 4-beat bar matching the C - G - Am - F melody phrasing
+  // Beat offsets within each 4-beat bar matching each arrangement's phrasing
   const barPatterns: Record<MinigameDifficultyTier, number[][]> = {
     relaxed: [
       [0, 1, 2, 3],
@@ -80,16 +111,40 @@ export function generateRhythmChart(
     const barStartBeat = 4 + bar * 4;
     if (barStartBeat > maxBeat) break;
     const offsets = patterns[bar % patterns.length];
-    for (const offset of offsets) {
+    for (let idx = 0; idx < offsets.length; idx += 1) {
+      const offset = offsets[idx];
       const beat = barStartBeat + offset;
       if (beat > maxBeat) break;
       const isDownbeat = offset === 0;
       const isSyncopated = offset % 1 !== 0;
-      const emoji = isDownbeat
+
+      // In dual-lane Pro mode, create intuitive alternating / phrase-grouped lane patterns
+      const lane: RhythmLane = !isDual
+        ? 'left'
+        : isSyncopated
+        ? 'left'
+        : Math.floor(offset) % 2 === 0
+        ? bar % 2 === 0
+          ? 'left'
+          : 'right'
+        : bar % 2 === 0
+        ? 'right'
+        : 'left';
+
+      const emoji = isDual
+        ? lane === 'left'
+          ? isDownbeat
+            ? '🍓'
+            : '🩷'
+          : isDownbeat
+          ? '🌟'
+          : '🎵'
+        : isDownbeat
         ? NOTE_ICONS_ACCENT[bar % NOTE_ICONS_ACCENT.length]
         : isSyncopated
         ? '🩷'
         : NOTE_ICONS_ONBEAT[idCounter % NOTE_ICONS_ONBEAT.length];
+
       notes.push({
         id: idCounter++,
         beat,
@@ -97,6 +152,7 @@ export function generateRhythmChart(
         emoji,
         isDownbeat,
         isSyncopated,
+        lane,
       });
     }
   }
@@ -109,61 +165,127 @@ function midiToFreq(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-// 8-bar (64 eighth-note steps) cheerful C-major pop melody loop (MIDI notes, 0 = rest)
-// Progression: C | G | Am | F-G | C | G | F | G-C
-const MELODY_STEPS: number[] = [
-  // Bar 1 (C): E5 - G5 A5 G5 E5 C5 D5
-  76, 0, 79, 81, 79, 76, 72, 74,
-  // Bar 2 (G): E5 - D5 - B4 - G4 -
-  76, 0, 74, 0, 71, 0, 67, 0,
-  // Bar 3 (Am): A4 C5 E5 - A5 G5 E5 -
-  69, 72, 76, 0, 81, 79, 76, 0,
-  // Bar 4 (F -> G): F5 - E5 D5 - G5 - -
-  77, 0, 76, 74, 0, 79, 0, 0,
-  // Bar 5 (C): E5 - G5 A5 C6 - A5 G5
-  76, 0, 79, 81, 84, 0, 81, 79,
-  // Bar 6 (G): G5 - E5 D5 - B4 D5 -
-  79, 0, 76, 74, 0, 71, 74, 0,
-  // Bar 7 (F): C5 E5 F5 A5 G5 - E5 C5
-  72, 76, 77, 81, 79, 0, 76, 72,
-  // Bar 8 (G -> C): D5 - E5 D5 C5 - - -
-  74, 0, 76, 74, 72, 0, 0, 0,
-];
+interface SongArrangement {
+  melody: number[];
+  bass: number[];
+  chords: number[][];
+  kickHatBoost: number;
+}
 
-// Matching 64-step bouncy octave bassline (MIDI)
-const BASS_STEPS: number[] = [
-  // Bar 1 (C)
-  48, 0, 60, 0, 55, 0, 60, 0,
-  // Bar 2 (G)
-  43, 0, 55, 0, 50, 0, 55, 0,
-  // Bar 3 (Am)
-  45, 0, 57, 0, 52, 0, 57, 0,
-  // Bar 4 (F -> G)
-  41, 0, 53, 0, 43, 0, 55, 0,
-  // Bar 5 (C)
-  48, 0, 60, 0, 55, 0, 60, 0,
-  // Bar 6 (G)
-  43, 0, 55, 0, 50, 0, 55, 0,
-  // Bar 7 (F)
-  41, 0, 53, 0, 48, 0, 53, 0,
-  // Bar 8 (G -> C)
-  43, 0, 55, 0, 48, 0, 0, 0,
-];
+// Song 1: Relaxed (104 BPM) — Cheerful C-major morning walk (C | G | Am | F-G | C | G | F | G-C)
+const RELAXED_ARRANGEMENT: SongArrangement = {
+  melody: [
+    76, 0, 79, 81, 79, 76, 72, 74,
+    76, 0, 74, 0, 71, 0, 67, 0,
+    69, 72, 76, 0, 81, 79, 76, 0,
+    77, 0, 76, 74, 0, 79, 0, 0,
+    76, 0, 79, 81, 84, 0, 81, 79,
+    79, 0, 76, 74, 0, 71, 74, 0,
+    72, 76, 77, 81, 79, 0, 76, 72,
+    74, 0, 76, 74, 72, 0, 0, 0,
+  ],
+  bass: [
+    48, 0, 60, 0, 55, 0, 60, 0,
+    43, 0, 55, 0, 50, 0, 55, 0,
+    45, 0, 57, 0, 52, 0, 57, 0,
+    41, 0, 53, 0, 43, 0, 55, 0,
+    48, 0, 60, 0, 55, 0, 60, 0,
+    43, 0, 55, 0, 50, 0, 55, 0,
+    41, 0, 53, 0, 48, 0, 53, 0,
+    43, 0, 55, 0, 48, 0, 0, 0,
+  ],
+  chords: [
+    [60, 64, 67],
+    [55, 59, 62],
+    [57, 60, 64],
+    [53, 57, 60],
+    [60, 64, 67],
+    [55, 59, 62],
+    [53, 57, 60],
+    [55, 59, 62],
+  ],
+  kickHatBoost: 1,
+};
 
-// Soft warm pad root chords per bar (8 steps each)
-const PAD_CHORDS: number[][] = [
-  [60, 64, 67], // C
-  [55, 59, 62], // G
-  [57, 60, 64], // Am
-  [53, 57, 60], // F
-  [60, 64, 67], // C
-  [55, 59, 62], // G
-  [53, 57, 60], // F
-  [55, 59, 62], // G
-];
+// Song 2: Standard (116 BPM) — Bouncy F-major strawberry party (F | C | Dm | Bb-C | F | C | Bb | C-F)
+const STANDARD_ARRANGEMENT: SongArrangement = {
+  melody: [
+    77, 81, 84, 0, 81, 79, 77, 0,
+    79, 0, 84, 83, 81, 0, 76, 0,
+    74, 77, 81, 0, 84, 81, 79, 77,
+    82, 0, 81, 79, 0, 84, 0, 0,
+    77, 81, 84, 86, 84, 0, 81, 77,
+    79, 84, 83, 79, 0, 76, 79, 0,
+    82, 0, 81, 77, 79, 81, 84, 0,
+    79, 81, 79, 76, 77, 0, 0, 0,
+  ],
+  bass: [
+    41, 0, 53, 0, 48, 0, 53, 0,
+    48, 0, 60, 0, 55, 0, 60, 0,
+    50, 0, 62, 0, 57, 0, 62, 0,
+    46, 0, 58, 0, 48, 0, 60, 0,
+    41, 0, 53, 0, 48, 0, 53, 0,
+    48, 0, 60, 0, 55, 0, 60, 0,
+    46, 0, 58, 0, 53, 0, 58, 0,
+    48, 0, 60, 0, 41, 0, 0, 0,
+  ],
+  chords: [
+    [65, 69, 72], // F
+    [60, 64, 67], // C
+    [62, 65, 69], // Dm
+    [58, 62, 65], // Bb
+    [65, 69, 72], // F
+    [60, 64, 67], // C
+    [58, 62, 65], // Bb
+    [60, 64, 67], // C
+  ],
+  kickHatBoost: 1.08,
+};
+
+// Song 3: Pro (128 BPM) — Energetic A-minor starlit cocoa dance (Am | F | C | G | Am | F | Dm-E | Am)
+const PRO_ARRANGEMENT: SongArrangement = {
+  melody: [
+    69, 72, 76, 0, 81, 79, 76, 72,
+    77, 0, 81, 84, 81, 77, 76, 0,
+    72, 76, 79, 84, 83, 79, 76, 0,
+    79, 76, 74, 71, 74, 79, 83, 0,
+    81, 84, 88, 0, 84, 81, 79, 76,
+    77, 81, 84, 86, 84, 0, 81, 77,
+    74, 77, 81, 77, 76, 79, 83, 88,
+    81, 0, 84, 83, 81, 0, 0, 0,
+  ],
+  bass: [
+    45, 57, 45, 57, 45, 57, 52, 57,
+    41, 53, 41, 53, 41, 53, 48, 53,
+    48, 60, 48, 60, 48, 60, 55, 60,
+    43, 55, 43, 55, 43, 55, 50, 55,
+    45, 57, 45, 57, 45, 57, 52, 57,
+    41, 53, 41, 53, 41, 53, 48, 53,
+    50, 62, 50, 62, 40, 52, 40, 52,
+    45, 57, 52, 57, 45, 0, 0, 0,
+  ],
+  chords: [
+    [57, 60, 64], // Am
+    [53, 57, 60], // F
+    [60, 64, 67], // C
+    [55, 59, 62], // G
+    [57, 60, 64], // Am
+    [53, 57, 60], // F
+    [50, 53, 57], // Dm
+    [52, 56, 59], // E
+  ],
+  kickHatBoost: 1.18,
+};
+
+const SONG_ARRANGEMENTS: Record<MinigameDifficultyTier, SongArrangement> = {
+  relaxed: RELAXED_ARRANGEMENT,
+  standard: STANDARD_ARRANGEMENT,
+  pro: PRO_ARRANGEMENT,
+};
 
 export class RhythmSongEngine {
   private bpm: number;
+  private tier: MinigameDifficultyTier;
   private stepDurationSec: number;
   private wallStartPerfMs = 0;
   private schedulerTimer: number | null = null;
@@ -173,8 +295,9 @@ export class RhythmSongEngine {
   private muted: boolean;
   private stopped = false;
 
-  constructor(bpm: number, enabled: boolean) {
+  constructor(bpm: number, enabled: boolean, tier: MinigameDifficultyTier = 'standard') {
     this.bpm = bpm;
+    this.tier = tier;
     this.stepDurationSec = 60 / bpm / 2; // eighth-note step
     this.muted = !enabled;
   }
@@ -300,35 +423,49 @@ export class RhythmSongEngine {
       return;
     }
 
-    const loopStep = (stepIdx - 8) % MELODY_STEPS.length;
+    const arrangement = SONG_ARRANGEMENTS[this.tier] ?? STANDARD_ARRANGEMENT;
+    const loopStep = (stepIdx - 8) % arrangement.melody.length;
     const stepInBar = loopStep % 8;
     const barIndex = Math.floor(loopStep / 8);
 
     // 1. Drums: Kick on beats 1 & 3 (steps 0, 4), Snare on beats 2 & 4 (steps 2, 6), Hat on all 8ths
-    if (stepInBar === 0 || stepInBar === 4 || (stepInBar === 5 && barIndex % 2 === 1)) {
-      this.playKick(ctx, when, stepInBar === 5 ? 0.11 : 0.16);
+    if (
+      stepInBar === 0 ||
+      stepInBar === 4 ||
+      (stepInBar === 5 && barIndex % 2 === 1) ||
+      (this.tier === 'pro' && stepInBar === 2 && barIndex % 2 === 1)
+    ) {
+      this.playKick(
+        ctx,
+        when,
+        (stepInBar === 5 ? 0.11 : 0.16) * arrangement.kickHatBoost
+      );
     }
     if (stepInBar === 2 || stepInBar === 6) {
       this.playSnare(ctx, when);
     }
-    this.playHiHat(ctx, when, stepInBar % 2 === 0 ? 0.022 : 0.013);
+    this.playHiHat(
+      ctx,
+      when,
+      (stepInBar % 2 === 0 ? 0.022 : 0.013) * arrangement.kickHatBoost
+    );
 
     // 2. Soft Warm Pad on beat 1 of each bar
     if (stepInBar === 0) {
-      const chord = PAD_CHORDS[barIndex % PAD_CHORDS.length];
+      const chord = arrangement.chords[barIndex % arrangement.chords.length];
       for (const midi of chord) {
         this.playPadTone(ctx, when, midiToFreq(midi), this.stepDurationSec * 7.2);
       }
     }
 
     // 3. Bouncy Bass
-    const bassMidi = BASS_STEPS[loopStep];
+    const bassMidi = arrangement.bass[loopStep];
     if (bassMidi > 0) {
       this.playBass(ctx, when, midiToFreq(bassMidi), this.stepDurationSec * 1.4);
     }
 
     // 4. Cute Bell / Marimba Melody
-    const melodyMidi = MELODY_STEPS[loopStep];
+    const melodyMidi = arrangement.melody[loopStep];
     if (melodyMidi > 0) {
       this.playMelodyBell(ctx, when, midiToFreq(melodyMidi), this.stepDurationSec * 1.65);
     }

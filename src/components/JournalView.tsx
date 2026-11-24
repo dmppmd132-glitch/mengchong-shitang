@@ -4,6 +4,7 @@ import {
   BookOpen,
   Camera,
   Cloud,
+  CloudUpload,
   MessageCircleHeart,
   MessageSquareText,
   Minus,
@@ -58,7 +59,9 @@ interface JournalViewProps {
   onRequestReset: () => void;
   cloudUser?: CloudUser | null;
   syncStatus?: CloudSyncStatus;
+  lastSyncedAt?: string | null;
   onOpenCloudAuth?: () => void;
+  onForceUpload?: () => Promise<void>;
   sharedRoom?: SharedPetRoom | null;
   onOpenSharedPet?: () => void;
   messageCount?: number;
@@ -84,13 +87,25 @@ interface JournalViewProps {
   onSaveMonthlyRecap?: (recap: MonthlyRecap) => void;
   onShareRecapToBoard?: (recap: MonthlyRecap) => Promise<string | null>;
   onShareTextToBoard?: (title: string, body: string) => Promise<string | null>;
-  onGoToKitchen?: () => void;
+  onGoToKitchen?: (recipeId?: string) => void;
 }
 
 interface ChartPoint {
   dateStr: string;
   label: string;
   weight: number;
+}
+
+function formatSyncTimeLabel(ts?: string | null): string {
+  if (!ts) return '尚未同步';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '已同步';
+  return d.toLocaleString('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export const JournalView: React.FC<JournalViewProps> = ({
@@ -101,7 +116,9 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onRequestReset,
   cloudUser = null,
   syncStatus = 'local',
+  lastSyncedAt = null,
   onOpenCloudAuth,
+  onForceUpload,
   sharedRoom = null,
   onOpenSharedPet,
   messageCount = 0,
@@ -768,31 +785,49 @@ export const JournalView: React.FC<JournalViewProps> = ({
       )}
 
       {onOpenCloudAuth && (
-        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-sm font-extrabold text-[#4A3531]">雲端存檔與帳號</h2>
-            <p className="text-xs text-[#7D635D] mt-0.5 truncate">
-              {cloudUser
-                ? `${cloudUser.email}（${
-                    syncStatus === 'synced'
-                      ? '已同步'
-                      : syncStatus === 'syncing'
-                      ? '同步中…'
-                      : syncStatus === 'error'
-                      ? '同步異常'
-                      : '本機暫存'
-                  }）`
-                : '登入帳號即可跨裝置備份與同步進度'}
-            </p>
+        <section className="rounded-3xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-4 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-extrabold text-[#4A3531]">雲端存檔與帳號</h2>
+              <p className="text-xs text-[#7D635D] mt-0.5 truncate">
+                {cloudUser
+                  ? `${cloudUser.email}（${
+                      syncStatus === 'synced'
+                        ? '已同步'
+                        : syncStatus === 'syncing'
+                        ? '同步中…'
+                        : syncStatus === 'error'
+                        ? '同步異常'
+                        : '本機暫存'
+                    }）`
+                  : '登入帳號即可跨裝置備份與同步進度'}
+              </p>
+              {cloudUser && (
+                <p className="text-[11px] font-bold text-[#8A716B] mt-0.5 tabular-nums">
+                  最近同步時間：{formatSyncTimeLabel(lastSyncedAt)}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onOpenCloudAuth}
+              className="min-h-[44px] px-4 rounded-2xl bg-[#E3F7F0] border border-[#AEE3D0] text-xs font-extrabold text-[#256D57] inline-flex items-center gap-1.5 hover:bg-[#D2F2E7] active:scale-95 transition whitespace-nowrap shrink-0"
+            >
+              <Cloud className="w-3.5 h-3.5" />
+              <span>{cloudUser ? '管理同步' : '登入 / 註冊'}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onOpenCloudAuth}
-            className="min-h-[44px] px-4 rounded-2xl bg-[#E3F7F0] border border-[#AEE3D0] text-xs font-extrabold text-[#256D57] inline-flex items-center gap-1.5 hover:bg-[#D2F2E7] active:scale-95 transition whitespace-nowrap shrink-0"
-          >
-            <Cloud className="w-3.5 h-3.5" />
-            <span>{cloudUser ? '管理同步' : '登入 / 註冊'}</span>
-          </button>
+          {cloudUser && onForceUpload && (
+            <button
+              type="button"
+              disabled={syncStatus === 'syncing'}
+              onClick={() => void onForceUpload()}
+              className="w-full min-h-[40px] rounded-2xl bg-[#FFF3D8] border border-[#F2CE6D] text-xs font-extrabold text-[#8A5610] inline-flex items-center justify-center gap-1.5 hover:bg-[#FFE9BF] active:scale-[0.99] transition disabled:opacity-60"
+            >
+              <CloudUpload className="w-3.5 h-3.5" />
+              <span>{syncStatus === 'syncing' ? '正在同步至雲端…' : '立即上傳目前進度'}</span>
+            </button>
+          )}
         </section>
       )}
 

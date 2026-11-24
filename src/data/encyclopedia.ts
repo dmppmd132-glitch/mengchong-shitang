@@ -138,11 +138,23 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '寵物成長達 Lv.4（500 成長值）',
     badgeClass: 'bg-[#F3EBFF] border-[#C9BDF2] text-[#5B449C]',
   },
+  recipe_master: {
+    id: 'recipe_master',
+    name: '食堂神廚',
+    emoji: '👨‍🍳',
+    description: '精通萌寵食堂全部拿手料理，從香脆可頌到晚安熔岩可可都完美呈現！',
+    unlockCondition: '收集完所有料理食譜圖鑑',
+    badgeClass: 'bg-[#FFF0E5] border-[#F0B892] text-[#9A4816]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;
 export const ACCESSORY_MILESTONE_COINS = 50;
 export const ACCESSORY_MILESTONE_GROWTH = 20;
+
+export const RECIPE_MILESTONE_THRESHOLDS = [4, 8, 12];
+export const RECIPE_MILESTONE_COINS = 60;
+export const RECIPE_MILESTONE_GROWTH = 24;
 
 export const FURNITURE_MILESTONE_STEP = 5;
 export const FURNITURE_MILESTONE_COINS = 80;

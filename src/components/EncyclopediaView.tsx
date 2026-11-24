@@ -21,6 +21,8 @@ import {
   ACCESSORY_MILESTONE_GROWTH,
   FURNITURE_MILESTONE_COINS,
   FURNITURE_MILESTONE_GROWTH,
+  RECIPE_MILESTONE_COINS,
+  RECIPE_MILESTONE_GROWTH,
   TITLE_DEFINITIONS,
 } from '../data/encyclopedia';
 import { FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
@@ -40,7 +42,10 @@ import {
   getAccessoryRarityMeta,
   getAccessoryThemeProgress,
 } from '../utils/accessories';
-import { getAccessoryMilestoneThresholds } from '../utils/encyclopedia';
+import {
+  getAccessoryMilestoneThresholds,
+  getRecipeMilestoneThresholds,
+} from '../utils/encyclopedia';
 import {
   getFurnitureMilestoneThresholds,
   getHouseEncyclopediaCounts,
@@ -60,7 +65,7 @@ interface EncyclopediaViewProps {
   favoriteFoodIds?: string[];
   initialSection?: EncyclopediaSection;
   onSelectTitle?: (titleId: TitleId | null) => void;
-  onGoToKitchen?: () => void;
+  onGoToKitchen?: (recipeId?: string) => void;
 }
 
 export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
@@ -97,6 +102,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
   const houseCounts = getHouseEncyclopediaCounts(house);
   const collectedFurnitureSet = new Set(house.collectedFurnitureIds);
 
+  const recipeMilestones = getRecipeMilestoneThresholds();
   const accessoryMilestones = getAccessoryMilestoneThresholds();
   const furnitureMilestones = getFurnitureMilestoneThresholds();
   const themeProgressList = getAccessoryThemeProgress(
@@ -110,6 +116,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'growth_radiant',
     'growth_superstar',
     'gourmet_owner',
+    'recipe_master',
     'fashion_stylist',
     'strawberry_dreamer',
     'forest_camper',
@@ -364,6 +371,42 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
               />
             </div>
 
+            <div className="rounded-2xl bg-white/80 border border-[#EEDBD0] px-2.5 py-2 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] font-extrabold text-[#6E5246]">
+                <span>🏆 食譜里程碑獎勵</span>
+                <span className="text-[#9A581B] tabular-nums">
+                  每階段 +{RECIPE_MILESTONE_COINS} 金幣 · +{RECIPE_MILESTONE_GROWTH} 成長
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {recipeMilestones.map((m) => {
+                  const reached =
+                    (encyclopedia.claimedRecipeMilestones ?? []).includes(m) ||
+                    learnedRecipeCount >= m;
+                  return (
+                    <span
+                      key={m}
+                      className={`px-2 py-0.5 rounded-xl text-[11px] font-extrabold inline-flex items-center gap-1 tabular-nums ${
+                        reached
+                          ? 'bg-[#FFEEDB] text-[#9A4816] border border-[#F0B892]'
+                          : 'bg-[#F3ECE6] text-[#8E7A73] border border-[#E4D9D0]'
+                      }`}
+                    >
+                      {reached ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : (
+                        <Coins className="w-3 h-3" />
+                      )}
+                      <span>{m} 道</span>
+                    </span>
+                  );
+                })}
+                <span className="text-[10px] font-bold text-[#826862]">
+                  全收集解鎖「👨‍🍳 食堂神廚」
+                </span>
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
               <div className="grid grid-cols-3 gap-1 bg-[#F2E5DE] p-1 rounded-xl flex-1 min-w-[200px]">
                 {(
@@ -391,7 +434,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
               {onGoToKitchen && (
                 <button
                   type="button"
-                  onClick={onGoToKitchen}
+                  onClick={() => onGoToKitchen()}
                   className="min-h-[38px] px-3 rounded-xl bg-[#5CC9A7] text-white text-xs font-extrabold shadow-[0_2px_0_#3BA886] inline-flex items-center gap-1 hover:bg-[#49B895] active:translate-y-0.5 transition shrink-0"
                 >
                   <CookingPot className="w-3.5 h-3.5" />
@@ -515,9 +558,20 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                               );
                             })}
                           </div>
-                          <span className="text-[11px] font-bold text-[#8A7168]">
-                            廚房製作後收錄
-                          </span>
+                          {onGoToKitchen ? (
+                            <button
+                              type="button"
+                              onClick={() => onGoToKitchen(recipe.id)}
+                              className="min-h-[32px] px-2.5 rounded-xl bg-[#5CC9A7] text-white text-[11px] font-extrabold inline-flex items-center gap-1 shadow-[0_2px_0_#3BA886] hover:bg-[#49B895] active:translate-y-0.5 transition shrink-0"
+                            >
+                              <CookingPot className="w-3 h-3" />
+                              <span>去廚房試做 ›</span>
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-bold text-[#8A7168]">
+                              廚房製作後收錄
+                            </span>
+                          )}
                         </div>
                       </article>
                     );
@@ -618,12 +672,24 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
 
                       {/* Bonus & Nutrition Strip */}
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-[#7D635D] px-0.5 tabular-nums">
-                        <span>✨ 合成成長 +{recipe.bonusGrowth}</span>
-                        {outputFood && (
-                          <span>
-                            飽食 +{outputFood.hunger} · 心情 +{outputFood.mood} · 餵食成長 +
-                            {outputFood.growthGain}
-                          </span>
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                          <span>✨ 合成成長 +{recipe.bonusGrowth}</span>
+                          {outputFood && (
+                            <span>
+                              飽食 +{outputFood.hunger} · 心情 +{outputFood.mood} · 餵食成長 +
+                              {outputFood.growthGain}
+                            </span>
+                          )}
+                        </div>
+                        {onGoToKitchen && (
+                          <button
+                            type="button"
+                            onClick={() => onGoToKitchen(recipe.id)}
+                            className="min-h-[30px] px-2.5 rounded-xl bg-[#E8F8F2] border border-[#AEE3D0] text-[11px] font-extrabold text-[#1F6B54] inline-flex items-center gap-1 hover:bg-[#D5F3E8] active:scale-95 transition shrink-0"
+                          >
+                            <CookingPot className="w-3 h-3" />
+                            <span>前往製作 ›</span>
+                          </button>
                         )}
                       </div>
                     </article>

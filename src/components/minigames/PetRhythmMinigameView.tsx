@@ -4,6 +4,7 @@ import { SPECIES_RHYTHM_REACTIONS } from '../../data/minigames';
 import { Pet } from '../../types';
 import { MinigameDifficultyProfile, MinigameResult } from '../../types/minigame';
 import {
+  RhythmLane,
   RhythmSongEngine,
   ScheduledRhythmNote,
   generateRhythmChart,
@@ -45,10 +46,11 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
   difficulty,
   onComplete,
 }) => {
-  const { bpm, travelSeconds } = useMemo(
+  const songConfig = useMemo(
     () => getRhythmConfigForTier(difficulty.tier),
     [difficulty.tier]
   );
+  const { bpm, travelSeconds, isDualLane } = songConfig;
   const beatSec = 60 / bpm;
 
   const [musicEnabled, setMusicEnabled] = useState<boolean>(soundEnabled);
@@ -67,7 +69,8 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
   const [judgment, setJudgment] = useState<{ label: JudgmentLabel; key: number } | null>(
     null
   );
-  const [ringPulse, setRingPulse] = useState<'idle' | 'perfect' | 'good'>('idle');
+  const [ringPulseLeft, setRingPulseLeft] = useState<'idle' | 'perfect' | 'good'>('idle');
+  const [ringPulseRight, setRingPulseRight] = useState<'idle' | 'perfect' | 'good'>('idle');
 
   const activeNotesRef = useRef<ScheduledRhythmNote[]>([]);
   const engineRef = useRef<RhythmSongEngine | null>(null);
@@ -114,7 +117,7 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
     const chart = generateRhythmChart(bpm, ROUND_SECONDS, difficulty.tier);
     activeNotesRef.current = chart;
 
-    const engine = new RhythmSongEngine(bpm, musicEnabledRef.current);
+    const engine = new RhythmSongEngine(bpm, musicEnabledRef.current, difficulty.tier);
     engineRef.current = engine;
     engine.start();
 
@@ -133,7 +136,7 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
         if (currentBeat === 0) setCountInLabel('預備 3…');
         else if (currentBeat === 1) setCountInLabel('預備 2…');
         else if (currentBeat === 2) setCountInLabel('預備 1…');
-        else setCountInLabel('GO！跟著節拍點！');
+        else setCountInLabel(isDualLane ? 'GO！分軌跟拍點！' : 'GO！跟著節拍點！');
       } else {
         setCountInLabel(null);
       }
@@ -228,96 +231,111 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
     bpm,
     difficulty.tier,
     goodWindowSec,
+    isDualLane,
     showJudgment,
     travelSeconds,
     usedPaidReplay,
   ]);
 
-  const handleTapBeat = useCallback(() => {
-    if (finishedRef.current) return;
-    engineRef.current?.unlockAudio();
+  const handleTapBeat = useCallback(
+    (tapLane: RhythmLane = 'left') => {
+      if (finishedRef.current) return;
+      engineRef.current?.unlockAudio();
 
-    const songTimeSec = engineRef.current ? Math.max(0, engineRef.current.getSongTimeSec()) : 0;
-    const audioOn = musicEnabledRef.current;
+      const songTimeSec = engineRef.current ? Math.max(0, engineRef.current.getSongTimeSec()) : 0;
+      const audioOn = musicEnabledRef.current;
 
-    // Ignore accidental taps during the intro count-in before the first note enters the hit zone
-    const firstNoteStartWindow = 4 * beatSec - goodWindowSec - 0.12;
-    if (songTimeSec < firstNoteStartWindow) {
-      soundFX.pop(audioOn);
-      return;
-    }
-
-    let bestIdx = -1;
-    let bestDelta = Infinity;
-    for (let i = 0; i < activeNotesRef.current.length; i += 1) {
-      const delta = Math.abs(activeNotesRef.current[i].hitTimeSec - songTimeSec);
-      if (delta < bestDelta) {
-        bestDelta = delta;
-        bestIdx = i;
+      // Ignore accidental taps during the intro count-in before the first note enters the hit zone
+      const firstNoteStartWindow = 4 * beatSec - goodWindowSec - 0.12;
+      if (songTimeSec < firstNoteStartWindow) {
+        soundFX.pop(audioOn);
+        return;
       }
-    }
 
-    if (bestIdx === -1 || bestDelta > goodWindowSec) {
-      comboRef.current = 0;
-      missRef.current += 1;
-      setCombo(0);
-      setMissCount(missRef.current);
-      soundFX.miss(audioOn);
-      triggerHaptic(24);
-      showJudgment('Miss');
-      return;
-    }
-
-    const updated = [...activeNotesRef.current];
-    updated.splice(bestIdx, 1);
-    activeNotesRef.current = updated;
-
-    if (bestDelta <= perfectWindowSec) {
-      comboRef.current += 1;
-      perfectRef.current += 1;
-      if (comboRef.current > maxComboRef.current) {
-        maxComboRef.current = comboRef.current;
-        setMaxCombo(comboRef.current);
+      let bestIdx = -1;
+      let bestDelta = Infinity;
+      for (let i = 0; i < activeNotesRef.current.length; i += 1) {
+        const note = activeNotesRef.current[i];
+        if (isDualLane && note.lane !== tapLane) continue;
+        const delta = Math.abs(note.hitTimeSec - songTimeSec);
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          bestIdx = i;
+        }
       }
-      const gained = 8 + Math.min(8, (comboRef.current - 1) * 2);
-      scoreRef.current += gained;
-      setScore(scoreRef.current);
-      setCombo(comboRef.current);
-      setPerfectCount(perfectRef.current);
-      setRingPulse('perfect');
-      window.setTimeout(() => setRingPulse('idle'), 130);
-      triggerHaptic(16);
-      if (comboRef.current >= 3) {
-        soundFX.combo(audioOn, comboRef.current);
+
+      if (bestIdx === -1 || bestDelta > goodWindowSec) {
+        comboRef.current = 0;
+        missRef.current += 1;
+        setCombo(0);
+        setMissCount(missRef.current);
+        soundFX.miss(audioOn);
+        triggerHaptic(24);
+        showJudgment('Miss');
+        return;
+      }
+
+      const updated = [...activeNotesRef.current];
+      updated.splice(bestIdx, 1);
+      activeNotesRef.current = updated;
+
+      const setRingPulse =
+        isDualLane && tapLane === 'right' ? setRingPulseRight : setRingPulseLeft;
+
+      if (bestDelta <= perfectWindowSec) {
+        comboRef.current += 1;
+        perfectRef.current += 1;
+        if (comboRef.current > maxComboRef.current) {
+          maxComboRef.current = comboRef.current;
+          setMaxCombo(comboRef.current);
+        }
+        const gained = 8 + Math.min(8, (comboRef.current - 1) * 2);
+        scoreRef.current += gained;
+        setScore(scoreRef.current);
+        setCombo(comboRef.current);
+        setPerfectCount(perfectRef.current);
+        setRingPulse('perfect');
+        window.setTimeout(() => setRingPulse('idle'), 130);
+        triggerHaptic(16);
+        if (comboRef.current >= 3) {
+          soundFX.combo(audioOn, comboRef.current);
+        } else {
+          soundFX.rhythmPerfect(audioOn);
+        }
+        showJudgment('Perfect!');
       } else {
-        soundFX.rhythmPerfect(audioOn);
+        goodRef.current += 1;
+        comboRef.current = 0;
+        scoreRef.current += 4;
+        setScore(scoreRef.current);
+        setCombo(0);
+        setGoodCount(goodRef.current);
+        setRingPulse('good');
+        window.setTimeout(() => setRingPulse('idle'), 130);
+        triggerHaptic(10);
+        soundFX.rhythmGood(audioOn);
+        showJudgment('Good');
       }
-      showJudgment('Perfect!');
-    } else {
-      goodRef.current += 1;
-      comboRef.current = 0;
-      scoreRef.current += 4;
-      setScore(scoreRef.current);
-      setCombo(0);
-      setGoodCount(goodRef.current);
-      setRingPulse('good');
-      window.setTimeout(() => setRingPulse('idle'), 130);
-      triggerHaptic(10);
-      soundFX.rhythmGood(audioOn);
-      showJudgment('Good');
-    }
-  }, [beatSec, goodWindowSec, perfectWindowSec, showJudgment]);
+    },
+    [beatSec, goodWindowSec, isDualLane, perfectWindowSec, showJudgment]
+  );
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'Enter') {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
         e.preventDefault();
-        handleTapBeat();
+        handleTapBeat('left');
+      } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleTapBeat(isDualLane ? 'right' : 'left');
+      } else if (!isDualLane && (e.key === ' ' || e.key === 'Enter')) {
+        e.preventDefault();
+        handleTapBeat('left');
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleTapBeat]);
+  }, [handleTapBeat, isDualLane]);
 
   return (
     <div className="space-y-2.5 overflow-x-hidden">
@@ -380,6 +398,11 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
             />
           </div>
           <div className="min-w-0">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/85 border border-[#DDD3F6] text-[10px] font-extrabold text-[#5A3EA6] mb-1 max-w-full truncate">
+              <span>🎵 {songConfig.title}</span>
+              <span className="opacity-60">·</span>
+              <span>{songConfig.keyLabel}</span>
+            </div>
             <div className="flex items-center gap-2">
               <p className="text-xs font-extrabold text-[#5A3EA6] truncate">
                 {reaction.danceLabel}
@@ -429,82 +452,216 @@ export const PetRhythmMinigameView: React.FC<PetRhythmMinigameViewProps> = ({
         )}
       </div>
 
-      <div
-        onPointerDown={(e) => {
-          e.preventDefault();
-          handleTapBeat();
-        }}
-        className="relative w-full h-[98px] rounded-2xl border-2 border-[#C7B7F2] bg-[#FAF7FF] overflow-hidden select-none touch-none cursor-pointer"
-      >
-        <div
-          className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-1 rounded-full bg-[#E5DCF8]"
-          aria-hidden="true"
-        />
-
-        {/* Beat subdivision tick marks gliding with the music */}
-        {beatTicks.map((tick) => (
+      {!isDualLane ? (
+        <>
           <div
-            key={tick.beat}
-            style={{ left: `${tick.x}%` }}
-            className={`pointer-events-none absolute top-3 bottom-3 -translate-x-1/2 ${
-              tick.isBarStart ? 'w-[2px] bg-[#C9B7F2]' : 'w-px bg-[#E8E0FA]'
-            }`}
-            aria-hidden="true"
-          />
-        ))}
-
-        {/* Beat-synced Target Ring */}
-        <div
-          style={{ left: `${HIT_ZONE_X}%` }}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-4 flex items-center justify-center transition-transform duration-75 ${
-            ringPulse === 'perfect'
-              ? 'border-[#F59E0B] bg-[#FEF3C7] scale-115'
-              : ringPulse === 'good'
-              ? 'border-[#3BA886] bg-[#D1FAE5] scale-110'
-              : isBeatPulse
-              ? 'border-[#7E60D6] bg-[#F1EBFF] scale-105'
-              : 'border-[#967BE3] bg-white/92 scale-100'
-          }`}
-        >
-          <span className="text-[11px] font-extrabold text-[#5A3EA6]">TAP</span>
-        </div>
-
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            style={{
-              left: `${note.x}%`,
-              transform: 'translate(-50%, -50%)',
+            onPointerDown={(e) => {
+              e.preventDefault();
+              handleTapBeat('left');
             }}
-            className={`absolute top-1/2 leading-none pointer-events-none select-none will-change-transform flex items-center justify-center ${
-              note.isDownbeat ? 'text-[34px] drop-shadow-xs' : 'text-3xl'
-            }`}
-            aria-hidden="true"
+            className="relative w-full h-[98px] rounded-2xl border-2 border-[#C7B7F2] bg-[#FAF7FF] overflow-hidden select-none touch-none cursor-pointer"
           >
-            {note.emoji}
-          </div>
-        ))}
+            <div
+              className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-1 rounded-full bg-[#E5DCF8]"
+              aria-hidden="true"
+            />
 
-        {countInLabel && (
-          <div className="pointer-events-none absolute right-3 top-2 px-2 py-0.5 rounded-lg bg-[#EDE7FE] text-[11px] font-extrabold text-[#5A3EA6]">
-            {countInLabel}
-          </div>
-        )}
-      </div>
+            {beatTicks.map((tick) => (
+              <div
+                key={tick.beat}
+                style={{ left: `${tick.x}%` }}
+                className={`pointer-events-none absolute top-3 bottom-3 -translate-x-1/2 ${
+                  tick.isBarStart ? 'w-[2px] bg-[#C9B7F2]' : 'w-px bg-[#E8E0FA]'
+                }`}
+                aria-hidden="true"
+              />
+            ))}
 
-      <button
-        type="button"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          handleTapBeat();
-        }}
-        className={`w-full min-h-[76px] rounded-2xl bg-gradient-to-b from-[#8A6EE8] to-[#6F52D2] text-white font-extrabold text-base shadow-[0_4px_0_#5238AD] active:translate-y-1 active:shadow-none transition flex items-center justify-center gap-2 select-none touch-none ${
-          isBeatPulse ? 'brightness-105' : ''
-        }`}
-      >
-        <Music className="w-5 h-5" />
-        <span>跟著音樂節拍點擊！</span>
-      </button>
+            <div
+              style={{ left: `${HIT_ZONE_X}%` }}
+              className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-4 flex items-center justify-center transition-transform duration-75 ${
+                ringPulseLeft === 'perfect'
+                  ? 'border-[#F59E0B] bg-[#FEF3C7] scale-115'
+                  : ringPulseLeft === 'good'
+                  ? 'border-[#3BA886] bg-[#D1FAE5] scale-110'
+                  : isBeatPulse
+                  ? 'border-[#7E60D6] bg-[#F1EBFF] scale-105'
+                  : 'border-[#967BE3] bg-white/92 scale-100'
+              }`}
+            >
+              <span className="text-[11px] font-extrabold text-[#5A3EA6]">TAP</span>
+            </div>
+
+            {notes.map((note) => (
+              <div
+                key={note.id}
+                style={{
+                  left: `${note.x}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                className={`absolute top-1/2 leading-none pointer-events-none select-none will-change-transform flex items-center justify-center ${
+                  note.isDownbeat ? 'text-[34px] drop-shadow-xs' : 'text-3xl'
+                }`}
+                aria-hidden="true"
+              >
+                {note.emoji}
+              </div>
+            ))}
+
+            {countInLabel && (
+              <div className="pointer-events-none absolute right-3 top-2 px-2 py-0.5 rounded-lg bg-[#EDE7FE] text-[11px] font-extrabold text-[#5A3EA6]">
+                {countInLabel}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              handleTapBeat('left');
+            }}
+            className={`w-full min-h-[76px] rounded-2xl bg-gradient-to-b from-[#8A6EE8] to-[#6F52D2] text-white font-extrabold text-base shadow-[0_4px_0_#5238AD] active:translate-y-1 active:shadow-none transition flex items-center justify-center gap-2 select-none touch-none ${
+              isBeatPulse ? 'brightness-105' : ''
+            }`}
+          >
+            <Music className="w-5 h-5" />
+            <span>跟著音樂節拍點擊！</span>
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="relative w-full h-[128px] rounded-2xl border-2 border-[#C7B7F2] bg-[#FAF7FF] overflow-hidden select-none touch-none">
+            {/* Upper (Left) & Lower (Right) Horizontal Rails */}
+            <div
+              className="pointer-events-none absolute inset-x-4 top-[31%] -translate-y-1/2 h-1 rounded-full bg-[#FAD9E5]"
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute inset-x-4 top-[69%] -translate-y-1/2 h-1 rounded-full bg-[#E1D8FA]"
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute inset-x-3 top-1/2 border-t border-dashed border-[#DFD5F5]"
+              aria-hidden="true"
+            />
+
+            {/* Direct Tap Overlays for Upper & Lower Lanes */}
+            <div
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleTapBeat('left');
+              }}
+              className="absolute inset-x-0 top-0 h-1/2 cursor-pointer"
+              aria-label="點擊左軌"
+            />
+            <div
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleTapBeat('right');
+              }}
+              className="absolute inset-x-0 bottom-0 h-1/2 cursor-pointer"
+              aria-label="點擊右軌"
+            />
+
+            {beatTicks.map((tick) => (
+              <div
+                key={tick.beat}
+                style={{ left: `${tick.x}%` }}
+                className={`pointer-events-none absolute top-2 bottom-2 -translate-x-1/2 ${
+                  tick.isBarStart ? 'w-[2px] bg-[#C9B7F2]' : 'w-px bg-[#E8E0FA]'
+                }`}
+                aria-hidden="true"
+              />
+            ))}
+
+            {/* Left Lane Target Ring */}
+            <div
+              style={{ left: `${HIT_ZONE_X}%`, top: '31%' }}
+              className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-4 flex items-center justify-center transition-transform duration-75 ${
+                ringPulseLeft === 'perfect'
+                  ? 'border-[#F59E0B] bg-[#FEF3C7] scale-115'
+                  : ringPulseLeft === 'good'
+                  ? 'border-[#3BA886] bg-[#D1FAE5] scale-110'
+                  : isBeatPulse
+                  ? 'border-[#FF6D96] bg-[#FFF0F5] scale-105'
+                  : 'border-[#F282A4] bg-white/92 scale-100'
+              }`}
+            >
+              <span className="text-[10px] font-extrabold text-[#C23B67]">左</span>
+            </div>
+
+            {/* Right Lane Target Ring */}
+            <div
+              style={{ left: `${HIT_ZONE_X}%`, top: '69%' }}
+              className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full border-4 flex items-center justify-center transition-transform duration-75 ${
+                ringPulseRight === 'perfect'
+                  ? 'border-[#F59E0B] bg-[#FEF3C7] scale-115'
+                  : ringPulseRight === 'good'
+                  ? 'border-[#3BA886] bg-[#D1FAE5] scale-110'
+                  : isBeatPulse
+                  ? 'border-[#7E60D6] bg-[#F1EBFF] scale-105'
+                  : 'border-[#967BE3] bg-white/92 scale-100'
+              }`}
+            >
+              <span className="text-[10px] font-extrabold text-[#5A3EA6]">右</span>
+            </div>
+
+            {notes.map((note) => (
+              <div
+                key={note.id}
+                style={{
+                  left: `${note.x}%`,
+                  top: note.lane === 'left' ? '31%' : '69%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+                className={`absolute leading-none pointer-events-none select-none will-change-transform flex items-center justify-center ${
+                  note.isDownbeat ? 'text-[30px] drop-shadow-xs' : 'text-[26px]'
+                }`}
+                aria-hidden="true"
+              >
+                {note.emoji}
+              </div>
+            ))}
+
+            {countInLabel && (
+              <div className="pointer-events-none absolute right-3 top-2 px-2 py-0.5 rounded-lg bg-[#EDE7FE] text-[11px] font-extrabold text-[#5A3EA6]">
+                {countInLabel}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleTapBeat('left');
+              }}
+              className={`min-h-[72px] rounded-2xl bg-gradient-to-b from-[#FF8AA8] to-[#EB6389] text-white font-extrabold text-sm shadow-[0_4px_0_#C24468] active:translate-y-1 active:shadow-none transition flex flex-col items-center justify-center gap-0.5 select-none touch-none ${
+                isBeatPulse ? 'brightness-105' : ''
+              }`}
+            >
+              <span>🩷 左拍</span>
+              <span className="text-[10px] opacity-85 font-bold">(A / ←)</span>
+            </button>
+
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleTapBeat('right');
+              }}
+              className={`min-h-[72px] rounded-2xl bg-gradient-to-b from-[#8A6EE8] to-[#6F52D2] text-white font-extrabold text-sm shadow-[0_4px_0_#5238AD] active:translate-y-1 active:shadow-none transition flex flex-col items-center justify-center gap-0.5 select-none touch-none ${
+                isBeatPulse ? 'brightness-105' : ''
+              }`}
+            >
+              <span>🎵 右拍</span>
+              <span className="text-[10px] opacity-85 font-bold">(D / →)</span>
+            </button>
+          </div>
+        </>
+      )}
 
       <p className="text-center text-[11px] font-bold text-[#826862] tabular-nums">
         最高連擊 {maxCombo} · Perfect {perfectCount} · Good {goodCount} · Miss {missCount}

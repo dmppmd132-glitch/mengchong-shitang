@@ -261,7 +261,8 @@ export type TitleId =
   | 'growth_sprout'
   | 'growth_chubby'
   | 'growth_radiant'
-  | 'growth_superstar';
+  | 'growth_superstar'
+  | 'recipe_master';
 
 export type PersonalityId =
   | 'greedy'
@@ -577,6 +578,7 @@ export interface NoviceGrowthStats {
 export interface EncyclopediaState {
   collectedFoodIds: string[];
   learnedRecipeIds: string[];
+  claimedRecipeMilestones?: number[];
   claimedAccessoryMilestones: number[];
   claimedAccessoryThemeSets: AccessoryTheme[];
   unlockedTitles: TitleId[];

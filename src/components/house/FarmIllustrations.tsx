@@ -1,5 +1,6 @@
 import React from 'react';
 import { IngredientId } from '../../types';
+import type { TimeOfDayPeriod } from '../../utils/farmGrowth';
 
 const COCOA = '#6B5344';
 
@@ -619,39 +620,75 @@ export const SeedSproutBadge: React.FC = () => (
 );
 
 /* Full Upper Sky + Flanking Trees + Rolling Hills + Right Red Barn Backdrop */
-export const PastoralHorizonBackdrop: React.FC = () => (
-  <svg
-    viewBox="0 0 400 330"
-    preserveAspectRatio="none"
-    className="pointer-events-none w-full h-full block"
-    aria-hidden="true"
-  >
-    <defs>
-      <linearGradient id="farmPastoralSkyRef" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#D8F0F6" />
-        <stop offset="55%" stopColor="#ECFAEE" />
-        <stop offset="100%" stopColor="#D3EBC4" />
-      </linearGradient>
-      <linearGradient id="farmMeadowSlopeRef" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#B8DC80" />
-        <stop offset="100%" stopColor="#CBE494" />
-      </linearGradient>
-    </defs>
+export const PastoralHorizonBackdrop: React.FC<{ timeOfDay?: TimeOfDayPeriod }> = ({
+  timeOfDay = 'day',
+}) => {
+  const skyTop =
+    timeOfDay === 'morning'
+      ? '#FCE2C7'
+      : timeOfDay === 'night'
+      ? '#495488'
+      : '#D8F0F6';
+  const skyMid =
+    timeOfDay === 'morning'
+      ? '#FFF3DF'
+      : timeOfDay === 'night'
+      ? '#6D73A6'
+      : '#ECFAEE';
+  const skyBot =
+    timeOfDay === 'morning'
+      ? '#D9EFC6'
+      : timeOfDay === 'night'
+      ? '#88A692'
+      : '#D3EBC4';
 
-    {/* Pastel Sky */}
-    <rect x="0" y="0" width="400" height="330" fill="url(#farmPastoralSkyRef)" />
+  return (
+    <svg
+      viewBox="0 0 400 330"
+      preserveAspectRatio="none"
+      className="pointer-events-none w-full h-full block"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="farmPastoralSkyRef" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={skyTop} />
+          <stop offset="55%" stopColor={skyMid} />
+          <stop offset="100%" stopColor={skyBot} />
+        </linearGradient>
+        <linearGradient id="farmMeadowSlopeRef" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#B8DC80" />
+          <stop offset="100%" stopColor="#CBE494" />
+        </linearGradient>
+      </defs>
 
-    {/* Soft Clouds */}
-    <path
-      d="M28 56C28 48 35 43 43 44C47 38 57 37 63 42C70 42 75 48 74 56H28Z"
-      fill="#FFFFFF"
-      opacity="0.82"
-    />
-    <path
-      d="M312 70C312 63 318 59 325 60C328 55 337 55 341 59C347 59 351 64 350 70H312Z"
-      fill="#FFFFFF"
-      opacity="0.82"
-    />
+      {/* Pastel Sky */}
+      <rect x="0" y="0" width="400" height="330" fill="url(#farmPastoralSkyRef)" />
+
+      {/* Night Stars & Crescent Moon */}
+      {timeOfDay === 'night' && (
+        <g opacity="0.88">
+          <circle cx="96" cy="36" r="1.6" fill="#FFF7CC" />
+          <circle cx="152" cy="24" r="1.3" fill="#FFF7CC" />
+          <circle cx="238" cy="32" r="1.8" fill="#FFF7CC" />
+          <circle cx="282" cy="22" r="1.4" fill="#FFF7CC" />
+          <path
+            d="M358 26C353 27 350 32 351 37C352 42 357 45 362 44C357 46 351 43 349 38C347 32 351 26 358 26Z"
+            fill="#FFEFA6"
+          />
+        </g>
+      )}
+
+      {/* Soft Clouds */}
+      <path
+        d="M28 56C28 48 35 43 43 44C47 38 57 37 63 42C70 42 75 48 74 56H28Z"
+        fill="#FFFFFF"
+        opacity={timeOfDay === 'night' ? '0.32' : '0.82'}
+      />
+      <path
+        d="M312 70C312 63 318 59 325 60C328 55 337 55 341 59C347 59 351 64 350 70H312Z"
+        fill="#FFFFFF"
+        opacity={timeOfDay === 'night' ? '0.32' : '0.82'}
+      />
 
     {/* Distant Soft Hills Behind Bulletin Board */}
     <path d="M0 198Q110 158 225 186T400 176V330H0Z" fill="#D5ECC5" />
@@ -773,7 +810,8 @@ export const PastoralHorizonBackdrop: React.FC = () => (
       opacity="0.7"
     />
   </svg>
-);
+  );
+};
 
 /* Hand-Drawn Organic Lumpy 3D Soil Bed SVG (#C6A484) */
 export const SoilBedBackdropSvg: React.FC<{ isReady?: boolean; isGolden?: boolean }> = ({

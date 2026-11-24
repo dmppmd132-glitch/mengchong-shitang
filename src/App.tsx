@@ -139,6 +139,7 @@ import {
   syncAllAccessoryProgress,
   togglePhotoLike,
 } from './utils/accessories';
+import { syncEncyclopediaRewards } from './utils/encyclopedia';
 import { resolveFeedingOutcome } from './utils/feeding';
 import {
   PaymentSource,
@@ -171,6 +172,7 @@ import {
   formatWaterBoostLabel,
   getCropGrowthState,
   getExpectedCropDurationMs,
+  getTimeOfDayPeriod,
   getWaterBoostMs,
 } from './utils/farmGrowth';
 import {
@@ -204,6 +206,8 @@ export default function App() {
     useState<EncyclopediaSection>('foods');
   const [canteenInitialSection, setCanteenInitialSection] =
     useState<CanteenSection>('shop');
+  const [canteenHighlightedRecipeId, setCanteenHighlightedRecipeId] =
+    useState<string | null>(null);
   const [houseInitialTab, setHouseInitialTab] = useState<HouseSubTab>('room');
   const [actionState, setActionState] = useState<PiggyActionState>('idle');
   const [expressionState, setExpressionState] = useState<PetExpression>('normal');
@@ -258,7 +262,15 @@ export default function App() {
     }
   });
   const [puppyTreasureReady, setPuppyTreasureReady] = useState<boolean>(false);
+  const [cropNotifyEnabled, setCropNotifyEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('mengchong_crop_notify_v1') === '1';
+    } catch {
+      return false;
+    }
+  });
   const lastPuppyTreasureAtRef = useRef<number>(Date.now());
+  const notifiedReadyPlotsRef = useRef<Set<string>>(new Set());
 
   const currentUserId = cloudUser?.id ?? 'local';
   const actorName = cloudUser?.email ? cloudUser.email.split('@')[0] || '飼主' : '飼主';
@@ -286,6 +298,9 @@ export default function App() {
   const lastExpressionRef = useRef<PetExpression>('normal');
   const prevMilestonesCountRef = useRef<number>(
     game.encyclopedia.claimedAccessoryMilestones.length
+  );
+  const prevRecipeMilestonesCountRef = useRef<number>(
+    (game.encyclopedia.claimedRecipeMilestones ?? []).length
   );
   const prevTitlesCountRef = useRef<number>(
     game.encyclopedia.unlockedTitles.length
@@ -317,12 +332,27 @@ export default function App() {
   }, [puppyTreasureReady]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem('mengchong_crop_notify_v1', cropNotifyEnabled ? '1' : '0');
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [cropNotifyEnabled]);
+
+  useEffect(() => {
     const milestoneLen = game.encyclopedia.claimedAccessoryMilestones.length;
     if (milestoneLen > prevMilestonesCountRef.current) {
       const latest = game.encyclopedia.claimedAccessoryMilestones[milestoneLen - 1];
       pushFeedback(`收集 ${latest} 款配件里程碑 +50 金幣！`, '🎉');
     }
     prevMilestonesCountRef.current = milestoneLen;
+
+    const recipeMilestones = game.encyclopedia.claimedRecipeMilestones ?? [];
+    if (recipeMilestones.length > prevRecipeMilestonesCountRef.current) {
+      const latestRecipeMilestone = recipeMilestones[recipeMilestones.length - 1];
+      pushFeedback(`收集 ${latestRecipeMilestone} 道食譜里程碑 +60 金幣！`, '👩‍🍳');
+    }
+    prevRecipeMilestonesCountRef.current = recipeMilestones.length;
 
     const titlesLen = game.encyclopedia.unlockedTitles.length;
     if (titlesLen > prevTitlesCountRef.current) {
@@ -335,6 +365,7 @@ export default function App() {
     prevTitlesCountRef.current = titlesLen;
   }, [
     game.encyclopedia.claimedAccessoryMilestones,
+    game.encyclopedia.claimedRecipeMilestones,
     game.encyclopedia.unlockedTitles,
     game.soundEnabled,
   ]);
@@ -1465,6 +1496,120 @@ export default function App() {
     );
   };
 
+  const handlePlantAllCrops = (ingredientId: IngredientId) => {
+    const info = INGREDIENTS[ingredientId];
+    const emptyPlots = game.farmPlots.filter((p) => p.cropId === null);
+    if (emptyPlots.length === 0) return;
+
+    let remainingFree = freeSeeds[ingredientId] ?? 0;
+    let remainingCoins = game.coins;
+    let freeUsed = 0;
+    let coinsUsed = 0;
+    const plantedPlotIds = new Map<number, boolean>();
+
+    for (const plot of emptyPlots) {
+      if (remainingFree > 0) {
+        remainingFree -= 1;
+        freeUsed += 1;
+        plantedPlotIds.set(plot.id, Math.random() < 0.1);
+      } else if (remainingCoins >= info.seedCost) {
+        remainingCoins -= info.seedCost;
+        coinsUsed += info.seedCost;
+        plantedPlotIds.set(plot.id, Math.random() < 0.1);
+      } else {
+        break;
+      }
+    }
+
+    const plantedCount = plantedPlotIds.size;
+    if (plantedCount === 0) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback('金幣不足，無法播種喔', '🪙');
+      return;
+    }
+
+    soundFX.pop(game.soundEnabled);
+    triggerHaptic(16);
+    const plantedAt = Date.now();
+    const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
+    const expectedDurationMs = getExpectedCropDurationMs(
+      durationMs,
+      plantedAt,
+      game.yardMoodBuffPeriods ?? []
+    );
+    const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
+
+    if (freeUsed > 0) {
+      setFreeSeeds((prev) => ({
+        ...prev,
+        [ingredientId]: Math.max(0, (prev[ingredientId] ?? 0) - freeUsed),
+      }));
+    }
+
+    setGame((prev) => ({
+      ...prev,
+      coins: Math.max(0, prev.coins - coinsUsed),
+      farmPlots: prev.farmPlots.map((p) =>
+        plantedPlotIds.has(p.id)
+          ? {
+              ...p,
+              cropId: ingredientId,
+              plantedAt,
+              durationMs,
+              watered: false,
+              isGolden: plantedPlotIds.get(p.id),
+            }
+          : p
+      ),
+      noviceGrowth: {
+        ...prev.noviceGrowth,
+        plantedCarrotCount:
+          prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? plantedCount : 0),
+      },
+    }));
+
+    const durationText = formatCropDurationLabel(effectiveSec);
+    pushFeedback(`一鍵種下 ${plantedCount} 塊${info.name}`, info.emoji);
+    setSpeech(
+      `一口氣種下 ${plantedCount} 塊${info.name}囉，再等 ${durationText}就能一起大豐收！`
+    );
+  };
+
+  const handleToggleCropNotify = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      pushFeedback('此瀏覽器暫不支援通知提醒', '🔔');
+      return;
+    }
+    if (cropNotifyEnabled) {
+      setCropNotifyEnabled(false);
+      pushFeedback('已關閉作物成熟通知', '🔕');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      setCropNotifyEnabled(true);
+      pushFeedback('已開啟作物成熟通知提醒', '🔔');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      setCropNotifyEnabled(false);
+      pushFeedback('請先於瀏覽器網站設定允許通知權限', '⚠️');
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setCropNotifyEnabled(true);
+        pushFeedback('已開啟作物成熟通知提醒', '🔔');
+      } else {
+        setCropNotifyEnabled(false);
+        pushFeedback('未授權通知權限，維持關閉', '🔕');
+      }
+    } catch {
+      setCropNotifyEnabled(false);
+      pushFeedback('無法開啟瀏覽器通知提醒', '⚠️');
+    }
+  };
+
   const handleWaterCrop = (plotId: number) => {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
@@ -1522,6 +1667,7 @@ export default function App() {
     }
 
     setGame((prev) => {
+      const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const harvestedState: GameState = {
         ...prev,
         coins: prev.coins + goldenCoinBonus,
@@ -1534,6 +1680,8 @@ export default function App() {
             ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
             : p
         ),
+        dailyTasks: incrementTaskProgress(synced.dailyTasks, 'harvest_1', 1),
+        dailyTasksDate: synced.dailyTasksDate,
       };
       let withMem = recordMonthlyActivity(harvestedState, {
         interactionLabel: '農場收成',
@@ -1676,6 +1824,7 @@ export default function App() {
         }
       }
 
+      const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const harvestedState: GameState = {
         ...prev,
         coins: prev.coins + coinBonus,
@@ -1685,6 +1834,8 @@ export default function App() {
             ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
             : p
         ),
+        dailyTasks: incrementTaskProgress(synced.dailyTasks, 'harvest_1', 1),
+        dailyTasksDate: synced.dailyTasksDate,
       };
       let withMem = recordMonthlyActivity(harvestedState, {
         interactionLabel: '農場收成',
@@ -1824,6 +1975,7 @@ export default function App() {
     const isNewRecipe = !(game.encyclopedia.learnedRecipeIds ?? []).includes(recipe.id);
     soundFX.levelUp(game.soundEnabled);
     setGame((prev) => {
+      const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const nextIngredients = { ...prev.ingredients };
       for (const [id, need] of reqEntries) {
         nextIngredients[id] = Math.max(0, (nextIngredients[id] ?? 0) - need);
@@ -1849,6 +2001,8 @@ export default function App() {
           growth: nextGrowth,
           level: getGrowthStage(nextGrowth).level,
         },
+        dailyTasks: incrementTaskProgress(synced.dailyTasks, 'cook_1', 1),
+        dailyTasksDate: synced.dailyTasksDate,
         noviceGrowth: {
           ...prev.noviceGrowth,
           cookedCount: prev.noviceGrowth.cookedCount + 1,
@@ -1860,7 +2014,8 @@ export default function App() {
         },
       };
       const syncedAcc = syncAllAccessoryProgress(draftState).nextState;
-      let withMem = recordMonthlyActivity(syncedAcc, {
+      const syncedEncyclopedia = syncEncyclopediaRewards(syncedAcc).nextState;
+      let withMem = recordMonthlyActivity(syncedEncyclopedia, {
         interactionLabel: '廚房料理',
         growthDelta: recipe.bonusGrowth,
       });
@@ -1902,6 +2057,7 @@ export default function App() {
     const cfg = MINIGAME_BY_ID[result.gameId];
 
     setGame((prev) => {
+      const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const settled = settleMinigameOutcome(prev, result).nextState;
       let nextPersonality = applyPersonalityDevelopment(
         settled.personality,
@@ -1920,6 +2076,8 @@ export default function App() {
       }
       return {
         ...settled,
+        dailyTasks: incrementTaskProgress(synced.dailyTasks, 'minigame_1', 1),
+        dailyTasksDate: synced.dailyTasksDate,
         personality: nextPersonality,
         dialogue: nextDialogue,
       };
@@ -1980,6 +2138,7 @@ export default function App() {
     }
 
     setGame((prev) => {
+      const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const current = prev.pet.accessories[item.slot];
       const next = current === item.id ? null : item.id;
       let updated: GameState = {
@@ -1991,6 +2150,10 @@ export default function App() {
             [item.slot]: next,
           },
         },
+        dailyTasks: next
+          ? incrementTaskProgress(synced.dailyTasks, 'dress_1', 1)
+          : synced.dailyTasks,
+        dailyTasksDate: synced.dailyTasksDate,
       };
       if (next) {
         updated = recordMonthlyActivity(updated, {
@@ -2453,6 +2616,7 @@ export default function App() {
     setCloudUser(null);
     setSharedRoom(null);
     setPendingCloudSave(null);
+    setLastSyncedAt(null);
     setSyncStatus('local');
     setSyncError(null);
     setAuthModalOpen(false);
@@ -2718,6 +2882,18 @@ export default function App() {
         }
       }
 
+      const roomSurfaceChanged =
+        next.house.roomLayout.wallpaperId !== prev.house.roomLayout.wallpaperId ||
+        next.house.roomLayout.flooringId !== prev.house.roomLayout.flooringId;
+      if (newPlaced || roomSurfaceChanged) {
+        const synced = syncDailyTasks(next.dailyTasks, next.dailyTasksDate);
+        next = {
+          ...next,
+          dailyTasks: incrementTaskProgress(synced.dailyTasks, 'dress_1', 1),
+          dailyTasksDate: synced.dailyTasksDate,
+        };
+      }
+
       if (newPlaced) {
         const placeName = ROOM_ITEM_BY_ID[newPlaced.itemId]?.name ?? '新家具';
         next = recordMemoryEntry(next, {
@@ -2955,7 +3131,13 @@ export default function App() {
     );
     if (res.ok) {
       soundFX.levelUp(game.soundEnabled);
-      let next = recordMonthlyActivity(res.nextState, {
+      const synced = syncDailyTasks(res.nextState.dailyTasks, res.nextState.dailyTasksDate);
+      let next: GameState = syncEncyclopediaRewards({
+        ...res.nextState,
+        dailyTasks: incrementTaskProgress(synced.dailyTasks, 'cook_1', 1),
+        dailyTasksDate: synced.dailyTasksDate,
+      }).nextState;
+      next = recordMonthlyActivity(next, {
         coopTaskDelta: 1,
         interactionLabel: '農場接力',
       });
@@ -3026,6 +3208,7 @@ export default function App() {
     prevStageLevelRef.current = getGrowthStage(fresh.pet.growth, fresh.pet.species).level;
     prevPrestigeStarsRef.current = getPrestigeStarInfo(fresh.pet.growth).stars;
     prevMilestonesCountRef.current = fresh.encyclopedia.claimedAccessoryMilestones.length;
+    prevRecipeMilestonesCountRef.current = (fresh.encyclopedia.claimedRecipeMilestones ?? []).length;
     prevTitlesCountRef.current = fresh.encyclopedia.unlockedTitles.length;
     setGame(fresh);
     setActiveTab('home');
@@ -3185,9 +3368,49 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [hasGrowingUnreadyCrops]);
 
+  useEffect(() => {
+    if (!game.pet.hatched || !hasGrowingUnreadyCrops) return;
+    const checkCropNotifications = () => {
+      const nowTs = Date.now();
+      const buffs = gameRef.current.yardMoodBuffPeriods ?? [];
+      for (const plot of gameRef.current.farmPlots) {
+        if (!plot.cropId || plot.plantedAt === null) continue;
+        const growth = getCropGrowthState(plot, nowTs, buffs);
+        if (!growth.isReady) continue;
+        const notifyKey = `${plot.id}:${plot.plantedAt}`;
+        if (notifiedReadyPlotsRef.current.has(notifyKey)) continue;
+        notifiedReadyPlotsRef.current.add(notifyKey);
+        const cropInfo = INGREDIENTS[plot.cropId];
+        pushFeedback(`${cropInfo.name}成熟可以採收囉！`, cropInfo.emoji);
+        if (
+          cropNotifyEnabled &&
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            new Notification('🌱 萌寵農場收成囉！', {
+              body: `田地 #${plot.id + 1} 的${cropInfo.name}已經成熟，快來採收吧！`,
+            });
+          } catch {
+            // Ignore browser Notification runtime restrictions
+          }
+        }
+      }
+    };
+    const timer = window.setInterval(checkCropNotifications, 15000);
+    return () => window.clearInterval(timer);
+  }, [game.pet.hatched, hasGrowingUnreadyCrops, cropNotifyEnabled]);
+
   const readyCropsCount = game.farmPlots.filter(
     (p) =>
       p.cropId !== null &&
+      getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
+  ).length;
+  const overnightReadyCount = game.farmPlots.filter(
+    (p) =>
+      p.cropId !== null &&
+      Boolean(INGREDIENTS[p.cropId]?.isOvernight) &&
       getCropGrowthState(p, farmClockNow, game.yardMoodBuffPeriods ?? []).isReady
   ).length;
 
@@ -3376,6 +3599,11 @@ export default function App() {
                     setActiveTab('journal');
                   }}
                   onOpenGrowthRoadmap={() => setGrowthRoadmapOpen(true)}
+                  overnightReadyCount={overnightReadyCount}
+                  onGoToFarm={() => {
+                    setCanteenInitialSection('farm');
+                    setActiveTab('canteen');
+                  }}
                 />
               )}
 
@@ -3396,6 +3624,7 @@ export default function App() {
                   onFeed={handleFeed}
                   onBuyFood={handleBuyFood}
                   onPlantCrop={handlePlantCrop}
+                  onPlantAllCrops={handlePlantAllCrops}
                   onWaterCrop={handleWaterCrop}
                   onWaterAllCrops={handleWaterAllCrops}
                   onHarvestCrop={handleHarvestCrop}
@@ -3410,6 +3639,11 @@ export default function App() {
                   onUpdateHouseName={handleUpdateHouseName}
                   initialSection={canteenInitialSection}
                   learnedRecipeIds={game.encyclopedia.learnedRecipeIds}
+                  collectedFoodIds={game.encyclopedia.collectedFoodIds}
+                  highlightedRecipeId={canteenHighlightedRecipeId}
+                  cropNotifyEnabled={cropNotifyEnabled}
+                  onToggleCropNotify={() => void handleToggleCropNotify()}
+                  timeOfDay={getTimeOfDayPeriod(new Date(farmClockNow))}
                 />
               )}
 
@@ -3472,7 +3706,9 @@ export default function App() {
                   onRequestReset={() => setResetModalOpen(true)}
                   cloudUser={cloudUser}
                   syncStatus={syncStatus}
+                  lastSyncedAt={lastSyncedAt}
                   onOpenCloudAuth={() => setAuthModalOpen(true)}
+                  onForceUpload={handleForceUpload}
                   sharedRoom={sharedRoom}
                   onOpenSharedPet={() => setSharedModalOpen(true)}
                   messageCount={activeMessages.length}
@@ -3501,7 +3737,8 @@ export default function App() {
                   onSaveMonthlyRecap={handleSaveMonthlyRecap}
                   onShareRecapToBoard={handleShareRecapToBoard}
                   onShareTextToBoard={handleShareCoopCardToBoard}
-                  onGoToKitchen={() => {
+                  onGoToKitchen={(recipeId) => {
+                    setCanteenHighlightedRecipeId(recipeId ?? null);
                     setCanteenInitialSection('kitchen');
                     setActiveTab('canteen');
                   }}
@@ -3527,6 +3764,7 @@ export default function App() {
               activeTab={activeTab}
               onChange={(tab) => {
                 if (tab === 'canteen') {
+                  setCanteenHighlightedRecipeId(null);
                   setCanteenInitialSection('shop');
                 }
                 if (tab === 'house') {

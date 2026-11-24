@@ -171,7 +171,7 @@ export const COOP_MESSAGE_CARD_TEMPLATES: Omit<
 >[] = [
   {
     title: '甜心接力感謝卡',
-    body: '謝謝你一起把食材種得又香又甜，今天的小豬餐桌充滿了幸福！',
+    body: '謝謝你一起把食材種得又香又甜，今天的萌寵餐桌充滿了幸福！',
     emoji: '🍮',
   },
   {
@@ -190,6 +190,8 @@ export const COOP_RARE_INGREDIENT_POOL: IngredientId[] = [
   'blueberry',
   'mint',
   'sunflower',
+  'moon_wheat',
+  'dream_cocoa',
 ];
 
 export function buildRoomDecorReward(
