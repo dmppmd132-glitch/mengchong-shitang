@@ -33,8 +33,14 @@ import {
   SHARED_MEMORY_DEFINITIONS,
 } from '../data/memories';
 import {
+  PHOTO_BACKGROUND_BY_ID,
+  PHOTO_FILTER_BY_ID,
+  PHOTO_FRAME_BY_ID,
+  PHOTO_POSE_BY_ID,
   PHOTO_SCENE_BY_ID,
   PHOTO_STICKER_BY_ID,
+  STUDIO_BADGES,
+  WEEKLY_OUTFIT_THEMES,
 } from '../data/photoStudio';
 import {
   FAMILY_DAILY_TASK_TEMPLATES,
@@ -57,6 +63,8 @@ import {
   CoopReward,
   CoopRoomCandidate,
   CoopSession,
+  CoopDuoChallengeSubmission,
+  CoopDuoPhotoChallengeState,
   CoopVisitorContribution,
   CoopVisitorRequirement,
   CoopVisitorSession,
@@ -91,15 +99,20 @@ import {
   PetSpecies,
   PetUnlockRuleType,
   PetViewDirection,
+  PhotoBackground,
   PhotoComment,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
   PhotoScene,
   PhotoStickerId,
+  PhotoStudioState,
   PlacedRoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
+  StudioBadgeId,
+  StudioScoreBreakdown,
+  WeeklyOutfitChallengeThemeId,
   SharedGoalId,
   SharedHouse,
   SharedMemory,
@@ -174,6 +187,16 @@ import {
   syncFamilyDailyTasks,
 } from './pets';
 import { createInitialTownOrders } from './townOrders';
+import {
+  FREE_STUDIO_BACKGROUNDS,
+  FREE_STUDIO_FILTERS,
+  FREE_STUDIO_FRAMES,
+  FREE_STUDIO_POSES,
+  createInitialPhotoStudioState,
+  getLocalWeekKey as getStudioWeekKey,
+  getWeeklyOutfitChallengeTheme,
+  syncPhotoStudioState,
+} from './photoStudio';
 import {
   createDefaultAffinities,
   createInitialVisitorState,
@@ -281,6 +304,7 @@ export function createInitialGameState(): GameState {
     visitorTreats: { seeds_mix: 2, fresh_lettuce: 1 },
     visitorState: createInitialVisitorState(),
     townOrders: createInitialTownOrders(today),
+    photoStudio: createInitialPhotoStudioState(),
   };
 }
 
@@ -1018,17 +1042,14 @@ function parseSharedHouse(raw: unknown): SharedHouse {
     : [];
 
   const asWardrobePose = (v: unknown): PhotoPose | undefined => {
-    if (
-      v === 'happy' ||
-      v === 'shy' ||
-      v === 'sleep' ||
-      v === 'eat' ||
-      v === 'dance' ||
-      v === 'salute' ||
-      v === 'crown_star' ||
-      v === 'anniversary_cheer'
-    ) {
-      return v;
+    if (typeof v === 'string' && v in PHOTO_POSE_BY_ID) {
+      return v as PhotoPose;
+    }
+    return undefined;
+  };
+  const asPhotoBackground = (v: unknown): PhotoBackground | undefined => {
+    if (typeof v === 'string' && v in PHOTO_BACKGROUND_BY_ID) {
+      return v as PhotoBackground;
     }
     return undefined;
   };
@@ -1039,28 +1060,14 @@ function parseSharedHouse(raw: unknown): SharedHouse {
     return undefined;
   };
   const asPhotoFilter = (v: unknown): PhotoFilter | undefined => {
-    if (
-      v === 'strawberry' ||
-      v === 'forest' ||
-      v === 'cloud' ||
-      v === 'kitchen' ||
-      v === 'starry' ||
-      v === 'party'
-    ) {
-      return v;
+    if (typeof v === 'string' && v in PHOTO_FILTER_BY_ID) {
+      return v as PhotoFilter;
     }
     return undefined;
   };
   const asPhotoFrame = (v: unknown): PhotoFrame | undefined => {
-    if (
-      v === 'rounded' ||
-      v === 'heart' ||
-      v === 'star' ||
-      v === 'polaroid' ||
-      v === 'golden_memory' ||
-      v === 'coop_heart'
-    ) {
-      return v;
+    if (typeof v === 'string' && v in PHOTO_FRAME_BY_ID) {
+      return v as PhotoFrame;
     }
     return undefined;
   };
@@ -1111,6 +1118,29 @@ function parseSharedHouse(raw: unknown): SharedHouse {
               ? kindRaw
               : undefined;
           const visitorId = asVisitorId(p.visitorId) ?? undefined;
+          const duoPetRaw = isRecord(p.duoPet) ? p.duoPet : null;
+          const duoPet: RoomPhotoRecord['duoPet'] = duoPetRaw
+            ? {
+                petId: typeof duoPetRaw.petId === 'string' ? duoPetRaw.petId : undefined,
+                petName: asString(duoPetRaw.petName, '夥伴寶貝'),
+                species: asSpecies(duoPetRaw.species),
+                equipped: parseAccessoriesRecord(duoPetRaw.equipped, {
+                  head: null,
+                  face: null,
+                  neck: null,
+                  body: null,
+                  held: null,
+                  back: null,
+                }),
+                poseId: asWardrobePose(duoPetRaw.poseId),
+                facing: asPetViewDirection(duoPetRaw.facing),
+                weightAtCapture:
+                  typeof duoPetRaw.weightAtCapture === 'number' &&
+                  Number.isFinite(duoPetRaw.weightAtCapture)
+                    ? duoPetRaw.weightAtCapture
+                    : undefined,
+              }
+            : undefined;
           return {
             id: asString(p.id, `photo_${Date.now()}`),
             title: asString(p.title, '小屋合照'),
@@ -1138,6 +1168,7 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             isCoopPhoto: typeof p.isCoopPhoto === 'boolean' ? p.isCoopPhoto : undefined,
             scene: asPhotoScene(p.scene),
             wardrobePoseId: asWardrobePose(p.wardrobePoseId),
+            backgroundId: asPhotoBackground(p.backgroundId),
             facing: asPetViewDirection(p.facing),
             filterId: asPhotoFilter(p.filterId),
             frameId: asPhotoFrame(p.frameId),
@@ -1146,11 +1177,18 @@ function parseSharedHouse(raw: unknown): SharedHouse {
               typeof p.weightAtCapture === 'number' && Number.isFinite(p.weightAtCapture)
                 ? p.weightAtCapture
                 : undefined,
+            duoPet,
+            challengeScore:
+              typeof p.challengeScore === 'number' && Number.isFinite(p.challengeScore)
+                ? Math.max(0, Math.floor(p.challengeScore))
+                : undefined,
+            challengeWeekKey:
+              typeof p.challengeWeekKey === 'string' ? p.challengeWeekKey : undefined,
             likes,
             comments,
           };
         })
-        .slice(0, 36)
+        .slice(0, 48)
     : [];
 
   return {
@@ -1572,6 +1610,8 @@ function parseCoopHubState(raw: unknown): CoopHubState {
         .slice(0, 6)
     : [];
 
+  const duoChallenge = parseCoopDuoChallenge(raw.duoChallenge);
+
   return syncCoopHubState(
     {
       activeRoomSession: parseCoopSession(raw.activeRoomSession),
@@ -1593,9 +1633,234 @@ function parseCoopHubState(raw: unknown): CoopHubState {
           ? raw.lastVisitorCompletedDate
           : null,
       partnerShowcasePets,
+      duoChallenge,
+      duoStreakWeeks: Math.max(0, Math.floor(asNumber(raw.duoStreakWeeks, 0))),
+      lastDuoCompletedWeek:
+        typeof raw.lastDuoCompletedWeek === 'string' ? raw.lastDuoCompletedWeek : null,
     },
     todayStr
   );
+}
+
+function asStudioThemeId(v: unknown): WeeklyOutfitChallengeThemeId {
+  if (typeof v === 'string' && WEEKLY_OUTFIT_THEMES.some((t) => t.id === v)) {
+    return v as WeeklyOutfitChallengeThemeId;
+  }
+  return getWeeklyOutfitChallengeTheme().id;
+}
+
+function asStudioPose(v: unknown): PhotoPose | null {
+  return typeof v === 'string' && v in PHOTO_POSE_BY_ID ? (v as PhotoPose) : null;
+}
+
+function asStudioBg(v: unknown): PhotoBackground | null {
+  return typeof v === 'string' && v in PHOTO_BACKGROUND_BY_ID
+    ? (v as PhotoBackground)
+    : null;
+}
+
+function asStudioFilter(v: unknown): PhotoFilter | null {
+  return typeof v === 'string' && v in PHOTO_FILTER_BY_ID ? (v as PhotoFilter) : null;
+}
+
+function asStudioFrame(v: unknown): PhotoFrame | null {
+  return typeof v === 'string' && v in PHOTO_FRAME_BY_ID ? (v as PhotoFrame) : null;
+}
+
+function asStudioSticker(v: unknown): PhotoStickerId | null {
+  return typeof v === 'string' && v in PHOTO_STICKER_BY_ID
+    ? (v as PhotoStickerId)
+    : null;
+}
+
+function parseCoopDuoChallenge(raw: unknown): CoopDuoPhotoChallengeState | null {
+  if (!isRecord(raw)) return null;
+  const weekKey = asString(raw.weekKey, getStudioWeekKey());
+  const themeId = asStudioThemeId(raw.themeId);
+  const bg = asStudioBg(raw.backgroundId) ?? 'pink_room';
+  const filter = asStudioFilter(raw.filterId) ?? 'pink';
+  const frame = asStudioFrame(raw.frameId) ?? 'coop_heart';
+  const stickers = Array.isArray(raw.stickers)
+    ? raw.stickers
+        .map(asStudioSticker)
+        .filter((s): s is PhotoStickerId => s !== null)
+        .slice(0, 6)
+    : [];
+  const submissions: Record<string, CoopDuoChallengeSubmission> = {};
+  if (isRecord(raw.submissions)) {
+    for (const [uid, val] of Object.entries(raw.submissions)) {
+      if (!isRecord(val)) continue;
+      submissions[uid] = {
+        userId: asString(val.userId, uid),
+        userName: asString(val.userName, '飼主'),
+        petId: asString(val.petId, 'pet_1'),
+        petName: asString(val.petName, '布丁'),
+        species: asSpecies(val.species),
+        equipped: parseAccessoriesRecord(val.equipped, {
+          head: null,
+          face: null,
+          neck: null,
+          body: null,
+          held: null,
+          back: null,
+        }),
+        poseId: asStudioPose(val.poseId) ?? 'happy',
+        facing:
+          val.facing === 'front' ||
+          val.facing === 'left' ||
+          val.facing === 'back' ||
+          val.facing === 'right' ||
+          val.facing === 'flipped'
+            ? val.facing
+            : 'front',
+        weightAtCapture: asNumber(val.weightAtCapture, 8.5),
+        submittedAt: asNumber(val.submittedAt, Date.now()),
+      };
+    }
+  }
+  return {
+    weekKey,
+    themeId,
+    title: asString(raw.title, '雙人穿搭紀念照').slice(0, 20),
+    backgroundId: bg,
+    filterId: filter,
+    frameId: frame,
+    stickers,
+    submissions,
+    mergedPhotoId: asNullableString(raw.mergedPhotoId),
+    completed: raw.completed === true,
+    completedAt:
+      typeof raw.completedAt === 'number' && Number.isFinite(raw.completedAt)
+        ? raw.completedAt
+        : null,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? raw.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+      : [],
+  };
+}
+
+function parseStudioBreakdown(raw: unknown): StudioScoreBreakdown | null {
+  if (!isRecord(raw)) return null;
+  return {
+    totalScore: Math.max(0, Math.floor(asNumber(raw.totalScore, 0))),
+    themeAccessoryCount: Math.max(0, Math.floor(asNumber(raw.themeAccessoryCount, 0))),
+    themeAccessoryPoints: Math.max(0, Math.floor(asNumber(raw.themeAccessoryPoints, 0))),
+    backgroundMatched: raw.backgroundMatched === true,
+    backgroundPoints: Math.max(0, Math.floor(asNumber(raw.backgroundPoints, 0))),
+    filterMatched: raw.filterMatched === true,
+    filterPoints: Math.max(0, Math.floor(asNumber(raw.filterPoints, 0))),
+    frameMatched: raw.frameMatched === true,
+    framePoints: Math.max(0, Math.floor(asNumber(raw.framePoints, 0))),
+    likedAccessoryCount: Math.max(0, Math.floor(asNumber(raw.likedAccessoryCount, 0))),
+    likedAccessoryPoints: Math.max(0, Math.floor(asNumber(raw.likedAccessoryPoints, 0))),
+    fullSetCompleted: raw.fullSetCompleted === true,
+    fullSetPoints: Math.max(0, Math.floor(asNumber(raw.fullSetPoints, 0))),
+  };
+}
+
+function parsePhotoStudioState(raw: unknown): PhotoStudioState {
+  const defaults = createInitialPhotoStudioState();
+  if (!isRecord(raw)) return defaults;
+
+  const unlockedPoses = Array.from(
+    new Set<PhotoPose>([
+      ...FREE_STUDIO_POSES,
+      ...(Array.isArray(raw.unlockedPoses)
+        ? raw.unlockedPoses.map(asStudioPose).filter((p): p is PhotoPose => p !== null)
+        : []),
+    ])
+  );
+  const unlockedBackgrounds = Array.from(
+    new Set<PhotoBackground>([
+      ...FREE_STUDIO_BACKGROUNDS,
+      ...(Array.isArray(raw.unlockedBackgrounds)
+        ? raw.unlockedBackgrounds
+            .map(asStudioBg)
+            .filter((b): b is PhotoBackground => b !== null)
+        : []),
+    ])
+  );
+  const unlockedFilters = Array.from(
+    new Set<PhotoFilter>([
+      ...FREE_STUDIO_FILTERS,
+      ...(Array.isArray(raw.unlockedFilters)
+        ? raw.unlockedFilters
+            .map(asStudioFilter)
+            .filter((f): f is PhotoFilter => f !== null)
+        : []),
+    ])
+  );
+  const unlockedFrames = Array.from(
+    new Set<PhotoFrame>([
+      ...FREE_STUDIO_FRAMES,
+      ...(Array.isArray(raw.unlockedFrames)
+        ? raw.unlockedFrames
+            .map(asStudioFrame)
+            .filter((f): f is PhotoFrame => f !== null)
+        : []),
+    ])
+  );
+  const unlockedStickers = Array.from(
+    new Set<PhotoStickerId>(
+      Array.isArray(raw.unlockedStickers)
+        ? raw.unlockedStickers
+            .map(asStudioSticker)
+            .filter((s): s is PhotoStickerId => s !== null)
+        : []
+    )
+  );
+
+  const rawWeekly = isRecord(raw.weeklyChallenge) ? raw.weeklyChallenge : {};
+  const weekKey = asString(rawWeekly.weekKey, defaults.weeklyChallenge.weekKey);
+  const theme = getWeeklyOutfitChallengeTheme(weekKey);
+  const unlockedStudioBadges = Array.isArray(raw.unlockedStudioBadges)
+    ? Array.from(
+        new Set(
+          raw.unlockedStudioBadges.filter(
+            (b): b is StudioBadgeId => typeof b === 'string' && b in STUDIO_BADGES
+          )
+        )
+      )
+    : [];
+
+  return {
+    unlockedPoses,
+    unlockedBackgrounds,
+    unlockedFilters,
+    unlockedFrames,
+    unlockedStickers,
+    studioMaterials: Math.max(0, Math.floor(asNumber(raw.studioMaterials, 0))),
+    studioFrameShards: Math.max(0, Math.floor(asNumber(raw.studioFrameShards, 0))),
+    weeklyChallenge: {
+      weekKey,
+      themeId: asStudioThemeId(rawWeekly.themeId ?? theme.id),
+      bestScore: Math.max(0, Math.floor(asNumber(rawWeekly.bestScore, 0))),
+      submittedCount: Math.max(0, Math.floor(asNumber(rawWeekly.submittedCount, 0))),
+      claimedTiers: Array.isArray(rawWeekly.claimedTiers)
+        ? Array.from(
+            new Set(
+              rawWeekly.claimedTiers.filter(
+                (t): t is number => typeof t === 'number' && [60, 100, 150].includes(t)
+              )
+            )
+          ).sort((a, b) => a - b)
+        : [],
+      lastBreakdown: parseStudioBreakdown(rawWeekly.lastBreakdown),
+      lastPhotoId: asNullableString(rawWeekly.lastPhotoId),
+    },
+    consecutiveChallengeWeeks: Math.max(
+      0,
+      Math.floor(asNumber(raw.consecutiveChallengeWeeks, 0))
+    ),
+    lastQualifiedChallengeWeek: asNullableString(raw.lastQualifiedChallengeWeek),
+    unlockedStudioBadges,
+    duoChallengeStreakWeeks: Math.max(
+      0,
+      Math.floor(asNumber(raw.duoChallengeStreakWeeks, 0))
+    ),
+    lastQualifiedDuoWeek: asNullableString(raw.lastQualifiedDuoWeek),
+    totalStudioPhotos: Math.max(0, Math.floor(asNumber(raw.totalStudioPhotos, 0))),
+  };
 }
 
 function parseVisitorTreats(raw: unknown): Partial<Record<VisitorTreatId, number>> {
@@ -2250,6 +2515,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     coop: createInitialCoopHubState(todayStr),
     dialogue: createInitialDialogueState(todayStr),
     memoryAlbum: createInitialMemoryAlbumState(pet.name),
+    photoStudio: createInitialPhotoStudioState(),
   };
 }
 
@@ -2261,31 +2527,15 @@ function asMemoryType(value: unknown): MemoryType | null {
 }
 
 function asPhotoPoseOption(value: unknown): PhotoPose | null {
-  if (
-    value === 'happy' ||
-    value === 'shy' ||
-    value === 'sleep' ||
-    value === 'eat' ||
-    value === 'dance' ||
-    value === 'salute' ||
-    value === 'crown_star' ||
-    value === 'anniversary_cheer'
-  ) {
-    return value;
+  if (typeof value === 'string' && value in PHOTO_POSE_BY_ID) {
+    return value as PhotoPose;
   }
   return null;
 }
 
 function asPhotoFrameOption(value: unknown): PhotoFrame | null {
-  if (
-    value === 'rounded' ||
-    value === 'heart' ||
-    value === 'star' ||
-    value === 'polaroid' ||
-    value === 'golden_memory' ||
-    value === 'coop_heart'
-  ) {
-    return value;
+  if (typeof value === 'string' && value in PHOTO_FRAME_BY_ID) {
+    return value as PhotoFrame;
   }
   return null;
 }
@@ -2625,6 +2875,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     visitorTreats: parseVisitorTreats(parsed.visitorTreats),
     visitorState: parseVisitorSystemState(parsed.visitorState),
     townOrders: parseTownOrders(parsed.townOrders),
+    photoStudio: parsePhotoStudioState(parsed.photoStudio),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -2643,6 +2894,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     });
     hydrated = evaluateAndSyncMilestones(hydrated, false).nextState;
   }
+  hydrated = syncPhotoStudioState(hydrated).nextState;
   return hydrated;
 }
 

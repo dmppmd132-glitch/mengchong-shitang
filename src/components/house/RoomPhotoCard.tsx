@@ -9,6 +9,7 @@ import {
   WALLPAPER_BY_ID,
 } from '../../data/house';
 import {
+  PHOTO_BACKGROUND_BY_ID,
   PHOTO_FILTER_BY_ID,
   PHOTO_FRAME_BY_ID,
   PHOTO_POSE_BY_ID,
@@ -18,6 +19,7 @@ import {
 import { VISITOR_BY_ID } from '../../data/visitors';
 import { RoomPhotoRecord } from '../../types';
 import { PiggyCharacter } from '../PiggyCharacter';
+import { StudioBackgroundArt } from '../studio/StudioBackgroundArt';
 import { VisitorSprite } from '../visitors/VisitorIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
 
@@ -94,12 +96,15 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
     if (isStudioScenePhoto) {
       const pose =
         PHOTO_POSE_BY_ID[photo.wardrobePoseId ?? 'happy'] ?? PHOTO_POSE_BY_ID.happy;
+      const duoPose =
+        PHOTO_POSE_BY_ID[photo.duoPet?.poseId ?? 'happy'] ?? PHOTO_POSE_BY_ID.happy;
       const filter =
-        PHOTO_FILTER_BY_ID[photo.filterId ?? 'strawberry'] ??
-        PHOTO_FILTER_BY_ID.strawberry;
+        PHOTO_FILTER_BY_ID[photo.filterId ?? 'none'] ?? PHOTO_FILTER_BY_ID.none;
       const frame =
         PHOTO_FRAME_BY_ID[photo.frameId ?? 'rounded'] ?? PHOTO_FRAME_BY_ID.rounded;
-      const isDark = filter.id === 'starry';
+      const bgMeta = photo.backgroundId ? PHOTO_BACKGROUND_BY_ID[photo.backgroundId] : null;
+      const isDark = Boolean(bgMeta?.isDark) || filter.id === 'starry';
+      const hasDuo = Boolean(photo.duoPet);
 
       return (
         <div className={`${frame.outerClass} relative`}>
@@ -121,36 +126,54 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
           )}
 
           <div
-            className={`${frame.innerClass} ${filter.backdropClass} relative ${
-              compact ? 'py-3 px-2 min-h-[132px]' : 'py-4 px-3 min-h-[172px]'
+            className={`${frame.innerClass} ${
+              bgMeta ? 'bg-[#FFFDF8]' : filter.backdropClass
+            } relative ${
+              compact ? 'py-3 px-2 min-h-[136px]' : 'py-4 px-3 min-h-[178px]'
             } flex flex-col items-center justify-center`}
+            style={{
+              filter:
+                filter.stageFilterCss && filter.stageFilterCss !== 'none'
+                  ? filter.stageFilterCss
+                  : undefined,
+            }}
           >
-            <span
-              className="pointer-events-none absolute top-2 left-2.5 text-sm opacity-80 select-none"
-              aria-hidden="true"
-            >
-              {filter.accentEmojis[0]}
-            </span>
-            <span
-              className="pointer-events-none absolute top-2 right-2.5 text-sm opacity-80 select-none"
-              aria-hidden="true"
-            >
-              {filter.accentEmojis[1]}
-            </span>
-            <span
-              className="pointer-events-none absolute bottom-2 left-3 text-sm opacity-75 select-none"
-              aria-hidden="true"
-            >
-              {filter.accentEmojis[2]}
-            </span>
-            <span
-              className="pointer-events-none absolute bottom-2 right-3 text-sm opacity-80 select-none"
-              aria-hidden="true"
-            >
-              {filter.accentEmojis[3]}
-            </span>
+            {bgMeta ? (
+              <StudioBackgroundArt
+                backgroundId={bgMeta.id}
+                filterId={filter.id}
+                compact={compact}
+              />
+            ) : (
+              <>
+                <span
+                  className="pointer-events-none absolute top-2 left-2.5 text-sm opacity-80 select-none"
+                  aria-hidden="true"
+                >
+                  {filter.accentEmojis[0]}
+                </span>
+                <span
+                  className="pointer-events-none absolute top-2 right-2.5 text-sm opacity-80 select-none"
+                  aria-hidden="true"
+                >
+                  {filter.accentEmojis[1]}
+                </span>
+                <span
+                  className="pointer-events-none absolute bottom-2 left-3 text-sm opacity-75 select-none"
+                  aria-hidden="true"
+                >
+                  {filter.accentEmojis[2]}
+                </span>
+                <span
+                  className="pointer-events-none absolute bottom-2 right-3 text-sm opacity-80 select-none"
+                  aria-hidden="true"
+                >
+                  {filter.accentEmojis[3]}
+                </span>
+              </>
+            )}
 
-            {resolvedScene === 'farm' && (
+            {resolvedScene === 'farm' && !bgMeta && (
               <div
                 className="pointer-events-none absolute inset-x-3 bottom-1.5 flex items-center justify-between text-base opacity-75 select-none"
                 aria-hidden="true"
@@ -165,20 +188,20 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
             {renderStickersOverlay()}
 
             <div
-              className={`mb-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-extrabold ${
+              className={`relative z-10 mb-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-extrabold ${
                 isDark
-                  ? 'bg-white/20 border-white/35 text-white'
-                  : 'bg-white/80 border-white text-[#5A3E36]'
+                  ? 'bg-black/35 border-white/35 text-white'
+                  : 'bg-white/85 border-white text-[#5A3E36]'
               }`}
             >
-              <span>{sceneMeta.emoji}</span>
-              <span>{sceneMeta.label}</span>
+              <span>{bgMeta ? bgMeta.emoji : sceneMeta.emoji}</span>
+              <span>{bgMeta ? bgMeta.label : sceneMeta.label}</span>
               <span>·</span>
               <span>{pose.emoji}</span>
               <span>{pose.label}</span>
             </div>
 
-            <div className="drop-shadow-md flex items-end justify-center gap-1.5">
+            <div className="relative z-10 drop-shadow-md flex items-end justify-center gap-1.5">
               <PiggyCharacter
                 species={photo.species}
                 growth={60}
@@ -189,8 +212,22 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
                 interactive={false}
                 customAnimClass={pose.animClass}
                 viewDirection={photo.facing ?? 'front'}
-                size={compact ? 82 : 112}
+                size={compact ? (hasDuo ? 72 : 82) : hasDuo ? 94 : 112}
               />
+              {photo.duoPet && (
+                <PiggyCharacter
+                  species={photo.duoPet.species}
+                  growth={60}
+                  roundness={36}
+                  action={duoPose.action}
+                  expression={duoPose.expression}
+                  equipped={photo.duoPet.equipped}
+                  interactive={false}
+                  customAnimClass={duoPose.animClass}
+                  viewDirection={photo.duoPet.facing ?? 'front'}
+                  size={compact ? 72 : 94}
+                />
+              )}
               {photo.visitorId && (
                 <div className="mb-1">
                   <VisitorSprite
@@ -206,7 +243,9 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
           {frame.isPolaroid && (
             <div className="pt-1.5 px-1 flex items-center justify-between text-[10px] font-extrabold text-[#5A3E36]">
               <span className="truncate">
-                {photo.petName} · {sceneMeta.label}
+                {photo.duoPet
+                  ? `${photo.petName} & ${photo.duoPet.petName}`
+                  : `${photo.petName} · ${bgMeta?.label ?? sceneMeta.label}`}
               </span>
               <span className="text-[9px] text-[#8E756E] tabular-nums shrink-0">
                 {typeof photo.weightAtCapture === 'number'
@@ -307,23 +346,41 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 text-[10px] font-extrabold">
-          <span className={`px-1.5 py-0.5 rounded-md border ${sceneMeta.badgeClass}`}>
-            {sceneMeta.emoji} {sceneMeta.label}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-[#6E544E]">
+          <span>
+            {photo.backgroundId
+              ? `${PHOTO_BACKGROUND_BY_ID[photo.backgroundId]?.emoji ?? '📸'} ${PHOTO_BACKGROUND_BY_ID[photo.backgroundId]?.label}`
+              : `${sceneMeta.emoji} ${sceneMeta.label}`}
           </span>
-          <span className="px-1.5 py-0.5 rounded-md bg-[#FAF3EE] border border-[#EAD9D0] text-[#5A3E36]">
-            🐾 {photo.petName}
+          <span aria-hidden="true">·</span>
+          <span>
+            🐾{' '}
+            {photo.duoPet
+              ? `${photo.petName} & ${photo.duoPet.petName}`
+              : photo.petName}
           </span>
-          {photo.visitorId && (
-            <span className="px-1.5 py-0.5 rounded-md bg-[#E8F8F0] border border-[#9ADBC2] text-[#1F6B54]">
-              {VISITOR_BY_ID[photo.visitorId].emoji} {VISITOR_BY_ID[photo.visitorId].name}
-              {photo.isCoopPhoto ? ' · 共養紀念' : ''}
-            </span>
-          )}
           {typeof photo.weightAtCapture === 'number' && (
-            <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3FF] border border-[#B6D1FA] text-[#2F5B9E] tabular-nums">
-              ⚖️ {photo.weightAtCapture.toFixed(1)} kg
-            </span>
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">{photo.weightAtCapture.toFixed(1)} kg</span>
+            </>
+          )}
+          {typeof photo.challengeScore === 'number' && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-[#C43463] font-extrabold tabular-nums">
+                🏆 挑戰 {photo.challengeScore} 分
+              </span>
+            </>
+          )}
+          {photo.visitorId && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-[#1F6B54] font-extrabold">
+                {VISITOR_BY_ID[photo.visitorId].emoji} {VISITOR_BY_ID[photo.visitorId].name}
+                {photo.isCoopPhoto ? ' (共養)' : ''}
+              </span>
+            </>
           )}
         </div>
 

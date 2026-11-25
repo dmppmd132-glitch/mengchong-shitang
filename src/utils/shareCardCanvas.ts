@@ -1,5 +1,6 @@
 import { ACCESSORIES } from '../data/accessories';
 import {
+  PHOTO_BACKGROUND_BY_ID,
   PHOTO_FILTER_BY_ID,
   PHOTO_FRAME_BY_ID,
   PHOTO_POSE_BY_ID,
@@ -251,18 +252,22 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   const stageH = 420;
   drawRoundedRect(ctx, stageX, stageY, stageW, stageH, 32);
 
-  const filterId = payload.photo?.filterId ?? 'strawberry';
+  const bgId = payload.photo?.backgroundId;
+  const filterId = payload.photo?.filterId ?? 'pink';
   const stageGrad = ctx.createLinearGradient(stageX, stageY, stageX, stageY + stageH);
-  if (filterId === 'starry') {
+  if (bgId === 'starry_night_market' || bgId === 'halloween_party' || filterId === 'starry') {
     stageGrad.addColorStop(0, '#3B2E6B');
     stageGrad.addColorStop(1, '#5A4A92');
-  } else if (filterId === 'forest') {
+  } else if (bgId === 'christmas_cabin') {
+    stageGrad.addColorStop(0, '#4E2A2A');
+    stageGrad.addColorStop(1, '#7A3E36');
+  } else if (bgId === 'forest_camp' || filterId === 'forest' || filterId === 'mint') {
     stageGrad.addColorStop(0, '#CDEFD9');
     stageGrad.addColorStop(1, '#F6F0D8');
-  } else if (filterId === 'cloud') {
+  } else if (bgId === 'cloud_sky' || bgId === 'beach_vacation' || filterId === 'cloud') {
     stageGrad.addColorStop(0, '#CFE3FF');
     stageGrad.addColorStop(1, '#FFFDFB');
-  } else if (filterId === 'kitchen') {
+  } else if (bgId === 'kitchen' || filterId === 'kitchen' || filterId === 'cream' || filterId === 'vintage') {
     stageGrad.addColorStop(0, '#FFE4BC');
     stageGrad.addColorStop(1, '#FCE7DA');
   } else {
@@ -276,15 +281,26 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   ctx.stroke();
 
   // Badge pill inside stage top-left
-  drawRoundedRect(ctx, stageX + 24, stageY + 22, 220, 44, 18);
+  drawRoundedRect(ctx, stageX + 24, stageY + 22, 240, 44, 18);
   ctx.fillStyle = 'rgba(255,255,255,0.88)';
   ctx.fill();
   ctx.fillStyle = '#5A3E36';
   ctx.font = '800 21px "PingFang TC", "Noto Sans TC", sans-serif';
   ctx.fillText(payload.badgeText, stageX + 42, stageY + 51);
 
-  // Pet character center illustration
-  drawCutePetVector(ctx, payload.species, width / 2, stageY + 235, 1.15);
+  // Pet character illustration (single or side-by-side duo)
+  if (payload.photo?.duoPet) {
+    drawCutePetVector(ctx, payload.species, width / 2 - 96, stageY + 235, 0.95);
+    drawCutePetVector(
+      ctx,
+      payload.photo.duoPet.species,
+      width / 2 + 96,
+      stageY + 235,
+      0.95
+    );
+  } else {
+    drawCutePetVector(ctx, payload.species, width / 2, stageY + 235, 1.15);
+  }
 
   // Equipped accessories emojis or memory emoji around pet
   const photo = payload.photo;
@@ -364,8 +380,11 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
 
   const speciesInfo = getPetSpeciesInfo(payload.species);
   const weightVal = photo?.weightAtCapture ?? payload.weight;
+  const petNamesLabel = photo?.duoPet
+    ? `${payload.petName} & ${photo.duoPet.petName}`
+    : `${payload.petName}（${speciesInfo.shortName}）`;
   const metaParts = [
-    `${payload.petName}（${speciesInfo.shortName}）`,
+    petNamesLabel,
     payload.level ? `Lv.${payload.level}` : null,
     typeof weightVal === 'number' ? `體重 ${weightVal.toFixed(1)} kg` : null,
   ].filter((x): x is string => Boolean(x));
@@ -374,6 +393,9 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   ctx.font = '800 24px "PingFang TC", "Noto Sans TC", sans-serif';
   ctx.fillText(metaParts.join(' · '), 92, 838);
 
+  const bgLabel = photo?.backgroundId
+    ? PHOTO_BACKGROUND_BY_ID[photo.backgroundId]?.label
+    : undefined;
   const sceneLabel = photo?.scene
     ? PHOTO_SCENE_BY_ID[photo.scene]?.label
     : photo?.photoKind === 'room'
@@ -384,7 +406,7 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
     : undefined;
   const frameLabel = photo?.frameId ? PHOTO_FRAME_BY_ID[photo.frameId]?.label : undefined;
 
-  const subMeta = [sceneLabel, poseLabel, frameLabel]
+  const subMeta = [bgLabel ?? sceneLabel, poseLabel, frameLabel]
     .filter((x): x is string => Boolean(x))
     .join(' · ');
 

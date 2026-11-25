@@ -51,6 +51,10 @@ import { syncAllAccessoryProgress } from './accessories';
 import { mergeDialogueRemoteState } from './dialogue';
 import { getEffectiveGrowDurationMs, getEffectiveHarvestYield, syncHouseProgress } from './house';
 import { mergeMemoryAlbumRemoteState, recordMemoryEntry } from './memories';
+import {
+  mergeCoopDuoChallenge,
+  mergePhotoStudioRemoteState,
+} from './photoStudio';
 import { getActivePet, isSharedCoopPet, updatePetById } from './pets';
 
 export function getCoopDateKey(date: Date = new Date()): string {
@@ -1363,7 +1367,7 @@ export function mergeCoopRemoteState(
   }
   const mergedPhotos = Array.from(photoMap.values())
     .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, 36);
+    .slice(0, 48);
 
   // Merge daily Co-op Shared Visitor safely
   let mergedCoopVisitor = remoteState.coop.coopVisitor ?? localState.coop.coopVisitor ?? null;
@@ -1540,11 +1544,27 @@ export function mergeCoopRemoteState(
         ...remoteState.coop.lastSeenByUserId,
       },
       partnerShowcasePets,
+      duoChallenge: mergeCoopDuoChallenge(
+        localState.coop.duoChallenge,
+        remoteState.coop.duoChallenge
+      ),
+      duoStreakWeeks: Math.max(
+        remoteState.coop.duoStreakWeeks ?? 0,
+        localState.coop.duoStreakWeeks ?? 0
+      ),
+      lastDuoCompletedWeek:
+        remoteState.coop.lastDuoCompletedWeek ??
+        localState.coop.lastDuoCompletedWeek ??
+        null,
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(
       localState.memoryAlbum,
       remoteState.memoryAlbum
+    ),
+    photoStudio: mergePhotoStudioRemoteState(
+      localState.photoStudio,
+      remoteState.photoStudio
     ),
   };
 }

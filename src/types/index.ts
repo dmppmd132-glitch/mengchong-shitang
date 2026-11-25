@@ -1,5 +1,6 @@
 import type { FarmDecorationId } from './house';
 import type { MinigameHubState } from './minigame';
+export type { DuoPhotoPetInfo } from './house';
 
 export type TabKey = 'home' | 'canteen' | 'wardrobe' | 'house' | 'journal' | 'quests' | 'pets';
 
@@ -24,24 +25,176 @@ export type PhotoPose =
   | 'shy'
   | 'sleep'
   | 'eat'
+  | 'spin'
+  | 'pounce'
+  | 'runway'
   | 'dance'
   | 'salute'
+  | 'star_eyes'
   | 'crown_star'
   | 'anniversary_cheer';
 
-export type PhotoFilter = 'strawberry' | 'forest' | 'cloud' | 'kitchen' | 'starry' | 'party';
+export type PhotoBackground =
+  | 'pink_room'
+  | 'strawberry_field'
+  | 'cloud_sky'
+  | 'kitchen'
+  | 'forest_camp'
+  | 'starry_night_market'
+  | 'beach_vacation'
+  | 'sakura_path'
+  | 'halloween_party'
+  | 'christmas_cabin';
+
+export type PhotoFilter =
+  | 'none'
+  | 'cream'
+  | 'pink'
+  | 'mint'
+  | 'vintage'
+  | 'starry'
+  | 'candy'
+  | 'strawberry'
+  | 'forest'
+  | 'cloud'
+  | 'kitchen'
+  | 'party';
 
 export type PhotoFrame =
+  | 'none'
   | 'rounded'
   | 'heart'
   | 'star'
   | 'polaroid'
+  | 'lace'
+  | 'gold'
   | 'golden_memory'
   | 'coop_heart';
 
 export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor';
 
-export type PhotoStickerId = 'heart' | 'kiss' | 'burger' | 'fries' | 'carrot' | 'star';
+export type PhotoStickerId =
+  | 'heart'
+  | 'kiss'
+  | 'burger'
+  | 'fries'
+  | 'carrot'
+  | 'star'
+  | 'ribbon'
+  | 'pudding'
+  | 'apple'
+  | 'balloon'
+  | 'moon'
+  | 'fish';
+
+export type StudioShopCategory = 'pose' | 'background' | 'filter' | 'frame' | 'sticker';
+
+export type StudioItemSource = 'free' | 'shop' | 'achievement' | 'limited';
+
+export type StudioBadgeId = 'outfit_master';
+
+export type WeeklyOutfitChallengeThemeId =
+  | 'strawberry_sweet'
+  | 'forest_camp'
+  | 'cloud_nap'
+  | 'chef_master'
+  | 'starry_explorer';
+
+export interface WeeklyOutfitChallengeTheme {
+  id: WeeklyOutfitChallengeThemeId;
+  title: string;
+  emoji: string;
+  description: string;
+  requiredAccessoryTheme: AccessoryTheme;
+  targetBackgroundId: PhotoBackground;
+  targetFilterId: PhotoFilter;
+  targetFrameId: PhotoFrame;
+  duoPrompt: string;
+  badgeClass: string;
+}
+
+export interface StudioScoreBreakdown {
+  totalScore: number;
+  themeAccessoryCount: number;
+  themeAccessoryPoints: number;
+  backgroundMatched: boolean;
+  backgroundPoints: number;
+  filterMatched: boolean;
+  filterPoints: number;
+  frameMatched: boolean;
+  framePoints: number;
+  likedAccessoryCount: number;
+  likedAccessoryPoints: number;
+  fullSetCompleted: boolean;
+  fullSetPoints: number;
+}
+
+export interface StudioCraftRecipe {
+  id: string;
+  targetKind: 'background' | 'frame' | 'filter' | 'pose';
+  targetId: string;
+  name: string;
+  emoji: string;
+  description: string;
+  materialCost: number;
+  frameShardCost: number;
+  coinCost: number;
+}
+
+export interface WeeklyPhotoChallengeProgress {
+  weekKey: string;
+  themeId: WeeklyOutfitChallengeThemeId;
+  bestScore: number;
+  submittedCount: number;
+  claimedTiers: number[];
+  lastBreakdown: StudioScoreBreakdown | null;
+  lastPhotoId: string | null;
+}
+
+export interface CoopDuoChallengeSubmission {
+  userId: string;
+  userName: string;
+  petId: string;
+  petName: string;
+  species: PetSpecies;
+  equipped: Record<AccessorySlot, string | null>;
+  poseId: PhotoPose;
+  facing: PetViewDirection;
+  weightAtCapture: number;
+  submittedAt: number;
+}
+
+export interface CoopDuoPhotoChallengeState {
+  weekKey: string;
+  themeId: WeeklyOutfitChallengeThemeId;
+  title: string;
+  backgroundId: PhotoBackground;
+  filterId: PhotoFilter;
+  frameId: PhotoFrame;
+  stickers: PhotoStickerId[];
+  submissions: Record<string, CoopDuoChallengeSubmission>;
+  mergedPhotoId: string | null;
+  completed: boolean;
+  completedAt: number | null;
+  claimedByUserIds: string[];
+}
+
+export interface PhotoStudioState {
+  unlockedPoses: PhotoPose[];
+  unlockedBackgrounds: PhotoBackground[];
+  unlockedFilters: PhotoFilter[];
+  unlockedFrames: PhotoFrame[];
+  unlockedStickers: PhotoStickerId[];
+  studioMaterials: number;
+  studioFrameShards: number;
+  weeklyChallenge: WeeklyPhotoChallengeProgress;
+  consecutiveChallengeWeeks: number;
+  lastQualifiedChallengeWeek: string | null;
+  unlockedStudioBadges: StudioBadgeId[];
+  duoChallengeStreakWeeks: number;
+  lastQualifiedDuoWeek: string | null;
+  totalStudioPhotos: number;
+}
 
 export type PiggyActionState =
   | 'idle'
@@ -350,7 +503,8 @@ export type TitleId =
   | 'bird_whisperer'
   | 'squirrel_friend'
   | 'rabbit_guardian'
-  | 'coop_best_host';
+  | 'coop_best_host'
+  | 'fashion_photographer';
 
 export type PersonalityId =
   | 'greedy'
@@ -402,7 +556,8 @@ export type CoopBadgeId =
   | 'best_partner'
   | 'room_stylist'
   | 'farm_relay_master'
-  | 'town_host';
+  | 'town_host'
+  | 'best_outfit_partner';
 
 export interface CoopGoal {
   id: string;
@@ -711,6 +866,9 @@ export interface CoopHubState {
   visitorStreakDays?: number;
   lastVisitorCompletedDate?: string | null;
   partnerShowcasePets?: Pet[];
+  duoChallenge?: CoopDuoPhotoChallengeState | null;
+  duoStreakWeeks?: number;
+  lastDuoCompletedWeek?: string | null;
 }
 
 export type DialogueId = string;
@@ -1095,6 +1253,7 @@ export interface GameState {
   visitorTreats?: Partial<Record<VisitorTreatId, number>>;
   visitorState?: VisitorSystemState;
   townOrders?: TownOrder[];
+  photoStudio?: PhotoStudioState;
 }
 
 export interface FloatingFeedback {

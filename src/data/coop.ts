@@ -171,6 +171,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '連續 3 天完成共養共同訪客',
     badgeClass: 'bg-[#FFF0F6] border-[#F4B4CB] text-[#B83B64]',
   },
+  best_outfit_partner: {
+    id: 'best_outfit_partner',
+    name: '最佳穿搭搭檔',
+    emoji: '👯',
+    description: '連續 3 週一起完成共養雙人穿搭合照挑戰，兩人品味完全合拍！',
+    conditionText: '連續 3 週完成共養雙人合照挑戰',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

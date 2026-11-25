@@ -45,6 +45,9 @@ interface WardrobeViewProps {
   onBuyAccessory: (item: Accessory) => void;
   onChangeSpecies?: (species: PetSpecies) => void;
   onOpenPhotoStudio?: () => void;
+  onOpenStudioTab?: (tab: 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog') => void;
+  weeklyThemeLabel?: string;
+  studioCollectionText?: string;
   onOpenEncyclopedia?: () => void;
   onOpenGrowthRoadmap?: () => void;
   onOpenPetList?: () => void;
@@ -60,6 +63,9 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   onBuyAccessory,
   onChangeSpecies,
   onOpenPhotoStudio,
+  onOpenStudioTab,
+  weeklyThemeLabel,
+  studioCollectionText,
   onOpenEncyclopedia,
   onOpenGrowthRoadmap,
   onOpenPetList,
@@ -258,6 +264,72 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
               </div>
             )}
           </section>
+
+          {(onOpenStudioTab || onOpenPhotoStudio) && (
+            <section className="rounded-3xl bg-gradient-to-r from-[#FFF0F6] via-[#FFF8E8] to-[#EEF8FF] border-2 border-[#F5C6D4] p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-extrabold text-[#4A3531]">
+                      📸 穿搭攝影棚
+                    </span>
+                    {studioCollectionText && (
+                      <span className="px-2 py-0.5 rounded-lg bg-white/90 border border-[#F2D5DF] text-[10px] font-extrabold text-[#B83B64] tabular-nums">
+                        藏品 {studioCollectionText}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-bold text-[#7D635D] truncate mt-0.5">
+                    {weeklyThemeLabel
+                      ? `本週挑戰主題：${weeklyThemeLabel} · 可選姿勢、背景、濾鏡與貼圖`
+                      : '姿勢・背景・濾鏡・相框・貼圖自由搭配拍照！'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenStudioTab ? onOpenStudioTab('shoot') : onOpenPhotoStudio?.()
+                  }
+                  className="min-h-[44px] px-3.5 rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center gap-1.5 shrink-0 hover:bg-[#F76890] active:translate-y-0.5 transition"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>進入攝影棚</span>
+                </button>
+              </div>
+              {onOpenStudioTab && (
+                <div className="grid grid-cols-4 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudioTab('challenge')}
+                    className="min-h-[38px] rounded-xl bg-white/95 border border-[#F3D7B8] text-[11px] font-extrabold text-[#8A5610] hover:bg-white active:scale-95 transition"
+                  >
+                    🏆 週挑戰
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudioTab('shop')}
+                    className="min-h-[38px] rounded-xl bg-white/95 border border-[#F2D5DF] text-[11px] font-extrabold text-[#B83B64] hover:bg-white active:scale-95 transition"
+                  >
+                    🛍️ 週商店
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudioTab('duo')}
+                    className="min-h-[38px] rounded-xl bg-white/95 border border-[#C6E8DB] text-[11px] font-extrabold text-[#256D57] hover:bg-white active:scale-95 transition"
+                  >
+                    💞 雙人照
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenStudioTab('catalog')}
+                    className="min-h-[38px] rounded-xl bg-white/95 border border-[#CFE0F5] text-[11px] font-extrabold text-[#355A9C] hover:bg-white active:scale-95 transition"
+                  >
+                    📖 圖鑑合成
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 6-slot selector (3x2 grid, touch-friendly >=44px, zero horizontal scroll) */}
           <div className="grid grid-cols-3 gap-1.5 bg-[#F6ECE6] p-1.5 rounded-2xl">

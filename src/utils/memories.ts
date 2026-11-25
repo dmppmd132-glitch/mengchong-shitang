@@ -19,6 +19,7 @@ import {
   MonthlyRecap,
   PetMessage,
   PetViewDirection,
+  PhotoBackground,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -29,6 +30,7 @@ import {
   SharedMemoryKey,
   SharedPetRoom,
 } from '../types';
+import type { DuoPhotoPetInfo } from '../types/house';
 import { getGrowthStage } from '../data/growth';
 import { getActivePet, updateActivePet } from './pets';
 
@@ -635,10 +637,13 @@ export function saveScenePhoto(
     caption: string;
     scene: PhotoScene;
     poseId: PhotoPose;
+    backgroundId?: PhotoBackground;
     facing?: PetViewDirection;
     filterId: PhotoFilter;
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
+    duoPet?: DuoPhotoPetInfo;
+    isCoopPhoto?: boolean;
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
   const activePet = getActivePet(state);
@@ -668,12 +673,15 @@ export function saveScenePhoto(
       params.scene === 'room' ? state.house.furnitureNotes[0]?.content : undefined,
     photoKind: params.scene,
     scene: params.scene,
+    isCoopPhoto: params.isCoopPhoto,
     wardrobePoseId: params.poseId,
+    backgroundId: params.backgroundId,
     facing: params.facing ?? 'front',
     filterId: params.filterId,
     frameId: params.frameId,
     stickers: params.stickers.slice(0, 6),
     weightAtCapture: activePet.weight,
+    duoPet: params.duoPet,
     likes: [],
     comments: [],
   };
@@ -682,8 +690,14 @@ export function saveScenePhoto(
     ...state,
     house: {
       ...state.house,
-      photos: [photo, ...state.house.photos].slice(0, 36),
+      photos: [photo, ...state.house.photos].slice(0, 48),
     },
+    photoStudio: state.photoStudio
+      ? {
+          ...state.photoStudio,
+          totalStudioPhotos: state.photoStudio.totalStudioPhotos + 1,
+        }
+      : undefined,
   };
 
   nextState = recordMonthlyActivity(nextState, { interactionLabel: '拍照留念' });

@@ -132,6 +132,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'squirrel_friend',
     'rabbit_guardian',
     'coop_best_host',
+    'fashion_photographer',
   ];
 
   return (

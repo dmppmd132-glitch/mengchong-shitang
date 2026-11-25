@@ -178,6 +178,14 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '連續 7 天完成共養共同訪客',
     badgeClass: 'bg-[#FFF3C4] border-[#E6A222] text-[#7A540E]',
   },
+  fashion_photographer: {
+    id: 'fashion_photographer',
+    name: '時尚攝影師',
+    emoji: '📸',
+    description: '連續 5 週制霸每週穿搭主題挑戰，每張作品都像雜誌封面一樣迷人！',
+    unlockCondition: '連續 5 週完成每週穿搭主題挑戰（達 100 分）',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4A6C2] text-[#B83B64]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

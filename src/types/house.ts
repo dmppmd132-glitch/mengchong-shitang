@@ -2,6 +2,7 @@ import type {
   AccessorySlot,
   PetSpecies,
   PetViewDirection,
+  PhotoBackground,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -160,6 +161,16 @@ export interface PhotoComment {
   createdAt: number;
 }
 
+export interface DuoPhotoPetInfo {
+  petId?: string;
+  petName: string;
+  species: PetSpecies;
+  equipped: Record<AccessorySlot, string | null>;
+  poseId?: PhotoPose;
+  facing?: PetViewDirection;
+  weightAtCapture?: number;
+}
+
 export interface RoomPhotoRecord {
   id: string;
   title: string;
@@ -180,11 +191,15 @@ export interface RoomPhotoRecord {
   isCoopPhoto?: boolean;
   scene?: PhotoScene;
   wardrobePoseId?: PhotoPose;
+  backgroundId?: PhotoBackground;
   facing?: PetViewDirection;
   filterId?: PhotoFilter;
   frameId?: PhotoFrame;
   stickers?: PhotoStickerId[];
   weightAtCapture?: number;
+  duoPet?: DuoPhotoPetInfo;
+  challengeScore?: number;
+  challengeWeekKey?: string;
   likes?: string[];
   comments?: PhotoComment[];
 }

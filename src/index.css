@@ -335,12 +335,97 @@
   }
 }
 
+@keyframes poseSpin {
+  0% {
+    transform: translateY(0) scaleX(1) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-6px) scaleX(0.32) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-10px) scaleX(-1) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-6px) scaleX(0.32) rotate(6deg);
+  }
+  100% {
+    transform: translateY(0) scaleX(1) rotate(0deg);
+  }
+}
+
+@keyframes posePounce {
+  0%, 100% {
+    transform: translateY(0) scale(1.06, 0.94) rotate(-2deg);
+  }
+  40% {
+    transform: translateY(-10px) scale(0.95, 1.07) rotate(3deg);
+  }
+  70% {
+    transform: translateY(2px) scale(1.1, 0.9) rotate(-4deg);
+  }
+}
+
+@keyframes poseRunway {
+  0%, 100% {
+    transform: translateX(-4px) translateY(0) rotate(-3deg) scale(1);
+  }
+  25% {
+    transform: translateX(0px) translateY(-6px) rotate(0deg) scale(1.04);
+  }
+  50% {
+    transform: translateX(4px) translateY(0) rotate(3deg) scale(1);
+  }
+  75% {
+    transform: translateX(0px) translateY(-6px) rotate(0deg) scale(1.04);
+  }
+}
+
+@keyframes poseStarEyes {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0px rgba(255, 209, 102, 0));
+  }
+  50% {
+    transform: translateY(-6px) scale(1.06);
+    filter: drop-shadow(0 0 10px rgba(255, 209, 102, 0.72));
+  }
+}
+
+@keyframes poseShy {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(3deg);
+  }
+}
+
 .animate-pose-dance {
   animation: poseDance 0.9s ease-in-out infinite;
 }
 
 .animate-pose-salute {
   animation: poseSalute 1.2s ease-in-out infinite;
+}
+
+.animate-pose-spin {
+  animation: poseSpin 1.35s ease-in-out infinite;
+}
+
+.animate-pose-pounce {
+  animation: posePounce 0.88s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.animate-pose-runway {
+  animation: poseRunway 1.1s ease-in-out infinite;
+}
+
+.animate-pose-star-eyes {
+  animation: poseStarEyes 1.05s ease-in-out infinite;
+}
+
+.animate-pose-shy {
+  animation: poseShy 1.6s ease-in-out infinite;
 }
 
 @keyframes cardReveal {
@@ -801,7 +886,14 @@
   .animate-water-pour,
   .animate-golden-glow,
   .animate-puppy-jump,
-  .animate-puppy-wag {
+  .animate-puppy-wag,
+  .animate-pose-dance,
+  .animate-pose-salute,
+  .animate-pose-spin,
+  .animate-pose-pounce,
+  .animate-pose-runway,
+  .animate-pose-star-eyes,
+  .animate-pose-shy {
     animation: none;
   }
 }

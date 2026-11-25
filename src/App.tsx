@@ -47,6 +47,7 @@ import { INGREDIENT_IDS, INGREDIENTS } from './data/kitchen';
 import { MINIGAME_BY_ID, MINIGAME_WEEKLY_CHALLENGES } from './data/minigames';
 import { NOVICE_GROWTH_DAYS, STAGE_BACKGROUNDS } from './data/noviceGrowth';
 import { PET_PREFERENCES } from './data/personality';
+import { PHOTO_POSE_BY_ID } from './data/photoStudio';
 import {
   TOUCH_ZONE_META,
   getPetSpeciesInfo,
@@ -83,6 +84,7 @@ import {
   CloudUser,
   DialogueLine,
   DialogueSettings,
+  DuoPhotoPetInfo,
   FamilyTaskId,
   FarmDecorationId,
   FarmUpgradeId,
@@ -96,12 +98,14 @@ import {
   KitchenRecipe,
   MemoryEntry,
   MonthlyRecap,
+  Pet,
   PetExpression,
   PetMessage,
   PetSpecies,
   PetStickerId,
   PetTouchZone,
   PetViewDirection,
+  PhotoBackground,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -208,6 +212,22 @@ import {
   updateActivePet,
   updatePetById,
 } from './utils/pets';
+import {
+  buyStudioBackground,
+  buyStudioFilter,
+  buyStudioFrame,
+  buyStudioPose,
+  buyStudioSticker,
+  claimCoopDuoChallengeReward,
+  claimWeeklyOutfitTier,
+  craftStudioRecipe,
+  getPhotoStudioState,
+  getStudioCollectionProgress,
+  getWeeklyOutfitChallengeTheme,
+  submitCoopDuoChallengeEntry,
+  submitWeeklyOutfitChallenge,
+  syncPhotoStudioState,
+} from './utils/photoStudio';
 import { ShareCardPayload } from './utils/shareCardCanvas';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
 import { soundFX, triggerHaptic } from './utils/sound';
@@ -279,6 +299,9 @@ export default function App() {
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
   const [wardrobePhotoScene, setWardrobePhotoScene] = useState<PhotoScene>('wardrobe');
+  const [wardrobePhotoTab, setWardrobePhotoTab] = useState<
+    'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog'
+  >('shoot');
   const [shareCardPayload, setShareCardPayload] = useState<ShareCardPayload | null>(null);
   const [selectedMemoryEntry, setSelectedMemoryEntry] = useState<MemoryEntry | null>(null);
   const [wardrobeReactionText, setWardrobeReactionText] = useState<string | null>(null);
@@ -1557,6 +1580,7 @@ export default function App() {
         });
       }
 
+      nextMem = syncPhotoStudioState(nextMem).nextState;
       return nextMem;
     });
   };
@@ -2399,13 +2423,14 @@ export default function App() {
           detail: '泥巴澡小遊戲',
         });
       }
-      return {
+      const drafted = {
         ...settled,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'minigame_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
         personality: nextPersonality,
         dialogue: nextDialogue,
       };
+      return syncPhotoStudioState(drafted).nextState;
     });
 
     pushFeedback(`獲得 +${preview.reward.coins} 金幣`, '🪙');
@@ -2819,7 +2844,7 @@ export default function App() {
           accessoryId: 'party_cape',
         });
       }
-      return finalNovice;
+      return syncPhotoStudioState(finalNovice).nextState;
     });
   };
 
@@ -3767,8 +3792,12 @@ export default function App() {
     return handleSendMessage(`${cleanCaption} [photo:${photo.id}]`, null);
   };
 
-  const handleOpenScenePhoto = (scene: PhotoScene = 'wardrobe') => {
+  const handleOpenScenePhoto = (
+    scene: PhotoScene = 'wardrobe',
+    tab: 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog' = 'shoot'
+  ) => {
     setWardrobePhotoScene(scene);
+    setWardrobePhotoTab(tab);
     setWardrobePhotoOpen(true);
   };
 
@@ -3777,16 +3806,157 @@ export default function App() {
     caption: string;
     scene: PhotoScene;
     poseId: PhotoPose;
+    backgroundId?: PhotoBackground;
     facing?: PetViewDirection;
     filterId: PhotoFilter;
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
+    duoPet?: DuoPhotoPetInfo;
+    isCoopPhoto?: boolean;
   }): RoomPhotoRecord => {
     soundFX.heart(game.soundEnabled);
     const { nextState, photo } = saveScenePhoto(gameRef.current, params);
     setGame(nextState);
-    pushFeedback('已儲存寫真到照片牆！', '📸');
+    pushFeedback(
+      params.duoPet ? '已儲存雙人合照到照片牆！' : '已儲存寫真到照片牆！',
+      '📸'
+    );
     return photo;
+  };
+
+  const handleBuyStudioPose = (poseId: PhotoPose) => {
+    const res = buyStudioPose(gameRef.current, poseId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '✨');
+    setSpeech(`學會新拍照姿勢「${PHOTO_POSE_BY_ID[poseId]?.label ?? poseId}」囉！`);
+  };
+
+  const handleBuyStudioBackground = (bgId: PhotoBackground) => {
+    const res = buyStudioBackground(gameRef.current, bgId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🏞️');
+  };
+
+  const handleBuyStudioFilter = (filterId: PhotoFilter) => {
+    const res = buyStudioFilter(gameRef.current, filterId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🎨');
+  };
+
+  const handleBuyStudioFrame = (frameId: PhotoFrame) => {
+    const res = buyStudioFrame(gameRef.current, frameId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🖼️');
+  };
+
+  const handleBuyStudioSticker = (stickerId: PhotoStickerId) => {
+    const res = buyStudioSticker(gameRef.current, stickerId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.heart(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🩷');
+  };
+
+  const handleCraftStudioRecipe = (recipeId: string) => {
+    const res = craftStudioRecipe(gameRef.current, recipeId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🔨');
+    setSpeech(res.notice);
+  };
+
+  const handleSubmitWeeklyStudioChallenge = (params: {
+    title: string;
+    caption: string;
+    poseId: PhotoPose;
+    backgroundId: PhotoBackground;
+    facing: PetViewDirection;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): RoomPhotoRecord | null => {
+    const res = submitWeeklyOutfitChallenge(gameRef.current, params);
+    soundFX.heart(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(`週挑戰評分 ${res.breakdown.totalScore} 分！`, '🏆');
+    for (const note of res.unlockedItemsNotice) {
+      pushFeedback(note, '🎉');
+    }
+    setSpeech(`本週穿搭挑戰拿到 ${res.breakdown.totalScore} 分！照片已存入照片牆～`);
+    return res.photo;
+  };
+
+  const handleClaimWeeklyStudioTier = (tier: 60 | 100 | 150) => {
+    const res = claimWeeklyOutfitTier(gameRef.current, tier);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🎁');
+    setSpeech(res.notice);
+  };
+
+  const handleSubmitCoopDuoChallenge = (params: {
+    pet: Pet;
+    poseId: PhotoPose;
+    facing: PetViewDirection;
+    title: string;
+    backgroundId: PhotoBackground;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): RoomPhotoRecord | null => {
+    const res = submitCoopDuoChallengeEntry(gameRef.current, {
+      userId: currentUserId,
+      userName: actorName,
+      ...params,
+    });
+    soundFX.heart(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, res.mergedPhoto ? '👯' : '💌');
+    setSpeech(res.notice);
+    return res.mergedPhoto;
+  };
+
+  const handleClaimCoopDuoChallengeReward = () => {
+    const res = claimCoopDuoChallengeReward(gameRef.current, currentUserId);
+    if (!res.ok) {
+      pushFeedback(res.notice, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '🎁');
+    setSpeech('領取共養雙人合照挑戰獎勵！我們是最棒的穿搭搭檔！');
   };
 
   const handleTogglePhotoLike = (photoId: string) => {
@@ -3895,6 +4065,10 @@ export default function App() {
   const pendingOrderCount = (game.townOrders ?? []).filter(
     (o) => !o.claimedByUserIds.includes(currentUserId)
   ).length;
+  const currentWeeklyOutfitTheme = getWeeklyOutfitChallengeTheme();
+  const studioCollectionProgress = getStudioCollectionProgress(
+    getPhotoStudioState(game)
+  );
   const [farmClockNow, setFarmClockNow] = useState<number>(() => Date.now());
   const hasGrowingUnreadyCrops = game.farmPlots.some(
     (p) =>
@@ -4243,7 +4417,10 @@ export default function App() {
                   onToggleEquip={handleToggleEquip}
                   onBuyAccessory={handleBuyAccessory}
                   onOpenPetList={() => setActiveTab('pets')}
-                  onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe')}
+                  onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe', 'shoot')}
+                  onOpenStudioTab={(tab) => handleOpenScenePhoto('wardrobe', tab)}
+                  weeklyThemeLabel={`${currentWeeklyOutfitTheme.emoji} ${currentWeeklyOutfitTheme.title}`}
+                  studioCollectionText={`${studioCollectionProgress.totalOwned}/${studioCollectionProgress.totalCatalog}`}
                   onOpenEncyclopedia={() => {
                     setJournalInitialSection('encyclopedia');
                     setJournalEncyclopediaSection('accessories');
@@ -4387,6 +4564,7 @@ export default function App() {
               }}
               onTakeGrowthPhoto={() => {
                 setWardrobePhotoScene('album');
+                setWardrobePhotoTab('shoot');
                 setWardrobePhotoOpen(true);
               }}
             />
@@ -4492,13 +4670,33 @@ export default function App() {
         <WardrobePhotoModal
           open={wardrobePhotoOpen}
           onClose={() => setWardrobePhotoOpen(false)}
+          game={game}
           pet={activePet}
+          personality={activePersonality}
+          coins={game.coins}
+          currentUserId={currentUserId}
+          actorName={actorName}
           sharedRoom={sharedRoom}
           initialScene={wardrobePhotoScene}
+          initialTab={wardrobePhotoTab}
           unlockedPoses={game.memoryAlbum.unlockedPhotoPoses}
           unlockedFrames={game.memoryAlbum.unlockedPhotoFrames}
           onSavePhoto={handleSaveWardrobePhoto}
           onSharePhotoToBoard={handleSharePhotoToBoard}
+          onBuyPose={handleBuyStudioPose}
+          onBuyBackground={handleBuyStudioBackground}
+          onBuyFilter={handleBuyStudioFilter}
+          onBuyFrame={handleBuyStudioFrame}
+          onBuySticker={handleBuyStudioSticker}
+          onCraftRecipe={handleCraftStudioRecipe}
+          onSubmitWeeklyChallenge={handleSubmitWeeklyStudioChallenge}
+          onClaimChallengeTier={handleClaimWeeklyStudioTier}
+          onSubmitDuoChallenge={handleSubmitCoopDuoChallenge}
+          onClaimDuoChallengeReward={handleClaimCoopDuoChallengeReward}
+          onOpenSharedPet={() => {
+            setWardrobePhotoOpen(false);
+            setSharedModalOpen(true);
+          }}
         />
 
         <DialogueHistoryModal
