@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Coins,
   CookingPot,
+  Gift,
   HelpCircle,
   Home,
   Lock,
@@ -36,6 +37,7 @@ import {
   WALLPAPERS,
 } from '../data/house';
 import { INGREDIENTS, KITCHEN_RECIPES } from '../data/kitchen';
+import { STRAWBERRY_EVENT_CATALOG_ENTRIES } from '../data/events/strawberrySeason';
 import { EncyclopediaState, IngredientId, SharedHouse, TitleId } from '../types';
 import {
   getAccessoryObtainLabel,
@@ -54,7 +56,7 @@ import { AccessoryPreview } from './AccessoryPreview';
 import { CropIllustration } from './house/FarmIllustrations';
 import { FurnitureGraphic } from './house/FurnitureGraphic';
 
-export type EncyclopediaSection = 'foods' | 'recipes' | 'accessories' | 'house';
+export type EncyclopediaSection = 'foods' | 'recipes' | 'accessories' | 'house' | 'events';
 type RecipeFilter = 'all' | 'learned' | 'locked';
 
 interface EncyclopediaViewProps {
@@ -63,6 +65,8 @@ interface EncyclopediaViewProps {
   house: SharedHouse;
   ingredients?: Record<IngredientId, number>;
   favoriteFoodIds?: string[];
+  eventOwnedCatalogIds?: string[];
+  eventEnded?: boolean;
   initialSection?: EncyclopediaSection;
   onSelectTitle?: (titleId: TitleId | null) => void;
   onGoToKitchen?: (recipeId?: string) => void;
@@ -74,6 +78,8 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
   house,
   ingredients,
   favoriteFoodIds = [],
+  eventOwnedCatalogIds = [],
+  eventEnded = false,
   initialSection = 'foods',
   onSelectTitle,
   onGoToKitchen,
@@ -133,7 +139,14 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'rabbit_guardian',
     'coop_best_host',
     'fashion_photographer',
+    'strawberry_sweetheart_title',
+    'strawberry_fashionista',
   ];
+
+  const eventOwnedSet = new Set(eventOwnedCatalogIds);
+  const collectedEventCount = STRAWBERRY_EVENT_CATALOG_ENTRIES.filter((entry) =>
+    eventOwnedSet.has(entry.id)
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -191,6 +204,16 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
               已收集 {houseCounts.totalCollected} / {houseCounts.totalItems}
             </div>
           </button>
+          <button
+            type="button"
+            onClick={() => setSection('events')}
+            className="col-span-2 rounded-2xl bg-white/90 border border-[#F4C8D8] px-3 py-2 flex items-center justify-between text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">🍓 活動圖鑑（草莓季限定）</div>
+            <div className="text-xs font-extrabold text-[#C43463] tabular-nums">
+              已收集 {collectedEventCount} / {STRAWBERRY_EVENT_CATALOG_ENTRIES.length}
+            </div>
+          </button>
         </div>
 
         <div className="space-y-1.5 pt-1">
@@ -237,11 +260,11 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         </div>
       </section>
 
-      <div className="grid grid-cols-4 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('foods')}
-          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'foods'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -253,7 +276,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('recipes')}
-          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'recipes'
               ? 'bg-white text-[#B84C24] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -265,7 +288,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('accessories')}
-          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'accessories'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -277,7 +300,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('house')}
-          className={`min-h-[48px] rounded-xl text-[11px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'house'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -285,6 +308,18 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         >
           <Home className="w-3.5 h-3.5 shrink-0" />
           <span className="tabular-nums">佈置 {houseCounts.totalCollected}/{houseCounts.totalItems}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('events')}
+          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'events'
+              ? 'bg-white text-[#C43463] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <Gift className="w-3.5 h-3.5 shrink-0" />
+          <span className="tabular-nums">活動 {collectedEventCount}/{STRAWBERRY_EVENT_CATALOG_ENTRIES.length}</span>
         </button>
       </div>
 
@@ -1142,6 +1177,86 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
                 );
               })}
             </div>
+          </div>
+        </section>
+      )}
+
+      {section === 'events' && (
+        <section className="space-y-3">
+          <div className="rounded-3xl bg-gradient-to-br from-[#FFF0F6] to-[#FFFDF8] border-2 border-[#F4C2D2] p-3.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-extrabold text-[#C43463]">
+                  🍓 草莓季限定活動圖鑑
+                </h3>
+                <p className="text-[11px] font-bold text-[#7D635D] mt-0.5">
+                  {eventEnded
+                    ? '草莓季已圓滿結束！已取得物品永久保留，未取得物品可在此圖鑑查看取得來源與紀念紀錄。'
+                    : '收錄草莓季限定配件、攝影背景、濾鏡、拍立得相框、姿勢與榮譽稱號／徽章！'}
+                </p>
+              </div>
+              <span className="text-xs font-extrabold text-[#C43463] tabular-nums shrink-0">
+                {collectedEventCount} / {STRAWBERRY_EVENT_CATALOG_ENTRIES.length}
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-[#F7DCE6] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#FF7A9E] to-[#E6497C] transition-all duration-300"
+                style={{
+                  width: `${Math.round(
+                    (collectedEventCount / STRAWBERRY_EVENT_CATALOG_ENTRIES.length) * 100
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            {STRAWBERRY_EVENT_CATALOG_ENTRIES.map((entry) => {
+              const collected = eventOwnedSet.has(entry.id);
+              return (
+                <article
+                  key={entry.id}
+                  className={`rounded-3xl border-2 p-3 flex flex-col items-center text-center transition ${
+                    collected
+                      ? 'bg-[#FFFDF8] border-[#F4B4CB]'
+                      : 'bg-[#F5EFEA] border-[#E7DCD5]'
+                  }`}
+                >
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl relative ${
+                      collected
+                        ? 'bg-[#FFEAF2] border border-[#F5B4CB]'
+                        : 'bg-[#E9DFD8] border border-[#DBD0C8]'
+                    }`}
+                  >
+                    {collected ? (
+                      <span aria-hidden="true">{entry.emoji}</span>
+                    ) : (
+                      <>
+                        <span
+                          className="grayscale brightness-0 opacity-20 select-none"
+                          aria-hidden="true"
+                        >
+                          {entry.emoji}
+                        </span>
+                        <Lock className="w-4 h-4 text-[#8A766F] absolute" />
+                      </>
+                    )}
+                  </div>
+
+                  <h4 className="mt-2 text-xs font-extrabold text-[#4A3531]">
+                    {entry.name}
+                  </h4>
+                  <span className="mt-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold bg-[#FFF5F8] border-[#F4D0DE] text-[#B83B64]">
+                    {entry.categoryLabel}
+                  </span>
+                  <p className="mt-1 text-[11px] font-bold text-[#7D635D] leading-snug">
+                    {collected ? '✅ 已收藏保留' : entry.unlockHint}
+                  </p>
+                </article>
+              );
+            })}
           </div>
         </section>
       )}

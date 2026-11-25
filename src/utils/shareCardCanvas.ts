@@ -270,6 +270,10 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   } else if (bgId === 'kitchen' || filterId === 'kitchen' || filterId === 'cream' || filterId === 'vintage') {
     stageGrad.addColorStop(0, '#FFE4BC');
     stageGrad.addColorStop(1, '#FCE7DA');
+  } else if (bgId === 'strawberry_season_field' || bgId === 'strawberry_field') {
+    stageGrad.addColorStop(0, '#FFD4E5');
+    stageGrad.addColorStop(0.55, '#FFF5E8');
+    stageGrad.addColorStop(1, '#DFF5CE');
   } else {
     stageGrad.addColorStop(0, '#FFD9E6');
     stageGrad.addColorStop(1, '#FFF1E0');

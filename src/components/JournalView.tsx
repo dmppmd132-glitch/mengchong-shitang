@@ -38,6 +38,7 @@ import {
   WeightLog,
 } from '../types';
 import { ShareCardPayload } from '../utils/shareCardCanvas';
+import { getEventCarryoverCatalogOwnedIds } from '../utils/seasonalEvent';
 import { clampWeight, formatLocalDate, roundWeight } from '../utils/storage';
 import { EncyclopediaSection, EncyclopediaView } from './EncyclopediaView';
 import { EvolutionAtlasView } from './EvolutionAtlasView';
@@ -390,6 +391,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
           house={house}
           ingredients={game?.ingredients}
           favoriteFoodIds={getPetSpeciesInfo(pet.species).favoriteFoodIds}
+          eventOwnedCatalogIds={game ? getEventCarryoverCatalogOwnedIds(game) : []}
+          eventEnded={game?.seasonalEvent?.status === 'ended'}
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
           onGoToKitchen={onGoToKitchen}

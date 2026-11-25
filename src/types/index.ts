@@ -32,11 +32,13 @@ export type PhotoPose =
   | 'salute'
   | 'star_eyes'
   | 'crown_star'
-  | 'anniversary_cheer';
+  | 'anniversary_cheer'
+  | 'strawberry_sweetheart';
 
 export type PhotoBackground =
   | 'pink_room'
   | 'strawberry_field'
+  | 'strawberry_season_field'
   | 'cloud_sky'
   | 'kitchen'
   | 'forest_camp'
@@ -69,7 +71,8 @@ export type PhotoFrame =
   | 'lace'
   | 'gold'
   | 'golden_memory'
-  | 'coop_heart';
+  | 'coop_heart'
+  | 'strawberry_polaroid';
 
 export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor';
 
@@ -85,13 +88,14 @@ export type PhotoStickerId =
   | 'apple'
   | 'balloon'
   | 'moon'
-  | 'fish';
+  | 'fish'
+  | 'strawberry';
 
 export type StudioShopCategory = 'pose' | 'background' | 'filter' | 'frame' | 'sticker';
 
 export type StudioItemSource = 'free' | 'shop' | 'achievement' | 'limited';
 
-export type StudioBadgeId = 'outfit_master';
+export type StudioBadgeId = 'outfit_master' | 'strawberry_photographer';
 
 export type WeeklyOutfitChallengeThemeId =
   | 'strawberry_sweet'
@@ -504,7 +508,9 @@ export type TitleId =
   | 'squirrel_friend'
   | 'rabbit_guardian'
   | 'coop_best_host'
-  | 'fashion_photographer';
+  | 'fashion_photographer'
+  | 'strawberry_sweetheart_title'
+  | 'strawberry_fashionista';
 
 export type PersonalityId =
   | 'greedy'
@@ -548,7 +554,7 @@ export interface Toy {
   petAction: PiggyActionState;
 }
 
-export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop';
+export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop';
 
 export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
 
@@ -557,7 +563,8 @@ export type CoopBadgeId =
   | 'room_stylist'
   | 'farm_relay_master'
   | 'town_host'
-  | 'best_outfit_partner';
+  | 'best_outfit_partner'
+  | 'strawberry_sweetheart_partner';
 
 export interface CoopGoal {
   id: string;
@@ -869,6 +876,196 @@ export interface CoopHubState {
   duoChallenge?: CoopDuoPhotoChallengeState | null;
   duoStreakWeeks?: number;
   lastDuoCompletedWeek?: string | null;
+  coopEventSession?: CoopEventSession | null;
+}
+
+export type EventId = 'strawberry_season';
+
+export type EventCurrencyId = 'strawberry_ticket';
+
+export interface EventCurrency {
+  id: EventCurrencyId;
+  name: string;
+  emoji: string;
+  balance: number;
+  totalEarned: number;
+  convertedToCoins: number;
+  convertedToMaterials: number;
+}
+
+export type EventTaskKind =
+  | 'plant_strawberry'
+  | 'feed_strawberry'
+  | 'photo_strawberry'
+  | 'equip_strawberry_acc'
+  | 'cook_strawberry'
+  | 'play_minigame'
+  | 'coop_event_task';
+
+export interface EventTask {
+  id: string;
+  kind: EventTaskKind;
+  title: string;
+  description: string;
+  emoji: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardTickets: number;
+  rewardCoins: number;
+  rewardIngredientId?: IngredientId;
+  rewardIngredientQty?: number;
+  rewardStudioMaterials?: number;
+}
+
+export type EventMilestoneId =
+  | 'strawberry_rookie'
+  | 'strawberry_photographer'
+  | 'strawberry_stylist'
+  | 'strawberry_chef'
+  | 'strawberry_sweetheart'
+  | 'strawberry_party';
+
+export interface EventMilestone {
+  id: EventMilestoneId;
+  title: string;
+  description: string;
+  emoji: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardTickets: number;
+  rewardCoins: number;
+  rewardSummary: string;
+  rewardAccessoryId?: string;
+  rewardFilterId?: PhotoFilter;
+  rewardBackgroundId?: PhotoBackground;
+  rewardFrameId?: PhotoFrame;
+  rewardTitleId?: TitleId;
+  rewardIngredient?: { id: IngredientId; qty: number };
+  createsSharedMemory?: boolean;
+}
+
+export type EventShopItemCategory =
+  | 'accessory'
+  | 'background'
+  | 'filter'
+  | 'frame'
+  | 'pose'
+  | 'title';
+
+export interface EventShopItem {
+  id: string;
+  eventId: EventId;
+  name: string;
+  emoji: string;
+  description: string;
+  category: EventShopItemCategory;
+  targetId: string;
+  ticketPrice: number;
+  badgeText: string;
+}
+
+export interface EventPhotoScoreBreakdown {
+  totalScore: number;
+  strawberryAccCount: number;
+  strawberryAccPoints: number;
+  backgroundMatched: boolean;
+  backgroundPoints: number;
+  filterMatched: boolean;
+  filterPoints: number;
+  frameMatched: boolean;
+  framePoints: number;
+  fedStrawberryFood: boolean;
+  fedStrawberryPoints: number;
+  fullSetCompleted: boolean;
+  fullSetPoints: number;
+}
+
+export interface EventPhotoChallenge {
+  weekKey: string;
+  weekNumber: number;
+  title: string;
+  description: string;
+  bestScore: number;
+  submittedCount: number;
+  claimedTiers: number[];
+  lastPhotoId: string | null;
+  lastBreakdown: EventPhotoScoreBreakdown | null;
+}
+
+export interface CoopEventSession {
+  id: string;
+  eventId: EventId;
+  dateKey: string;
+  title: string;
+  description: string;
+  harvestTarget: number;
+  harvestCount: number;
+  harvestedByUserIds: string[];
+  cookTarget: number;
+  cookCount: number;
+  cookedByUserIds: string[];
+  photoTarget: number;
+  photoCount: number;
+  photoByUserIds: string[];
+  completed: boolean;
+  completedAt: number | null;
+  claimedByUserIds: string[];
+  picnicPhotoId: string | null;
+  lastUpdatedByName: string | null;
+  lastUpdatedAt: number | null;
+}
+
+export interface EventRecapCard {
+  eventId: EventId;
+  seasonKey: string;
+  completedTasksCount: number;
+  totalTicketsEarned: number;
+  photosTakenCount: number;
+  accessoriesCollectedCount: number;
+  recipesCookedCount: number;
+  coopCompletedCount: number;
+  bestPhotoId: string | null;
+  coverPhotoId: string | null;
+  savedToMemories: boolean;
+  endedSettled: boolean;
+  convertedCoins: number;
+  convertedMaterials: number;
+}
+
+export interface EventStatsCounter {
+  completedTasksCount: number;
+  plantedOrHarvestedStrawberries: number;
+  strawberryDishesCooked: number;
+  strawberryPhotosTaken: number;
+  coopPartyCompletedCount: number;
+}
+
+export interface SeasonalEvent {
+  eventId: EventId;
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'ended';
+  currency: EventCurrency;
+  dailyDate: string;
+  dailyTasks: EventTask[];
+  weeklyChallenge: EventPhotoChallenge;
+  consecutiveChallengeWeeks: number;
+  lastQualifiedChallengeWeek: string | null;
+  fedStrawberryFoodWeekKey: string | null;
+  milestones: EventMilestone[];
+  purchasedShopItemIds: string[];
+  eventPhotoIds: string[];
+  stats: EventStatsCounter;
+  coopStreakDays: number;
+  lastCoopCompletedDate: string | null;
+  recap: EventRecapCard;
+  carryoverCatalogItemIds: string[];
 }
 
 export type DialogueId = string;
@@ -1254,6 +1451,7 @@ export interface GameState {
   visitorState?: VisitorSystemState;
   townOrders?: TownOrder[];
   photoStudio?: PhotoStudioState;
+  seasonalEvent?: SeasonalEvent;
 }
 
 export interface FloatingFeedback {

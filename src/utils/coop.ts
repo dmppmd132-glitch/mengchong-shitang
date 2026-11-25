@@ -56,6 +56,10 @@ import {
   mergePhotoStudioRemoteState,
 } from './photoStudio';
 import { getActivePet, isSharedCoopPet, updatePetById } from './pets';
+import {
+  mergeCoopEventSession,
+  syncSeasonalEventState,
+} from './seasonalEvent';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -1494,7 +1498,7 @@ export function mergeCoopRemoteState(
   }
   const mergedFeedLogs = Array.from(feedLogMap.values());
 
-  return {
+  return syncSeasonalEventState({
     ...remoteState,
     pets: mergedPets,
     activePetId: nextActivePetId,
@@ -1556,6 +1560,10 @@ export function mergeCoopRemoteState(
         remoteState.coop.lastDuoCompletedWeek ??
         localState.coop.lastDuoCompletedWeek ??
         null,
+      coopEventSession: mergeCoopEventSession(
+        localState.coop.coopEventSession,
+        remoteState.coop.coopEventSession
+      ),
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(
@@ -1566,5 +1574,6 @@ export function mergeCoopRemoteState(
       localState.photoStudio,
       remoteState.photoStudio
     ),
-  };
+    seasonalEvent: localState.seasonalEvent ?? remoteState.seasonalEvent,
+  });
 }

@@ -239,7 +239,6 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
     () =>
       new Set<PhotoFilter>([
         'none',
-        'strawberry',
         'forest',
         'cloud',
         'kitchen',

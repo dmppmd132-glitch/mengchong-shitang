@@ -177,6 +177,19 @@ export const PHOTO_POSES: PhotoPoseOption[] = [
     requiresUnlock: true,
     unlockHint: '達成「100 天紀念」里程碑解鎖',
   },
+  {
+    id: 'strawberry_sweetheart',
+    label: '草莓甜心',
+    emoji: '🍓',
+    action: 'petted',
+    expression: 'sparkle',
+    animClass: 'animate-pose-star-eyes',
+    description: '草莓季限定！雙手比愛心眨眼甜笑的莓果萌主姿勢',
+    source: 'limited',
+    price: 0,
+    requiresUnlock: true,
+    unlockHint: '草莓季商店兌換（200 草莓券）或每週草莓攝影挑戰 150 分解鎖',
+  },
 ];
 
 export interface PhotoBackgroundOption {
@@ -207,6 +220,16 @@ export const PHOTO_BACKGROUNDS: PhotoBackgroundOption[] = [
     description: '陽光灑落紅通通草莓園，空氣都飄著果香～',
     source: 'free',
     price: 0,
+  },
+  {
+    id: 'strawberry_season_field',
+    label: '草莓田（草莓季）',
+    emoji: '🍓',
+    description: '草莓季限定！粉紅緞帶花門與滿滿熟成草莓園，拍出夢幻草莓寫真！',
+    source: 'limited',
+    price: 0,
+    requiresUnlock: true,
+    unlockHint: '草莓季商店兌換（150 草莓券）或達成「草莓甜心」活動里程碑解鎖',
   },
   {
     id: 'cloud_sky',
@@ -405,16 +428,17 @@ export const PHOTO_FILTERS: PhotoFilterOption[] = [
   // Legacy filters preserved cleanly for older saved photos
   {
     id: 'strawberry',
-    label: '草莓',
+    label: '草莓濾鏡',
     emoji: '🍓',
     backdropClass: 'bg-gradient-to-b from-[#FFD8E6] via-[#FFF0F5] to-[#FFE8CF]',
-    overlayStyle: 'linear-gradient(180deg, rgba(255,168,200,0.22), rgba(255,214,230,0.16))',
-    stageFilterCss: 'brightness(1.02) saturate(1.1)',
+    overlayStyle: 'linear-gradient(180deg, rgba(255,152,188,0.24), rgba(255,214,230,0.18))',
+    stageFilterCss: 'brightness(1.04) saturate(1.16) hue-rotate(-5deg)',
     badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#C43463]',
     accentEmojis: ['🍓', '🌸', '🩷', '🧁'],
-    source: 'free',
+    source: 'limited',
     price: 0,
-    isLegacy: true,
+    requiresUnlock: true,
+    unlockHint: '草莓季商店兌換（100 草莓券）或「草莓攝影師」里程碑解鎖',
   },
   {
     id: 'forest',
@@ -601,6 +625,20 @@ export const PHOTO_FRAMES: PhotoFrameOption[] = [
     requiresUnlock: true,
     unlockHint: '達成「共養 7 天」里程碑解鎖',
   },
+  {
+    id: 'strawberry_polaroid',
+    label: '草莓拍立得',
+    emoji: '🍓',
+    outerClass:
+      'rounded-xl bg-gradient-to-b from-[#FFEAF2] to-[#FFFDF8] border-[3px] border-[#FF8EB0] p-2.5 pb-5 shadow-md',
+    innerClass: 'rounded-lg overflow-hidden border-2 border-white',
+    cornerEmojis: ['🍓', '🩷'],
+    isPolaroid: true,
+    source: 'limited',
+    price: 0,
+    requiresUnlock: true,
+    unlockHint: '草莓季商店兌換（120 草莓券）或「草莓派對」活動里程碑解鎖',
+  },
 ];
 
 export interface PhotoStickerOption {
@@ -695,6 +733,13 @@ export const PHOTO_STICKERS: PhotoStickerOption[] = [
     emoji: '🐟',
     price: 100,
     positionClass: 'top-14 right-10 rotate-12',
+  },
+  {
+    id: 'strawberry',
+    label: '草莓',
+    emoji: '🍓',
+    price: 35,
+    positionClass: 'top-4 left-1/2 -translate-x-1/2 rotate-6',
   },
 ];
 
@@ -893,6 +938,14 @@ export const STUDIO_BADGES: Record<StudioBadgeId, StudioBadgeDefinition> = {
     description: '連續 3 週在每週穿搭主題挑戰突破 100 分的時尚達人！',
     conditionText: '連續 3 週於每週穿搭主題挑戰達 100 分以上',
     badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
+  strawberry_photographer: {
+    id: 'strawberry_photographer',
+    name: '草莓攝影師',
+    emoji: '🍓',
+    description: '連續 2 週在草莓季攝影挑戰突破 100 分，最會捕捉莓果甜心光影！',
+    conditionText: '連續 2 週於草莓季攝影挑戰達 100 分以上',
+    badgeClass: 'bg-[#FFE8F0] border-[#F29AB8] text-[#C43463]',
   },
 };
 

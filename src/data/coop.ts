@@ -179,6 +179,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '連續 3 週完成共養雙人合照挑戰',
     badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
   },
+  strawberry_sweetheart_partner: {
+    id: 'strawberry_sweetheart_partner',
+    name: '草莓甜心搭檔',
+    emoji: '🍓',
+    description: '連續 3 天攜手完成草莓派對合作任務，一起採草莓、烤點心與拍野餐照！',
+    conditionText: '草莓季連續 3 天完成「草莓派對」共養合作任務',
+    badgeClass: 'bg-[#FFE8F0] border-[#F29AB8] text-[#C43463]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

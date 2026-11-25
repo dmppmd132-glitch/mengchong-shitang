@@ -41,6 +41,7 @@ import {
   PetTouchZone,
   PetViewDirection,
   PiggyActionState,
+  SeasonalEvent,
   SharedHouse,
   SharedPetRoom,
   StageBackgroundId,
@@ -50,6 +51,7 @@ import {
 } from '../types';
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
 import { getTimeOfDayMeta, getTimeOfDayPeriod } from '../utils/farmGrowth';
+import { getEventRemainingText } from '../utils/seasonalEvent';
 import { PetDialogueBubble } from './dialogue/PetDialogueBubble';
 import { HomeHousePreview } from './house/HomeHousePreview';
 import { HouseSubTab } from './house/HouseView';
@@ -111,6 +113,9 @@ interface HomeViewProps {
   maxPetSlots?: number;
   onSwitchPet?: (petId: string) => void;
   onOpenPetList?: () => void;
+  seasonalEvent?: SeasonalEvent | null;
+  eventBadgeCount?: number;
+  onOpenSeasonalEvent?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -183,6 +188,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   maxPetSlots = 1,
   onSwitchPet,
   onOpenPetList,
+  seasonalEvent = null,
+  eventBadgeCount = 0,
+  onOpenSeasonalEvent,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -919,6 +927,46 @@ export const HomeView: React.FC<HomeViewProps> = ({
           house={house}
           onOpenHouse={onOpenHouse}
         />
+      )}
+
+      {seasonalEvent && onOpenSeasonalEvent && (
+        <button
+          type="button"
+          onClick={onOpenSeasonalEvent}
+          className="w-full min-h-[56px] rounded-2xl bg-gradient-to-r from-[#FFE3EE] via-[#FFF4F8] to-[#FFEAD6] border-2 border-[#F4B4CA] px-3.5 py-2.5 flex items-center justify-between gap-2 text-left shadow-xs hover:brightness-[0.99] active:scale-[0.99] transition"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-white/90 border border-[#F5C6D6] flex items-center justify-center text-xl shrink-0">
+              🍓
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-extrabold text-[#8E2B4E]">
+                  活動・{seasonalEvent.name}
+                </span>
+                {seasonalEvent.status === 'ended' ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#7D2143] text-white text-[10px] font-extrabold">
+                    回顧
+                  </span>
+                ) : eventBadgeCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#3BA886] text-white text-[10px] font-extrabold tabular-nums">
+                    {eventBadgeCount} 待領
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#FF6B97] text-white text-[10px] font-extrabold">
+                    進行中
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-bold text-[#7B4F5D] truncate tabular-nums">
+                {getEventRemainingText(seasonalEvent)} · 🍓 {seasonalEvent.currency.balance} 草莓券
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-xl bg-white border border-[#F2BDCE] text-[11px] font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            {seasonalEvent.status === 'ended' ? '看回顧 ›' : '活動 ›'}
+          </span>
+        </button>
       )}
 
       {(sharedRoom && onOpenCoopGames) ||

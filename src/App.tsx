@@ -6,6 +6,7 @@ import { CanteenSection, CanteenView } from './components/CanteenView';
 import { CoopHubModal } from './components/coop/CoopHubModal';
 import { DialogueHistoryModal } from './components/dialogue/DialogueHistoryModal';
 import { EncyclopediaSection } from './components/EncyclopediaView';
+import { SeasonalEventModal } from './components/events/SeasonalEventModal';
 import { GrowthRoadmapModal } from './components/GrowthRoadmapModal';
 import { HomeView } from './components/HomeView';
 import { HouseSubTab, HouseView } from './components/house/HouseView';
@@ -85,6 +86,7 @@ import {
   DialogueLine,
   DialogueSettings,
   DuoPhotoPetInfo,
+  EventMilestoneId,
   FamilyTaskId,
   FarmDecorationId,
   FarmUpgradeId,
@@ -250,6 +252,27 @@ import {
   syncTownOrders,
 } from './utils/townOrders';
 import {
+  applyEventOnCookStrawberry,
+  applyEventOnFeedStrawberry,
+  applyEventOnHarvestStrawberry,
+  applyEventOnMinigamePlayed,
+  applyEventOnPlantStrawberry,
+  applyEventOnStrawberryPhoto,
+  buyEventShopItem,
+  claimCoopEventSessionReward,
+  claimEventChallengeTier,
+  claimEventDailyTask,
+  claimEventMilestone,
+  convertRemainingEventTickets,
+  createStrawberryPicnicPhoto,
+  getEventActionBadgeCount,
+  isStrawberryRecipe,
+  saveEventRecapToMemories,
+  selectEventRecapCoverPhoto,
+  submitEventPhotoChallenge,
+  syncSeasonalEventState,
+} from './utils/seasonalEvent';
+import {
   buyVisitorTreat,
   captureVisitorPhoto,
   craftShardFurniture,
@@ -293,6 +316,7 @@ export default function App() {
   const [messageModalOpen, setMessageModalOpen] = useState<boolean>(false);
   const [minigameOpen, setMinigameOpen] = useState<boolean>(false);
   const [coopModalOpen, setCoopModalOpen] = useState<boolean>(false);
+  const [eventModalOpen, setEventModalOpen] = useState<boolean>(false);
   const [visitorModalOpen, setVisitorModalOpen] = useState<boolean>(false);
   const [townOrderModalOpen, setTownOrderModalOpen] = useState<boolean>(false);
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
@@ -632,10 +656,25 @@ export default function App() {
           : mergedState;
         const evaluatedDialogue = evaluateAndSelectDialogue(withPartnerFeedMem, cloudUser.id);
         const nextMerged: GameState = { ...withPartnerFeedMem, dialogue: evaluatedDialogue };
+        const prevPartnerEventIds = new Set(
+          gameRef.current.coop.offlineEvents.map((ev) => ev.id)
+        );
+        const newEventCoop = getOfflinePartnerEvents(nextMerged.coop, cloudUser.id).find(
+          (ev) => ev.gameType === 'event_coop' && !prevPartnerEventIds.has(ev.id)
+        );
         const nextMergedActive = getActivePet(nextMerged);
         applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMergedActive.name}與小屋！`);
         const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        setFeedbacks((prev) => [...prev.slice(-4), { id: fbId, text: '夥伴剛更新了共養空間！', emoji: '💞' }]);
+        setFeedbacks((prev) => [
+          ...prev.slice(-4),
+          {
+            id: fbId,
+            text: newEventCoop
+              ? `${newEventCoop.actorName} ${newEventCoop.summary}`
+              : '夥伴剛更新了共養空間！',
+            emoji: newEventCoop ? '🍓' : '💞',
+          },
+        ]);
         window.setTimeout(() => {
           setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
         }, 1500);
@@ -658,9 +697,29 @@ export default function App() {
         ) {
           lastSharedUpdatedAtRef.current = res.room.updatedAt;
           setLastSyncedAt(res.room.updatedAt);
+          const prevPartnerEventIds = new Set(
+            gameRef.current.coop.offlineEvents.map((ev) => ev.id)
+          );
           const mergedState = mergeCoopRemoteState(gameRef.current, res.state, cloudUser.id);
+          const newEventCoop = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
+            (ev) => ev.gameType === 'event_coop' && !prevPartnerEventIds.has(ev.id)
+          );
           const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
           applyCloudStateLocally({ ...mergedState, dialogue: evaluatedDialogue });
+          if (newEventCoop) {
+            const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            setFeedbacks((prev) => [
+              ...prev.slice(-4),
+              {
+                id: fbId,
+                text: `${newEventCoop.actorName} ${newEventCoop.summary}`,
+                emoji: '🍓',
+              },
+            ]);
+            window.setTimeout(() => {
+              setFeedbacks((prev) => prev.filter((item) => item.id !== fbId));
+            }, 1800);
+          }
         }
       });
     };
@@ -1002,6 +1061,7 @@ export default function App() {
         };
         draft = syncTownOrders(draft, now);
         draft = syncVisitorSystem(draft, now).nextState;
+        draft = syncSeasonalEventState(draft, new Date(now));
         const nextDialogue = evaluateAndSelectDialogue(draft, currentUserId);
         return {
           ...draft,
@@ -1581,6 +1641,7 @@ export default function App() {
       }
 
       nextMem = syncPhotoStudioState(nextMem).nextState;
+      nextMem = applyEventOnFeedStrawberry(nextMem, food.id);
       return nextMem;
     });
   };
@@ -1769,20 +1830,25 @@ export default function App() {
       });
     }
 
-    setGame((prev) => ({
-      ...prev,
-      coins: hasFreeSeed ? prev.coins : prev.coins - info.seedCost,
-      farmPlots: prev.farmPlots.map((p) =>
-        p.id === plotId
-          ? { ...p, cropId: ingredientId, plantedAt, durationMs, watered: false, isGolden }
-          : p
-      ),
-      noviceGrowth: {
-        ...prev.noviceGrowth,
-        plantedCarrotCount:
-          prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
-      },
-    }));
+    setGame((prev) => {
+      const planted: GameState = {
+        ...prev,
+        coins: hasFreeSeed ? prev.coins : prev.coins - info.seedCost,
+        farmPlots: prev.farmPlots.map((p) =>
+          p.id === plotId
+            ? { ...p, cropId: ingredientId, plantedAt, durationMs, watered: false, isGolden }
+            : p
+        ),
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          plantedCarrotCount:
+            prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
+        },
+      };
+      return ingredientId === 'strawberry'
+        ? applyEventOnPlantStrawberry(planted)
+        : planted;
+    });
     const durationText = formatCropDurationLabel(effectiveSec);
     setSpeech(
       hasFreeSeed
@@ -1842,27 +1908,32 @@ export default function App() {
       }));
     }
 
-    setGame((prev) => ({
-      ...prev,
-      coins: Math.max(0, prev.coins - coinsUsed),
-      farmPlots: prev.farmPlots.map((p) =>
-        plantedPlotIds.has(p.id)
-          ? {
-              ...p,
-              cropId: ingredientId,
-              plantedAt,
-              durationMs,
-              watered: false,
-              isGolden: plantedPlotIds.get(p.id),
-            }
-          : p
-      ),
-      noviceGrowth: {
-        ...prev.noviceGrowth,
-        plantedCarrotCount:
-          prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? plantedCount : 0),
-      },
-    }));
+    setGame((prev) => {
+      const plantedAll: GameState = {
+        ...prev,
+        coins: Math.max(0, prev.coins - coinsUsed),
+        farmPlots: prev.farmPlots.map((p) =>
+          plantedPlotIds.has(p.id)
+            ? {
+                ...p,
+                cropId: ingredientId,
+                plantedAt,
+                durationMs,
+                watered: false,
+                isGolden: plantedPlotIds.get(p.id),
+              }
+            : p
+        ),
+        noviceGrowth: {
+          ...prev.noviceGrowth,
+          plantedCarrotCount:
+            prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? plantedCount : 0),
+        },
+      };
+      return ingredientId === 'strawberry'
+        ? applyEventOnPlantStrawberry(plantedAll)
+        : plantedAll;
+    });
 
     const durationText = formatCropDurationLabel(effectiveSec);
     pushFeedback(`一鍵種下 ${plantedCount} 塊${info.name}`, info.emoji);
@@ -2015,8 +2086,20 @@ export default function App() {
         emoji: cropInfo.emoji,
         weight: currentActive.weight,
       });
+      if (harvestedId === 'strawberry') {
+        withMem = applyEventOnHarvestStrawberry(withMem, {
+          actorUserId: currentUserId,
+          actorName,
+          hasSharedRoom: Boolean(sharedRoom),
+          harvestedPlotsCount: 1,
+        }).nextState;
+      }
       return withMem;
     });
+
+    if (harvestedId === 'strawberry' && game.seasonalEvent?.status === 'active') {
+      pushFeedback('草莓季 +2 草莓券', '🍓');
+    }
 
     if (isGolden) {
       pushFeedback(`大豐收！獲得雙倍金幣 +${goldenCoinBonus}`, '🌟');
@@ -2189,8 +2272,26 @@ export default function App() {
         emoji: firstHarvestedCropEmoji,
         weight: currentActive.weight,
       });
+      const strawberryPlotCount = prev.farmPlots.filter(
+        (p) => harvestedIds.has(p.id) && p.cropId === 'strawberry'
+      ).length;
+      if (strawberryPlotCount > 0) {
+        withMem = applyEventOnHarvestStrawberry(withMem, {
+          actorUserId: currentUserId,
+          actorName,
+          hasSharedRoom: Boolean(sharedRoom),
+          harvestedPlotsCount: strawberryPlotCount,
+        }).nextState;
+      }
       return withMem;
     });
+
+    const strawberryHarvestedCount = readyPlots.filter(
+      (p) => harvestedIds.has(p.id) && p.cropId === 'strawberry'
+    ).length;
+    if (strawberryHarvestedCount > 0 && game.seasonalEvent?.status === 'active') {
+      pushFeedback(`草莓季 +${strawberryHarvestedCount * 2} 草莓券`, '🍓');
+    }
 
     if (totalGoldenCoins > 0) {
       pushFeedback(`一鍵採收 ${harvestedCount} 塊 · 黃金金幣 +${totalGoldenCoins}`, '🌟');
@@ -2376,8 +2477,19 @@ export default function App() {
         emoji: recipe.emoji,
         weight: currentActive.weight,
       });
+      if (isStrawberryRecipe(recipe)) {
+        withMem = applyEventOnCookStrawberry(withMem, {
+          recipe,
+          actorUserId: currentUserId,
+          actorName,
+          hasSharedRoom: Boolean(sharedRoom),
+        }).nextState;
+      }
       return withMem;
     });
+    if (isStrawberryRecipe(recipe) && game.seasonalEvent?.status === 'active') {
+      pushFeedback('草莓料理 +3 草莓券', '🍓');
+    }
     pushFeedback(
       isNewRecipe ? `解鎖新食譜：${recipe.name}！` : `做出 ${recipe.name}！`,
       recipe.emoji
@@ -2430,7 +2542,7 @@ export default function App() {
         personality: nextPersonality,
         dialogue: nextDialogue,
       };
-      return syncPhotoStudioState(drafted).nextState;
+      return applyEventOnMinigamePlayed(syncPhotoStudioState(drafted).nextState);
     });
 
     pushFeedback(`獲得 +${preview.reward.coins} 金幣`, '🪙');
@@ -2534,7 +2646,7 @@ export default function App() {
           });
         }
       }
-      return updated;
+      return syncSeasonalEventState(updated);
     });
   };
 
@@ -2631,7 +2743,7 @@ export default function App() {
         });
       }
     }
-    setGame(nextBought);
+    setGame(syncSeasonalEventState(nextBought));
 
     if (canAutoEquip) {
       setWardrobeReactionText(match.reactionText);
@@ -3495,6 +3607,7 @@ export default function App() {
   };
 
   const handleHarvestCoopCrop = (plotId: number) => {
+    const targetPlot = gameRef.current.coop.coopFarmPlots.find((p) => p.id === plotId);
     const res = harvestCoopCropToWarehouse(
       gameRef.current,
       plotId,
@@ -3503,7 +3616,20 @@ export default function App() {
     );
     if (res.ok) {
       soundFX.heart(game.soundEnabled);
-      setGame(res.nextState);
+      let nextState = res.nextState;
+      if (targetPlot?.cropId === 'strawberry') {
+        const evtRes = applyEventOnHarvestStrawberry(nextState, {
+          actorUserId: currentUserId,
+          actorName,
+          hasSharedRoom: Boolean(sharedRoom),
+          harvestedPlotsCount: 1,
+        });
+        nextState = evtRes.nextState;
+        if (evtRes.ticketsEarned > 0) {
+          pushFeedback(`草莓季 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+        }
+      }
+      setGame(nextState);
       if (res.notice) pushFeedback(res.notice, '🧺');
     } else {
       soundFX.miss(game.soundEnabled);
@@ -3563,6 +3689,18 @@ export default function App() {
           emoji: '🌾',
           isShared: true,
         });
+      }
+      if (isStrawberryRecipe(recipe)) {
+        const evtRes = applyEventOnCookStrawberry(next, {
+          recipe,
+          actorUserId: currentUserId,
+          actorName,
+          hasSharedRoom: Boolean(sharedRoom),
+        });
+        next = evtRes.nextState;
+        if (evtRes.ticketsEarned > 0) {
+          pushFeedback(`草莓料理 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+        }
       }
       setGame(next);
       if (res.notice) {
@@ -3781,6 +3919,7 @@ export default function App() {
     setGrowthRoadmapOpen(false);
     setVisitorModalOpen(false);
     setTownOrderModalOpen(false);
+    setEventModalOpen(false);
     setResetModalOpen(false);
   };
 
@@ -3816,11 +3955,20 @@ export default function App() {
   }): RoomPhotoRecord => {
     soundFX.heart(game.soundEnabled);
     const { nextState, photo } = saveScenePhoto(gameRef.current, params);
-    setGame(nextState);
+    const evtRes = applyEventOnStrawberryPhoto(nextState, {
+      photo,
+      actorUserId: currentUserId,
+      actorName,
+      hasSharedRoom: Boolean(sharedRoom),
+    });
+    setGame(evtRes.nextState);
     pushFeedback(
       params.duoPet ? '已儲存雙人合照到照片牆！' : '已儲存寫真到照片牆！',
       '📸'
     );
+    if (evtRes.ticketsEarned > 0) {
+      pushFeedback(`草莓主題寫真 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+    }
     return photo;
   };
 
@@ -3904,8 +4052,17 @@ export default function App() {
   }): RoomPhotoRecord | null => {
     const res = submitWeeklyOutfitChallenge(gameRef.current, params);
     soundFX.heart(game.soundEnabled);
-    setGame(res.nextState);
+    const evtRes = applyEventOnStrawberryPhoto(res.nextState, {
+      photo: res.photo,
+      actorUserId: currentUserId,
+      actorName,
+      hasSharedRoom: Boolean(sharedRoom),
+    });
+    setGame(evtRes.nextState);
     pushFeedback(`週挑戰評分 ${res.breakdown.totalScore} 分！`, '🏆');
+    if (evtRes.ticketsEarned > 0) {
+      pushFeedback(`草莓主題寫真 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+    }
     for (const note of res.unlockedItemsNotice) {
       pushFeedback(note, '🎉');
     }
@@ -3941,7 +4098,20 @@ export default function App() {
       ...params,
     });
     soundFX.heart(game.soundEnabled);
-    setGame(res.nextState);
+    let nextState = res.nextState;
+    if (res.mergedPhoto) {
+      const evtRes = applyEventOnStrawberryPhoto(nextState, {
+        photo: res.mergedPhoto,
+        actorUserId: currentUserId,
+        actorName,
+        hasSharedRoom: Boolean(sharedRoom),
+      });
+      nextState = evtRes.nextState;
+      if (evtRes.ticketsEarned > 0) {
+        pushFeedback(`草莓主題合照 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+      }
+    }
+    setGame(nextState);
     pushFeedback(res.notice, res.mergedPhoto ? '👯' : '💌');
     setSpeech(res.notice);
     return res.mergedPhoto;
@@ -3957,6 +4127,145 @@ export default function App() {
     setGame(res.nextState);
     pushFeedback(res.notice, '🎁');
     setSpeech('領取共養雙人合照挑戰獎勵！我們是最棒的穿搭搭檔！');
+  };
+
+  const handleClaimEventDailyTask = (taskId: string) => {
+    const res = claimEventDailyTask(gameRef.current, taskId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🍓');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleClaimEventMilestone = (milestoneId: EventMilestoneId) => {
+    const res = claimEventMilestone(gameRef.current, milestoneId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🏆');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleBuyEventShopItem = (shopItemId: string) => {
+    const res = buyEventShopItem(gameRef.current, shopItemId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🛍️');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleSubmitEventPhotoChallenge = (params: {
+    title: string;
+    caption: string;
+    poseId: PhotoPose;
+    backgroundId: PhotoBackground;
+    facing: PetViewDirection;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }) => {
+    const res = submitEventPhotoChallenge(gameRef.current, {
+      ...params,
+      actorUserId: currentUserId,
+      actorName,
+      hasSharedRoom: Boolean(sharedRoom),
+    });
+    soundFX.heart(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(`草莓寫真挑戰 ${res.breakdown.totalScore} 分！`, '🍓');
+    for (const n of res.unlockedNotices) {
+      pushFeedback(n, '🎉');
+    }
+    setSpeech(`參加草莓季攝影挑戰獲得 ${res.breakdown.totalScore} 分，同時收錄到照片牆囉！`);
+    return {
+      photo: res.photo,
+      breakdown: res.breakdown,
+      unlockedNotices: res.unlockedNotices,
+    };
+  };
+
+  const handleClaimEventChallengeTier = (tier: 60 | 100 | 150) => {
+    const res = claimEventChallengeTier(gameRef.current, tier);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🎁');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleClaimCoopEventReward = () => {
+    const res = claimCoopEventSessionReward(gameRef.current, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '💞');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleCreateStrawberryPicnicPhoto = (partnerPet: DuoPhotoPetInfo) => {
+    const res = createStrawberryPicnicPhoto(gameRef.current, {
+      partnerPet,
+      actorUserId: currentUserId,
+      actorName,
+    });
+    if (res.photo) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback('製作限定「草莓野餐合照」！', '🧺');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { photo: res.photo, notice: res.notice };
+  };
+
+  const handleConvertEventTickets = () => {
+    const res = convertRemainingEventTickets(gameRef.current);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🪙');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleSelectEventRecapCoverPhoto = (photoId: string) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => selectEventRecapCoverPhoto(prev, photoId));
+  };
+
+  const handleSaveEventRecapToMemories = () => {
+    const res = saveEventRecapToMemories(gameRef.current);
+    soundFX.heart(game.soundEnabled);
+    setGame(res.nextState);
+    pushFeedback(res.notice, '📖');
+    setSpeech(res.notice);
+    return { ok: res.ok, notice: res.notice };
   };
 
   const handleTogglePhotoLike = (photoId: string) => {
@@ -4346,6 +4655,9 @@ export default function App() {
                   pendingOrderCount={pendingOrderCount}
                   onOpenVisitorModal={handleOpenVisitorModal}
                   onOpenTownOrders={() => setTownOrderModalOpen(true)}
+                  seasonalEvent={game.seasonalEvent ?? null}
+                  eventBadgeCount={getEventActionBadgeCount(game, currentUserId)}
+                  onOpenSeasonalEvent={() => setEventModalOpen(true)}
                 />
               )}
 
@@ -4791,6 +5103,41 @@ export default function App() {
           onCaptureVisitorPhoto={handleCaptureVisitorPhoto}
           onCraftShardFurniture={handleCraftShardFurniture}
           onBuyTreat={handleBuyVisitorTreat}
+        />
+
+        <SeasonalEventModal
+          open={eventModalOpen}
+          onClose={() => setEventModalOpen(false)}
+          game={game}
+          sharedRoom={sharedRoom}
+          currentUserId={currentUserId}
+          actorName={actorName}
+          onClaimDailyTask={handleClaimEventDailyTask}
+          onClaimMilestone={handleClaimEventMilestone}
+          onBuyShopItem={handleBuyEventShopItem}
+          onSubmitEventPhotoChallenge={handleSubmitEventPhotoChallenge}
+          onClaimChallengeTier={handleClaimEventChallengeTier}
+          onClaimCoopReward={handleClaimCoopEventReward}
+          onCreatePicnicPhoto={handleCreateStrawberryPicnicPhoto}
+          onConvertTickets={handleConvertEventTickets}
+          onSelectRecapCoverPhoto={handleSelectEventRecapCoverPhoto}
+          onSaveRecapToMemories={handleSaveEventRecapToMemories}
+          onOpenStudioShoot={() => handleOpenScenePhoto('wardrobe', 'shoot')}
+          onOpenEventCatalog={() => {
+            setJournalInitialSection('encyclopedia');
+            setJournalEncyclopediaSection('events');
+            setActiveTab('journal');
+          }}
+          onGoToFarm={() => {
+            setCanteenInitialSection('farm');
+            setActiveTab('canteen');
+          }}
+          onGoToKitchen={() => {
+            setCanteenInitialSection('kitchen');
+            setActiveTab('canteen');
+          }}
+          onOpenSharedPet={() => setSharedModalOpen(true)}
+          onSharePhotoToBoard={handleSharePhotoToBoard}
         />
       </div>
     </div>

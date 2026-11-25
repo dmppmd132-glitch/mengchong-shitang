@@ -186,6 +186,22 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '連續 5 週完成每週穿搭主題挑戰（達 100 分）',
     badgeClass: 'bg-[#FFEAF2] border-[#F4A6C2] text-[#B83B64]',
   },
+  strawberry_sweetheart_title: {
+    id: 'strawberry_sweetheart_title',
+    name: '草莓甜心',
+    emoji: '🍓',
+    description: '草莓季限定稱號！把草莓香氣、粉嫩造型與滿滿幸福笑容一起帶進食堂。',
+    unlockCondition: '草莓季商店兌換（300 草莓券）或達成「草莓甜心」活動里程碑',
+    badgeClass: 'bg-[#FFE8F0] border-[#F29AB8] text-[#C43463]',
+  },
+  strawberry_fashionista: {
+    id: 'strawberry_fashionista',
+    name: '草莓時尚家',
+    emoji: '🍓',
+    description: '連續 3 週在草莓季攝影挑戰突破 100 分，公認的莓果系潮流穿搭大師！',
+    unlockCondition: '連續 3 週於草莓季攝影挑戰達到 100 分以上',
+    badgeClass: 'bg-[#FFF0F6] border-[#E885AA] text-[#B83B64]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

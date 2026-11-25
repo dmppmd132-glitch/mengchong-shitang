@@ -95,6 +95,65 @@ export const StudioBackgroundArt: React.FC<StudioBackgroundArtProps> = ({
           </svg>
         );
 
+      case 'strawberry_season_field':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgSeasonBerrySky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFDCE8" />
+                <stop offset="52%" stopColor="#FFF5E8" />
+                <stop offset="100%" stopColor="#DFF5CE" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgSeasonBerrySky)" />
+            {/* Ribbon Flower Archway */}
+            <path
+              d="M44,175 A136,130 0 0,1 316,175"
+              fill="none"
+              stroke="#FF9BB8"
+              strokeWidth="12"
+              strokeLinecap="round"
+            />
+            <path
+              d="M52,175 A128,122 0 0,1 308,175"
+              fill="none"
+              stroke="#FFF8FA"
+              strokeWidth="3"
+              strokeDasharray="6 6"
+            />
+            {[74, 122, 180, 238, 286].map((x, idx) => (
+              <g
+                key={x}
+                transform={`translate(${x}, ${idx === 2 ? 44 : idx === 1 || idx === 3 ? 62 : 104})`}
+              >
+                <circle cx="0" cy="0" r="8" fill="#FF5A84" />
+                <circle cx="-6" cy="-5" r="4" fill="#A6E080" />
+                <circle cx="6" cy="-5" r="4" fill="#A6E080" />
+              </g>
+            ))}
+            {/* Rolling Hills */}
+            <path d="M0,152 Q95,124 180,148 T360,140 L360,220 L0,220 Z" fill="#BCE89D" />
+            <path d="M0,172 Q125,156 245,174 T360,166 L360,220 L0,220 Z" fill="#8FD672" />
+            {/* Picnic Blanket */}
+            <polygon points="108,214 252,214 232,178 128,178" fill="#FFE6EE" stroke="#FF8EB0" strokeWidth="2.5" />
+            {/* Lush Ripe Strawberry Bushes */}
+            {[36, 82, 278, 324].map((bx, i) => (
+              <g key={bx} transform={`translate(${bx}, ${i % 2 === 0 ? 176 : 186})`}>
+                <ellipse cx="0" cy="0" rx="24" ry="13" fill="#4FB358" />
+                <circle cx="-11" cy="2" r="5.5" fill="#FF4772" />
+                <circle cx="0" cy="-4" r="5.5" fill="#FF668E" />
+                <circle cx="11" cy="3" r="5.5" fill="#FF4772" />
+                <circle cx="-5" cy="-8" r="3.5" fill="#FFFDF8" />
+              </g>
+            ))}
+          </svg>
+        );
+
       case 'cloud_sky':
         return (
           <svg

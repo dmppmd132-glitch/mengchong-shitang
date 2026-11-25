@@ -133,49 +133,55 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
             ref={stageCardRef}
             className="rounded-3xl bg-gradient-to-b from-[#E6F8F1] to-[#FFFDF8] border-2 border-[#D2EFE4] p-4 flex flex-col items-center text-center relative"
           >
-            <div className="w-full flex items-center justify-between gap-2">
-              <div className="text-left min-w-0">
-                <h2 className="text-base font-extrabold text-[#4A3531] truncate">
-                  {pet.name}的更衣室
-                </h2>
-                <p className="text-[11px] font-bold text-[#6E544E] truncate">
-                  {primaryTrait.emoji} {primaryTrait.label} · {secondaryTrait.emoji} {secondaryTrait.label}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {onOpenPetList && (
+            <div className="w-full space-y-2">
+              <div className="w-full flex items-center justify-between gap-2">
+                <div className="text-left min-w-0">
+                  <h2 className="text-base font-extrabold text-[#4A3531] truncate">
+                    {pet.name}的更衣室
+                  </h2>
+                  <p className="text-[11px] font-bold text-[#6E544E] truncate">
+                    {primaryTrait.emoji} {primaryTrait.label} · {secondaryTrait.emoji} {secondaryTrait.label}
+                  </p>
+                </div>
+                {(onOpenPhotoStudio || onOpenStudioTab) && (
                   <button
                     type="button"
-                    onClick={onOpenPetList}
-                    className="min-h-[40px] px-2.5 rounded-2xl bg-white/95 border border-[#F2D5DF] text-[#B83B64] text-[11px] font-extrabold inline-flex items-center gap-1 hover:bg-white active:scale-95 transition"
+                    onClick={() =>
+                      onOpenPhotoStudio ? onOpenPhotoStudio() : onOpenStudioTab?.('shoot')
+                    }
+                    aria-label="開啟穿搭攝影棚"
+                    className="min-h-[44px] px-3.5 rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap hover:bg-[#F76890] active:translate-y-0.5 transition"
                   >
-                    <span>🐾 換寵物</span>
-                  </button>
-                )}
-                {onOpenEncyclopedia && (
-                  <button
-                    type="button"
-                    onClick={onOpenEncyclopedia}
-                    className="min-h-[40px] px-2.5 rounded-2xl bg-white/95 border border-[#C6E8DB] text-[#256D57] text-[11px] font-extrabold inline-flex items-center gap-1 hover:bg-white active:scale-95 transition"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 shrink-0" />
-                    <span className="tabular-nums">
-                      圖鑑 {unlockedAccessories.length}/{ACCESSORIES.length}
-                    </span>
-                  </button>
-                )}
-                {onOpenPhotoStudio && (
-                  <button
-                    type="button"
-                    onClick={onOpenPhotoStudio}
-                    aria-label="在更衣室拍穿搭照"
-                    className="min-h-[40px] px-3 rounded-2xl bg-[#FF7A9E] text-white text-xs font-extrabold shadow-[0_3px_0_#D9577B] inline-flex items-center gap-1 hover:bg-[#F76890] active:translate-y-0.5 transition"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>快拍</span>
+                    <Camera className="w-4 h-4 shrink-0" />
+                    <span>攝影棚</span>
                   </button>
                 )}
               </div>
+              {(onOpenPetList || onOpenEncyclopedia) && (
+                <div className="w-full flex items-center justify-end gap-1.5 flex-wrap">
+                  {onOpenPetList && (
+                    <button
+                      type="button"
+                      onClick={onOpenPetList}
+                      className="min-h-[38px] px-2.5 rounded-2xl bg-white/95 border border-[#F2D5DF] text-[#B83B64] text-[11px] font-extrabold inline-flex items-center gap-1 whitespace-nowrap hover:bg-white active:scale-95 transition"
+                    >
+                      <span>🐾 換寵物</span>
+                    </button>
+                  )}
+                  {onOpenEncyclopedia && (
+                    <button
+                      type="button"
+                      onClick={onOpenEncyclopedia}
+                      className="min-h-[38px] px-2.5 rounded-2xl bg-white/95 border border-[#C6E8DB] text-[#256D57] text-[11px] font-extrabold inline-flex items-center gap-1 whitespace-nowrap hover:bg-white active:scale-95 transition"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                      <span className="tabular-nums">
+                        圖鑑 {unlockedAccessories.length}/{ACCESSORIES.length}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {lastReactionText && (
@@ -551,15 +557,17 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {onOpenPhotoStudio && (
+                  {(onOpenPhotoStudio || onOpenStudioTab) && (
                     <button
                       type="button"
-                      onClick={onOpenPhotoStudio}
-                      aria-label="在更衣室拍穿搭照"
-                      className="min-h-[36px] px-2.5 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold inline-flex items-center gap-1 shadow-xs hover:bg-[#F76890] active:scale-95 transition"
+                      onClick={() =>
+                        onOpenPhotoStudio ? onOpenPhotoStudio() : onOpenStudioTab?.('shoot')
+                      }
+                      aria-label="開啟穿搭攝影棚"
+                      className="min-h-[36px] px-2.5 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold inline-flex items-center gap-1 whitespace-nowrap shadow-xs hover:bg-[#F76890] active:scale-95 transition"
                     >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>快拍</span>
+                      <Camera className="w-3.5 h-3.5 shrink-0" />
+                      <span>攝影棚</span>
                     </button>
                   )}
                   <button

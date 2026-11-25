@@ -1,4 +1,5 @@
 import { INITIAL_UNLOCKED_ACCESSORIES } from '../data/accessories';
+import { TITLE_DEFINITIONS } from '../data/encyclopedia';
 import { INITIAL_FOOD_INVENTORY } from '../data/foods';
 import { getGrowthStage } from '../data/growth';
 import {
@@ -55,6 +56,7 @@ import {
   AccessorySlot,
   AccessoryTheme,
   CoopBadgeId,
+  CoopEventSession,
   CoopFarmOrderState,
   CoopGameType,
   CoopHubState,
@@ -75,6 +77,9 @@ import {
   DialogueResponse,
   DialogueState,
   EncyclopediaState,
+  EventMilestone,
+  EventPhotoScoreBreakdown,
+  EventTask,
   FamilyDailyTask,
   FarmDecorationId,
   FeedLog,
@@ -110,6 +115,7 @@ import {
   PlacedRoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
+  SeasonalEvent,
   StudioBadgeId,
   StudioScoreBreakdown,
   WeeklyOutfitChallengeThemeId,
@@ -202,6 +208,17 @@ import {
   createInitialVisitorState,
   getAffinityLevelFromExp,
 } from './visitors';
+import {
+  STRAWBERRY_DAILY_TASK_TEMPLATES,
+  STRAWBERRY_SHOP_ITEMS,
+  buildDailyEventTasksForDate,
+  createInitialStrawberryMilestones,
+} from '../data/events/strawberrySeason';
+import {
+  createDailyCoopEventSession,
+  createInitialSeasonalEvent,
+  syncSeasonalEventState,
+} from './seasonalEvent';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -305,6 +322,7 @@ export function createInitialGameState(): GameState {
     visitorState: createInitialVisitorState(),
     townOrders: createInitialTownOrders(today),
     photoStudio: createInitialPhotoStudioState(),
+    seasonalEvent: createInitialSeasonalEvent(),
   };
 }
 
@@ -623,30 +641,8 @@ function parseNoviceGrowth(
 }
 
 function asTitleId(value: unknown): TitleId | null {
-  if (
-    value === 'gourmet_owner' ||
-    value === 'fashion_stylist' ||
-    value === 'strawberry_dreamer' ||
-    value === 'forest_camper' ||
-    value === 'cloud_napper' ||
-    value === 'coop_partner' ||
-    value === 'berry_sweetheart' ||
-    value === 'forest_explorer' ||
-    value === 'cloud_dreamer' ||
-    value === 'little_master_chef' ||
-    value === 'starlight_voyager' ||
-    value === 'party_superstar' ||
-    value === 'growth_sprout' ||
-    value === 'growth_chubby' ||
-    value === 'growth_radiant' ||
-    value === 'growth_superstar' ||
-    value === 'recipe_master' ||
-    value === 'bird_whisperer' ||
-    value === 'squirrel_friend' ||
-    value === 'rabbit_guardian' ||
-    value === 'coop_best_host'
-  ) {
-    return value;
+  if (typeof value === 'string' && value in TITLE_DEFINITIONS) {
+    return value as TitleId;
   }
   return null;
 }
@@ -1283,7 +1279,7 @@ function asCoopBadgeId(value: unknown): CoopBadgeId | null {
 }
 
 function asCoopGameType(value: unknown): CoopGameType {
-  if (value === 'farm_relay' || value === 'visitor_coop') {
+  if (value === 'farm_relay' || value === 'visitor_coop' || value === 'event_coop') {
     return value;
   }
   return 'room_decor';
@@ -1611,6 +1607,7 @@ function parseCoopHubState(raw: unknown): CoopHubState {
     : [];
 
   const duoChallenge = parseCoopDuoChallenge(raw.duoChallenge);
+  const coopEventSession = parseCoopEventSession(raw.coopEventSession, todayStr);
 
   return syncCoopHubState(
     {
@@ -1637,9 +1634,242 @@ function parseCoopHubState(raw: unknown): CoopHubState {
       duoStreakWeeks: Math.max(0, Math.floor(asNumber(raw.duoStreakWeeks, 0))),
       lastDuoCompletedWeek:
         typeof raw.lastDuoCompletedWeek === 'string' ? raw.lastDuoCompletedWeek : null,
+      coopEventSession,
     },
     todayStr
   );
+}
+
+function parseCoopEventSession(raw: unknown, todayStr: string): CoopEventSession | null {
+  if (!isRecord(raw)) return null;
+  const dateKey = asString(raw.dateKey, todayStr);
+  const defaults = createDailyCoopEventSession(dateKey);
+  const harvestTarget = Math.max(1, Math.floor(asNumber(raw.harvestTarget, defaults.harvestTarget)));
+  const cookTarget = Math.max(1, Math.floor(asNumber(raw.cookTarget, defaults.cookTarget)));
+  const photoTarget = Math.max(1, Math.floor(asNumber(raw.photoTarget, defaults.photoTarget)));
+  return {
+    id: asString(raw.id, defaults.id),
+    eventId: 'strawberry_season',
+    dateKey,
+    title: asString(raw.title, defaults.title),
+    description: asString(raw.description, defaults.description),
+    harvestTarget,
+    harvestCount: Math.min(harvestTarget, Math.max(0, Math.floor(asNumber(raw.harvestCount, 0)))),
+    harvestedByUserIds: Array.isArray(raw.harvestedByUserIds)
+      ? Array.from(new Set(raw.harvestedByUserIds.filter((u): u is string => typeof u === 'string')))
+      : [],
+    cookTarget,
+    cookCount: Math.min(cookTarget, Math.max(0, Math.floor(asNumber(raw.cookCount, 0)))),
+    cookedByUserIds: Array.isArray(raw.cookedByUserIds)
+      ? Array.from(new Set(raw.cookedByUserIds.filter((u): u is string => typeof u === 'string')))
+      : [],
+    photoTarget,
+    photoCount: Math.min(photoTarget, Math.max(0, Math.floor(asNumber(raw.photoCount, 0)))),
+    photoByUserIds: Array.isArray(raw.photoByUserIds)
+      ? Array.from(new Set(raw.photoByUserIds.filter((u): u is string => typeof u === 'string')))
+      : [],
+    completed: raw.completed === true,
+    completedAt:
+      typeof raw.completedAt === 'number' && Number.isFinite(raw.completedAt)
+        ? raw.completedAt
+        : null,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? Array.from(new Set(raw.claimedByUserIds.filter((u): u is string => typeof u === 'string')))
+      : [],
+    picnicPhotoId: asNullableString(raw.picnicPhotoId),
+    lastUpdatedByName: asNullableString(raw.lastUpdatedByName),
+    lastUpdatedAt:
+      typeof raw.lastUpdatedAt === 'number' && Number.isFinite(raw.lastUpdatedAt)
+        ? raw.lastUpdatedAt
+        : null,
+  };
+}
+
+function parseEventPhotoBreakdown(raw: unknown): EventPhotoScoreBreakdown | null {
+  if (!isRecord(raw)) return null;
+  return {
+    totalScore: Math.max(0, Math.floor(asNumber(raw.totalScore, 0))),
+    strawberryAccCount: Math.max(0, Math.floor(asNumber(raw.strawberryAccCount, 0))),
+    strawberryAccPoints: Math.max(0, Math.floor(asNumber(raw.strawberryAccPoints, 0))),
+    backgroundMatched: raw.backgroundMatched === true,
+    backgroundPoints: Math.max(0, Math.floor(asNumber(raw.backgroundPoints, 0))),
+    filterMatched: raw.filterMatched === true,
+    filterPoints: Math.max(0, Math.floor(asNumber(raw.filterPoints, 0))),
+    frameMatched: raw.frameMatched === true,
+    framePoints: Math.max(0, Math.floor(asNumber(raw.framePoints, 0))),
+    fedStrawberryFood: raw.fedStrawberryFood === true,
+    fedStrawberryPoints: Math.max(0, Math.floor(asNumber(raw.fedStrawberryPoints, 0))),
+    fullSetCompleted: raw.fullSetCompleted === true,
+    fullSetPoints: Math.max(0, Math.floor(asNumber(raw.fullSetPoints, 0))),
+  };
+}
+
+function parseSeasonalEvent(raw: unknown): SeasonalEvent {
+  const defaults = createInitialSeasonalEvent();
+  if (!isRecord(raw)) return defaults;
+
+  const startDate = asString(raw.startDate, defaults.startDate);
+  const endDate = asString(raw.endDate, defaults.endDate);
+  const status: SeasonalEvent['status'] = raw.status === 'ended' ? 'ended' : 'active';
+  const rawCurrency = isRecord(raw.currency) ? raw.currency : {};
+  const dailyDate = asString(raw.dailyDate, defaults.dailyDate);
+
+  const tplByKind = new Map(STRAWBERRY_DAILY_TASK_TEMPLATES.map((t) => [t.kind, t]));
+  const parsedTasks: EventTask[] = Array.isArray(raw.dailyTasks)
+    ? raw.dailyTasks
+        .filter((t): t is Record<string, unknown> => isRecord(t))
+        .map((t) => {
+          const kind = typeof t.kind === 'string' ? tplByKind.get(t.kind as EventTask['kind']) : undefined;
+          if (!kind) return null;
+          const progress = Math.min(kind.target, Math.max(0, Math.floor(asNumber(t.progress, 0))));
+          return {
+            id: asString(t.id, `evt_${dailyDate}_${kind.kind}`),
+            kind: kind.kind,
+            title: kind.title,
+            description: kind.description,
+            emoji: kind.emoji,
+            target: kind.target,
+            progress,
+            completed: t.completed === true || progress >= kind.target,
+            claimed: t.claimed === true,
+            rewardTickets: kind.rewardTickets,
+            rewardCoins: kind.rewardCoins,
+            rewardIngredientId: kind.rewardIngredientId,
+            rewardIngredientQty: kind.rewardIngredientQty,
+            rewardStudioMaterials: kind.rewardStudioMaterials,
+          } as EventTask;
+        })
+        .filter((t): t is EventTask => t !== null)
+    : [];
+  const dailyTasks = parsedTasks.length > 0 ? parsedTasks : buildDailyEventTasksForDate(dailyDate);
+
+  const rawWeekly = isRecord(raw.weeklyChallenge) ? raw.weeklyChallenge : {};
+  const baseMilestones = createInitialStrawberryMilestones();
+  const savedMMap = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(raw.milestones)) {
+    for (const item of raw.milestones) {
+      if (isRecord(item) && typeof item.id === 'string') {
+        savedMMap.set(item.id, item);
+      }
+    }
+  }
+  const milestones: EventMilestone[] = baseMilestones.map((m) => {
+    const saved = savedMMap.get(m.id);
+    const progress = saved
+      ? Math.min(m.target, Math.max(0, Math.floor(asNumber(saved.progress, 0))))
+      : 0;
+    return {
+      ...m,
+      progress,
+      completed: saved ? saved.completed === true || progress >= m.target : false,
+      claimed: saved ? saved.claimed === true : false,
+    };
+  });
+
+  const validShopIds = new Set(STRAWBERRY_SHOP_ITEMS.map((i) => i.id));
+  const purchasedShopItemIds = Array.isArray(raw.purchasedShopItemIds)
+    ? Array.from(
+        new Set(
+          raw.purchasedShopItemIds.filter(
+            (id): id is string => typeof id === 'string' && validShopIds.has(id)
+          )
+        )
+      )
+    : [];
+
+  const eventPhotoIds = Array.isArray(raw.eventPhotoIds)
+    ? Array.from(new Set(raw.eventPhotoIds.filter((id): id is string => typeof id === 'string'))).slice(0, 48)
+    : [];
+
+  const rawStats = isRecord(raw.stats) ? raw.stats : {};
+  const rawRecap = isRecord(raw.recap) ? raw.recap : {};
+
+  return {
+    eventId: 'strawberry_season',
+    name: defaults.name,
+    description: defaults.description,
+    startDate,
+    endDate,
+    status,
+    currency: {
+      id: 'strawberry_ticket',
+      name: defaults.currency.name,
+      emoji: defaults.currency.emoji,
+      balance: Math.max(0, Math.floor(asNumber(rawCurrency.balance, 0))),
+      totalEarned: Math.max(0, Math.floor(asNumber(rawCurrency.totalEarned, 0))),
+      convertedToCoins: Math.max(0, Math.floor(asNumber(rawCurrency.convertedToCoins, 0))),
+      convertedToMaterials: Math.max(0, Math.floor(asNumber(rawCurrency.convertedToMaterials, 0))),
+    },
+    dailyDate,
+    dailyTasks,
+    weeklyChallenge: {
+      weekKey: asString(rawWeekly.weekKey, defaults.weeklyChallenge.weekKey),
+      weekNumber: Math.max(1, Math.min(2, Math.floor(asNumber(rawWeekly.weekNumber, 1)))),
+      title: asString(rawWeekly.title, defaults.weeklyChallenge.title),
+      description: asString(rawWeekly.description, defaults.weeklyChallenge.description),
+      bestScore: Math.max(0, Math.floor(asNumber(rawWeekly.bestScore, 0))),
+      submittedCount: Math.max(0, Math.floor(asNumber(rawWeekly.submittedCount, 0))),
+      claimedTiers: Array.isArray(rawWeekly.claimedTiers)
+        ? Array.from(
+            new Set(
+              rawWeekly.claimedTiers.filter(
+                (t): t is number => typeof t === 'number' && [60, 100, 150].includes(t)
+              )
+            )
+          ).sort((a, b) => a - b)
+        : [],
+      lastPhotoId: asNullableString(rawWeekly.lastPhotoId),
+      lastBreakdown: parseEventPhotoBreakdown(rawWeekly.lastBreakdown),
+    },
+    consecutiveChallengeWeeks: Math.max(
+      0,
+      Math.floor(asNumber(raw.consecutiveChallengeWeeks, 0))
+    ),
+    lastQualifiedChallengeWeek: asNullableString(raw.lastQualifiedChallengeWeek),
+    fedStrawberryFoodWeekKey: asNullableString(raw.fedStrawberryFoodWeekKey),
+    milestones,
+    purchasedShopItemIds,
+    eventPhotoIds,
+    stats: {
+      completedTasksCount: Math.max(0, Math.floor(asNumber(rawStats.completedTasksCount, 0))),
+      plantedOrHarvestedStrawberries: Math.max(
+        0,
+        Math.floor(asNumber(rawStats.plantedOrHarvestedStrawberries, 0))
+      ),
+      strawberryDishesCooked: Math.max(0, Math.floor(asNumber(rawStats.strawberryDishesCooked, 0))),
+      strawberryPhotosTaken: Math.max(0, Math.floor(asNumber(rawStats.strawberryPhotosTaken, 0))),
+      coopPartyCompletedCount: Math.max(
+        0,
+        Math.floor(asNumber(rawStats.coopPartyCompletedCount, 0))
+      ),
+    },
+    coopStreakDays: Math.max(0, Math.floor(asNumber(raw.coopStreakDays, 0))),
+    lastCoopCompletedDate: asNullableString(raw.lastCoopCompletedDate),
+    recap: {
+      eventId: 'strawberry_season',
+      seasonKey: asString(rawRecap.seasonKey, `${startDate}_${endDate}`),
+      completedTasksCount: Math.max(0, Math.floor(asNumber(rawRecap.completedTasksCount, 0))),
+      totalTicketsEarned: Math.max(0, Math.floor(asNumber(rawRecap.totalTicketsEarned, 0))),
+      photosTakenCount: Math.max(0, Math.floor(asNumber(rawRecap.photosTakenCount, 0))),
+      accessoriesCollectedCount: Math.max(
+        0,
+        Math.floor(asNumber(rawRecap.accessoriesCollectedCount, 0))
+      ),
+      recipesCookedCount: Math.max(0, Math.floor(asNumber(rawRecap.recipesCookedCount, 0))),
+      coopCompletedCount: Math.max(0, Math.floor(asNumber(rawRecap.coopCompletedCount, 0))),
+      bestPhotoId: asNullableString(rawRecap.bestPhotoId),
+      coverPhotoId: asNullableString(rawRecap.coverPhotoId),
+      savedToMemories: rawRecap.savedToMemories === true,
+      endedSettled: rawRecap.endedSettled === true,
+      convertedCoins: Math.max(0, Math.floor(asNumber(rawRecap.convertedCoins, 0))),
+      convertedMaterials: Math.max(0, Math.floor(asNumber(rawRecap.convertedMaterials, 0))),
+    },
+    carryoverCatalogItemIds: Array.isArray(raw.carryoverCatalogItemIds)
+      ? Array.from(
+          new Set(raw.carryoverCatalogItemIds.filter((id): id is string => typeof id === 'string'))
+        )
+      : [],
+  };
 }
 
 function asStudioThemeId(v: unknown): WeeklyOutfitChallengeThemeId {
@@ -2516,6 +2746,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     dialogue: createInitialDialogueState(todayStr),
     memoryAlbum: createInitialMemoryAlbumState(pet.name),
     photoStudio: createInitialPhotoStudioState(),
+    seasonalEvent: createInitialSeasonalEvent(),
   };
 }
 
@@ -2876,6 +3107,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     visitorState: parseVisitorSystemState(parsed.visitorState),
     townOrders: parseTownOrders(parsed.townOrders),
     photoStudio: parsePhotoStudioState(parsed.photoStudio),
+    seasonalEvent: parseSeasonalEvent(parsed.seasonalEvent),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -2895,6 +3127,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     hydrated = evaluateAndSyncMilestones(hydrated, false).nextState;
   }
   hydrated = syncPhotoStudioState(hydrated).nextState;
+  hydrated = syncSeasonalEventState(hydrated);
   return hydrated;
 }
 
