@@ -46,6 +46,7 @@ import {
   SharedPetRoom,
   StageBackgroundId,
   TitleId,
+  TownMapState,
   VisitorVisit,
   WeatherState,
 } from '../types';
@@ -116,6 +117,8 @@ interface HomeViewProps {
   seasonalEvent?: SeasonalEvent | null;
   eventBadgeCount?: number;
   onOpenSeasonalEvent?: () => void;
+  townMap?: TownMapState;
+  onOpenTownMap?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -191,6 +194,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   seasonalEvent = null,
   eventBadgeCount = 0,
   onOpenSeasonalEvent,
+  townMap,
+  onOpenTownMap,
 }) => {
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
@@ -976,6 +981,27 @@ export const HomeView: React.FC<HomeViewProps> = ({
       onOpenTownOrders ||
       onOpenMemories ? (
         <section className="grid grid-cols-2 gap-2.5" aria-label="快捷功能中心">
+          {onOpenTownMap && (
+            <button
+              type="button"
+              onClick={onOpenTownMap}
+              className="col-span-2 min-h-[54px] rounded-2xl bg-gradient-to-r from-[#E6F8EE] via-[#FFF8E4] to-[#E8F4FF] border-2 border-[#BFE4D3] px-3.5 py-2 flex items-center justify-between gap-2.5 text-left active:scale-[0.99] transition"
+            >
+              <div className="min-w-0">
+                <div className="text-xs font-extrabold text-[#1F5E4B] truncate">
+                  🗺️ 小鎮地圖與訪客小屋
+                </div>
+                <div className="text-[10.5px] font-bold text-[#5A756B] truncate tabular-nums">
+                  已解鎖 {townMap?.unlockedLocationIds.length ?? 1}/4 地點 · 小屋 Lv.
+                  {townMap?.visitorHut.level ?? 1} · 🎫 {townMap?.townTickets.balance ?? 0} 小鎮券
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-[#BFE3D2] text-[11px] font-extrabold text-[#1F6B54] shrink-0">
+                出發 ›
+              </span>
+            </button>
+          )}
+
           {(onOpenTownOrders || onOpenVisitorModal) && (
             <>
               {onOpenVisitorModal && (

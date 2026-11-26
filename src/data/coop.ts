@@ -187,6 +187,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '草莓季連續 3 天完成「草莓派對」共養合作任務',
     badgeClass: 'bg-[#FFE8F0] border-[#F29AB8] text-[#C43463]',
   },
+  town_explore_partner: {
+    id: 'town_explore_partner',
+    name: '小鎮探險搭檔',
+    emoji: '🧭',
+    description: '連續 3 天與共養夥伴前往橡果森林野餐或湖邊釣魚，小鎮的每個角落都有你們的腳印！',
+    conditionText: '連續 3 天完成小鎮地圖「共養探索」合作任務',
+    badgeClass: 'bg-[#E6F8EE] border-[#8BD7B3] text-[#1D6B4F]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

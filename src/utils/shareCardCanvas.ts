@@ -8,6 +8,8 @@ import {
   PHOTO_STICKER_BY_ID,
 } from '../data/photoStudio';
 import { getPetSpeciesInfo } from '../data/species';
+import { TOWN_VISITOR_BY_ID } from '../data/town';
+import { VISITOR_BY_ID } from '../data/visitors';
 import { PetSpecies, RoomPhotoRecord } from '../types';
 
 export interface ShareCardPayload {
@@ -255,15 +257,36 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   const bgId = payload.photo?.backgroundId;
   const filterId = payload.photo?.filterId ?? 'pink';
   const stageGrad = ctx.createLinearGradient(stageX, stageY, stageX, stageY + stageH);
-  if (bgId === 'starry_night_market' || bgId === 'halloween_party' || filterId === 'starry') {
+  if (bgId === 'starry_night_market' || bgId === 'halloween_party' || bgId === 'market_night' || filterId === 'starry') {
     stageGrad.addColorStop(0, '#3B2E6B');
     stageGrad.addColorStop(1, '#5A4A92');
   } else if (bgId === 'christmas_cabin') {
     stageGrad.addColorStop(0, '#4E2A2A');
     stageGrad.addColorStop(1, '#7A3E36');
-  } else if (bgId === 'forest_camp' || filterId === 'forest' || filterId === 'mint') {
+  } else if (
+    bgId === 'forest_camp' ||
+    bgId === 'bird_treetop_sky' ||
+    bgId === 'forest_cabin' ||
+    bgId === 'acorn_trail' ||
+    filterId === 'forest' ||
+    filterId === 'mint' ||
+    filterId === 'morning_glow' ||
+    filterId === 'forest_filter'
+  ) {
     stageGrad.addColorStop(0, '#CDEFD9');
     stageGrad.addColorStop(1, '#F6F0D8');
+  } else if (bgId === 'lakeside_sunset' || bgId === 'waterfront_bridge' || filterId === 'lake_aqua' || filterId === 'lakeside_breeze') {
+    stageGrad.addColorStop(0, bgId === 'lakeside_sunset' ? '#FFB8A2' : '#BDE9FF');
+    stageGrad.addColorStop(1, '#77C9EE');
+  } else if (bgId === 'wooden_stalls' || filterId === 'market_warm_sun') {
+    stageGrad.addColorStop(0, '#FFE4B8');
+    stageGrad.addColorStop(1, '#F5D6B8');
+  } else if (bgId === 'squirrel_acorn_forest' || filterId === 'forest_warm_sun') {
+    stageGrad.addColorStop(0, '#FFE3B0');
+    stageGrad.addColorStop(1, '#E9D6A5');
+  } else if (bgId === 'rabbit_carrot_garden' || bgId === 'dream_lodge_bg' || filterId === 'meadow_pastel') {
+    stageGrad.addColorStop(0, '#FFE2EE');
+    stageGrad.addColorStop(1, '#DCF5CE');
   } else if (bgId === 'cloud_sky' || bgId === 'beach_vacation' || filterId === 'cloud') {
     stageGrad.addColorStop(0, '#CFE3FF');
     stageGrad.addColorStop(1, '#FFFDFB');
@@ -292,7 +315,7 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   ctx.font = '800 21px "PingFang TC", "Noto Sans TC", sans-serif';
   ctx.fillText(payload.badgeText, stageX + 42, stageY + 51);
 
-  // Pet character illustration (single or side-by-side duo)
+  // Pet character illustration (single, duo pet, or pet + visitor)
   if (payload.photo?.duoPet) {
     drawCutePetVector(ctx, payload.species, width / 2 - 96, stageY + 235, 0.95);
     drawCutePetVector(
@@ -302,6 +325,20 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
       stageY + 235,
       0.95
     );
+  } else if (
+    (payload.photo?.townVisitorId && TOWN_VISITOR_BY_ID[payload.photo.townVisitorId]) ||
+    (payload.photo?.visitorId && VISITOR_BY_ID[payload.photo.visitorId])
+  ) {
+    const emoji = payload.photo.townVisitorId
+      ? TOWN_VISITOR_BY_ID[payload.photo.townVisitorId].emoji
+      : VISITOR_BY_ID[payload.photo.visitorId!].emoji;
+    drawCutePetVector(ctx, payload.species, width / 2 - 72, stageY + 235, 1.0);
+    ctx.save();
+    ctx.font = '112px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, width / 2 + 106, stageY + 242);
+    ctx.restore();
   } else {
     drawCutePetVector(ctx, payload.species, width / 2, stageY + 235, 1.15);
   }

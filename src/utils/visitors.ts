@@ -13,9 +13,15 @@ import {
   VISITORS,
 } from '../data/visitors';
 import {
+  PHOTO_BACKGROUND_BY_ID,
+  PHOTO_FILTER_BY_ID,
+  PHOTO_FRAME_BY_ID,
+} from '../data/photoStudio';
+import {
   GameState,
   IngredientId,
   PetViewDirection,
+  PhotoBackground,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
@@ -34,6 +40,7 @@ import { syncAllAccessoryProgress } from './accessories';
 import { syncHouseProgress } from './house';
 import { maybeGrantCatPhotoMemoryCard, recordMemoryEntry } from './memories';
 import { getActivePet } from './pets';
+import { getPhotoStudioState } from './photoStudio';
 
 function formatLocalDate(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -87,6 +94,11 @@ export function createDefaultAffinities(): Record<VisitorId, VisitorAffinity> {
       firstHostedAt: null,
     },
   };
+}
+
+export function formatAffinityExp(exp: number): string {
+  const rounded = Math.round(exp * 2) / 2;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 export function getAffinityLevelFromExp(exp: number): number {
@@ -510,17 +522,19 @@ export function feedVisitor(
   const now = Date.now();
   const isFirstHost = prevAff.firstHostedAt === null;
 
-  // 緩慢累積好感度，避免一次餵食解鎖全部內容
-  const expGain = reaction === 'favorite' ? 18 : reaction === 'neutral' ? 9 : 4;
-  const nextExp = prevAff.exp + expGain;
+  // 緩慢累積好感度：喜歡 +2、普通 +1、不喜歡 +0.5（不懲罰玩家）
+  const expGain = reaction === 'favorite' ? 2 : reaction === 'neutral' ? 1 : 0.5;
+  const nextExp = Math.round((prevAff.exp + expGain) * 2) / 2;
   const nextLevel = getAffinityLevelFromExp(nextExp);
 
-  // 控制金幣發放避免通貨膨脹：小額金幣 + 食材 / 種子 / 家具碎片
+  // 控制金幣發放避免通貨膨脹：小額金幣 + 食材 / 種子 / 家具碎片 / 攝影材料
   const coinReward = reaction === 'favorite' ? 14 : reaction === 'neutral' ? 8 : 3;
   const shardReward =
     reaction === 'favorite' && (prevAff.totalFed % 2 === 0 || nextLevel >= 4) ? 1 : 0;
 
   let bonusItemLabel = '';
+  let studioMaterialsGain =
+    reaction === 'favorite' && (visitor.id === 'bird' || visitor.id === 'rabbit') ? 1 : 0;
   const updatedIngredients = { ...nextIngredients };
   const updatedTreats = { ...nextTreats };
 
@@ -551,11 +565,41 @@ export function feedVisitor(
   let nextPlacedDecors = [...visitorState.placedYardDecors];
   let nextAccessories = [...state.accessories];
   let nextUnlockedTitles = [...state.encyclopedia.unlockedTitles];
+  const baseStudio = getPhotoStudioState(state);
+  const unlockedBgs = new Set(baseStudio.unlockedBackgrounds);
+  const unlockedFilters = new Set(baseStudio.unlockedFilters);
+  const unlockedFrames = new Set(baseStudio.unlockedFrames);
   let extraShards = shardReward;
   const milestoneMsgs: string[] = [];
 
   // Handle affinity level-up rewards
   for (let lv = prevLevel + 1; lv <= nextLevel; lv += 1) {
+    const lvReward = visitor.levelRewards.find((r) => r.level === lv);
+    const unlockedStudioLabels: string[] = [];
+    if (lvReward?.unlockStudio) {
+      if (lvReward.unlockStudio.filterId) {
+        unlockedFilters.add(lvReward.unlockStudio.filterId);
+        unlockedStudioLabels.push(
+          `濾鏡「${PHOTO_FILTER_BY_ID[lvReward.unlockStudio.filterId].label}」`
+        );
+      }
+      if (lvReward.unlockStudio.frameId) {
+        unlockedFrames.add(lvReward.unlockStudio.frameId);
+        unlockedStudioLabels.push(
+          `相框「${PHOTO_FRAME_BY_ID[lvReward.unlockStudio.frameId].label}」`
+        );
+      }
+      if (lvReward.unlockStudio.backgroundId) {
+        unlockedBgs.add(lvReward.unlockStudio.backgroundId);
+        unlockedStudioLabels.push(
+          `背景「${PHOTO_BACKGROUND_BY_ID[lvReward.unlockStudio.backgroundId].label}」`
+        );
+      }
+    }
+    if (lvReward?.studioMaterials && lvReward.studioMaterials > 0) {
+      studioMaterialsGain += lvReward.studioMaterials;
+    }
+
     if (lv === 2) {
       const decorId: VisitorDecorId =
         visitor.id === 'bird'
@@ -565,7 +609,9 @@ export function feedVisitor(
           : 'rabbit_garden_statue';
       if (!nextOwnedDecors.includes(decorId)) nextOwnedDecors.push(decorId);
       if (!nextPlacedDecors.includes(decorId)) nextPlacedDecors.push(decorId);
-      milestoneMsgs.push(`解鎖專屬擺飾「${VISITOR_DECOR_BY_ID[decorId].name}」`);
+      const studioSuffix =
+        unlockedStudioLabels.length > 0 ? `與${unlockedStudioLabels.join('、')}` : '';
+      milestoneMsgs.push(`解鎖專屬擺飾「${VISITOR_DECOR_BY_ID[decorId].name}」${studioSuffix}`);
     } else if (lv === 3) {
       extraShards += visitor.id === 'squirrel' ? 3 : 2;
       if (visitor.id === 'bird') {
@@ -578,9 +624,13 @@ export function feedVisitor(
         updatedIngredients.carrot = (updatedIngredients.carrot ?? 0) + 3;
         updatedIngredients.mint = (updatedIngredients.mint ?? 0) + 1;
       }
-      milestoneMsgs.push('獲得 Lv.3 珍稀食材與家具碎片大禮！');
+      const studioSuffix =
+        unlockedStudioLabels.length > 0 ? `、${unlockedStudioLabels.join('、')}` : '';
+      milestoneMsgs.push(`獲得 Lv.3 珍稀食材、家具碎片、攝影材料${studioSuffix}！`);
     } else if (lv === 4) {
-      milestoneMsgs.push(`${visitor.speciesLabel}以後會更常來庭院串門子囉！`);
+      const studioSuffix =
+        unlockedStudioLabels.length > 0 ? `，並解鎖${unlockedStudioLabels.join('、')}` : '';
+      milestoneMsgs.push(`${visitor.speciesLabel}以後會更常來庭院串門子${studioSuffix}！`);
     } else if (lv === 5) {
       const accId =
         visitor.id === 'bird'
@@ -614,8 +664,9 @@ export function feedVisitor(
       : visitor.dislikedFeedLines;
   const line = lines[Math.floor(Math.random() * lines.length)] ?? '謝謝你的點心！';
 
-  const rewardParts = [`+${coinReward} 金幣`, `+${expGain} 好感`];
+  const rewardParts = [`+${coinReward} 金幣`, `+${formatAffinityExp(expGain)} 好感`];
   if (extraShards > 0) rewardParts.push(`+${extraShards} 家具碎片`);
+  if (studioMaterialsGain > 0) rewardParts.push(`+${studioMaterialsGain} 攝影材料`);
   if (bonusItemLabel) rewardParts.push(bonusItemLabel);
   const rewardSummary = rewardParts.join(' · ');
 
@@ -637,6 +688,13 @@ export function feedVisitor(
     ingredients: updatedIngredients,
     visitorTreats: updatedTreats,
     accessories: nextAccessories,
+    photoStudio: {
+      ...baseStudio,
+      studioMaterials: baseStudio.studioMaterials + studioMaterialsGain,
+      unlockedBackgrounds: Array.from(unlockedBgs),
+      unlockedFilters: Array.from(unlockedFilters),
+      unlockedFrames: Array.from(unlockedFrames),
+    },
     encyclopedia: {
       ...state.encyclopedia,
       unlockedTitles: nextUnlockedTitles,
@@ -712,13 +770,14 @@ export function captureVisitorPhoto(
     visitorId: VisitorId;
     isCoopPhoto?: boolean;
     poseId?: PhotoPose;
+    backgroundId?: PhotoBackground;
     facing?: PetViewDirection;
     filterId?: PhotoFilter;
     frameId?: PhotoFrame;
     stickers?: PhotoStickerId[];
     caption?: string;
   }
-): VisitorActionResult {
+): VisitorActionResult & { photo?: RoomPhotoRecord } {
   const activePet = getActivePet(state);
   const visitor = VISITOR_BY_ID[params.visitorId];
   const now = Date.now();
@@ -751,6 +810,7 @@ export function captureVisitorPhoto(
     isCoopPhoto: params.isCoopPhoto,
     scene: 'visitor',
     wardrobePoseId: params.poseId ?? 'happy',
+    backgroundId: params.backgroundId,
     facing: params.facing ?? 'front',
     filterId: params.filterId ?? 'forest',
     frameId: params.frameId ?? (params.isCoopPhoto ? 'coop_heart' : 'polaroid'),
@@ -804,6 +864,7 @@ export function captureVisitorPhoto(
     nextState,
     ok: true,
     notice: `已拍下「${title}」並存入照片牆與回憶冊！`,
+    photo,
   };
 }
 

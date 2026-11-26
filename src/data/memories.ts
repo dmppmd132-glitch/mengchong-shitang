@@ -92,6 +92,12 @@ export const MEMORY_TYPE_META: Record<MemoryType, MemoryTypeMeta> = {
     emoji: '🐾',
     badgeClass: 'bg-[#E8F8F0] border-[#9ADBC2] text-[#1F6B54]',
   },
+  town: {
+    id: 'town',
+    label: '小鎮旅記',
+    emoji: '🗺️',
+    badgeClass: 'bg-[#E6F8EE] border-[#8BD7B3] text-[#1D6B4F]',
+  },
 };
 
 export const MEMORY_TYPE_ORDER: MemoryType[] = [
@@ -105,6 +111,7 @@ export const MEMORY_TYPE_ORDER: MemoryType[] = [
   'coop',
   'cooperation',
   'visitor',
+  'town',
   'festival',
   'dialogue',
   'milestone',

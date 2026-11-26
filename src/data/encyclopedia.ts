@@ -202,6 +202,46 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '連續 3 週於草莓季攝影挑戰達到 100 分以上',
     badgeClass: 'bg-[#FFF0F6] border-[#E885AA] text-[#B83B64]',
   },
+  town_explorer: {
+    id: 'town_explorer',
+    name: '小鎮探險家',
+    emoji: '🧭',
+    description: '踏遍自家庭院、橡果森林、湖邊公園與小鎮市集，把小鎮動物朋友都記進心裡！',
+    unlockCondition: '於小鎮商店兌換（400 小鎮券）或共養探索連續 7 天完成',
+    badgeClass: 'bg-[#E6F8EE] border-[#8BD7B3] text-[#1D6B4F]',
+  },
+  yard_host_master: {
+    id: 'yard_host_master',
+    name: '庭院好鄰居',
+    emoji: '🏡',
+    description: '完成自家庭院全圖鑑收集，連最害羞的閃亮蝴蝶也愛來你家作客！',
+    unlockCondition: '完成「自家庭院」小鎮圖鑑 100%',
+    badgeClass: 'bg-[#EAF9EE] border-[#9ADBC0] text-[#1F6B54]',
+  },
+  acorn_forest_ranger: {
+    id: 'acorn_forest_ranger',
+    name: '橡果林巡守員',
+    emoji: '🌲',
+    description: '完成橡果森林全圖鑑收集，小鹿與松鼠總是會把第一顆甜橡果留給你。',
+    unlockCondition: '完成「橡果森林」小鎮圖鑑 100%',
+    badgeClass: 'bg-[#E9F6E8] border-[#9CCFA5] text-[#226142]',
+  },
+  lakeside_angler: {
+    id: 'lakeside_angler',
+    name: '湖畔悠閒釣手',
+    emoji: '🎣',
+    description: '完成湖邊公園全圖鑑收集，最懂得在微風水岸和小鴨水獺共享午后時光！',
+    unlockCondition: '完成「湖邊公園」小鎮圖鑑 100%',
+    badgeClass: 'bg-[#E5F4FF] border-[#98D1F5] text-[#1D5C8A]',
+  },
+  town_market_vip: {
+    id: 'town_market_vip',
+    name: '小鎮市集貴賓',
+    emoji: '🏮',
+    description: '完成小鎮市集全圖鑑收集，市集每個暖燈木攤都認識這位超暖心的美食飼主！',
+    unlockCondition: '完成「小鎮市集」小鎮圖鑑 100%',
+    badgeClass: 'bg-[#FFF3DC] border-[#F0CA82] text-[#8B5212]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

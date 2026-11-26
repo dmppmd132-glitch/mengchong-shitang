@@ -15,6 +15,7 @@ import {
   STUDIO_SHOP_FILTERS,
   WEEKLY_OUTFIT_THEMES,
 } from '../data/photoStudio';
+import { VISITORS } from '../data/visitors';
 import {
   CoopDuoChallengeSubmission,
   CoopDuoPhotoChallengeState,
@@ -244,6 +245,46 @@ export function syncPhotoStudioState(
     ...current.unlockedFilters,
   ]);
 
+  if (state.visitorState?.affinities) {
+    for (const visitor of VISITORS) {
+      const affLevel = state.visitorState.affinities[visitor.id]?.level ?? 1;
+      for (const reward of visitor.levelRewards) {
+        if (affLevel >= reward.level && reward.unlockStudio) {
+          if (reward.unlockStudio.backgroundId) {
+            nextBackgrounds.add(reward.unlockStudio.backgroundId);
+          }
+          if (reward.unlockStudio.filterId) {
+            nextFilters.add(reward.unlockStudio.filterId);
+          }
+          if (reward.unlockStudio.frameId) {
+            nextFrames.add(reward.unlockStudio.frameId);
+          }
+        }
+      }
+    }
+  }
+
+  if (state.townMap) {
+    if (state.townMap.visitorHut.level >= 5) {
+      nextBackgrounds.add('dream_lodge_bg');
+    }
+    if (state.townMap.unlockedLocationIds.includes('acorn_forest')) {
+      nextBackgrounds.add('acorn_trail');
+    }
+    if (state.townMap.unlockedLocationIds.includes('lake_park')) {
+      nextBackgrounds.add('waterfront_bridge');
+      nextFilters.add('lakeside_breeze');
+    }
+    if (state.townMap.unlockedLocationIds.includes('town_market')) {
+      nextBackgrounds.add('wooden_stalls');
+    }
+    for (const loc of Object.values(state.townMap.locations)) {
+      loc.unlockedBackgroundIds.forEach((b) => nextBackgrounds.add(b));
+      loc.unlockedFilterIds.forEach((f) => nextFilters.add(f));
+      loc.unlockedFrameIds.forEach((fr) => nextFrames.add(fr));
+    }
+  }
+
   // Roll weekly challenge if week changed
   let nextWeekly = current.weeklyChallenge;
   let nextStreak = current.consecutiveChallengeWeeks;
@@ -283,7 +324,9 @@ export function syncPhotoStudioState(
     state.photoStudio &&
     state.photoStudio.weeklyChallenge.weekKey === updatedStudio.weeklyChallenge.weekKey &&
     updatedStudio.unlockedPoses.length === state.photoStudio.unlockedPoses.length &&
-    updatedStudio.unlockedFrames.length === state.photoStudio.unlockedFrames.length
+    updatedStudio.unlockedFrames.length === state.photoStudio.unlockedFrames.length &&
+    updatedStudio.unlockedBackgrounds.length === state.photoStudio.unlockedBackgrounds.length &&
+    updatedStudio.unlockedFilters.length === state.photoStudio.unlockedFilters.length
   ) {
     return { nextState: state, newlyUnlockedPoses: [] };
   }
@@ -585,7 +628,9 @@ export function craftStudioRecipe(
     (recipe.targetKind === 'filter' &&
       studio.unlockedFilters.includes(recipe.targetId as PhotoFilter)) ||
     (recipe.targetKind === 'pose' &&
-      studio.unlockedPoses.includes(recipe.targetId as PhotoPose));
+      studio.unlockedPoses.includes(recipe.targetId as PhotoPose)) ||
+    (recipe.targetKind === 'sticker' &&
+      studio.unlockedStickers.includes(recipe.targetId as PhotoStickerId));
 
   if (alreadyOwned) {
     return { nextState: state, ok: false, notice: `你已經擁有「${recipe.name}」囉！` };
@@ -594,7 +639,7 @@ export function craftStudioRecipe(
     return {
       nextState: state,
       ok: false,
-      notice: `攝影材料不足（需要 ${recipe.materialCost} 個攝影材料，可於週挑戰獲得）！`,
+      notice: `攝影材料不足（需要 ${recipe.materialCost} 個攝影材料，可於週挑戰、攝影訂單或招待訪客獲得）！`,
     };
   }
   if (studio.studioFrameShards < recipe.frameShardCost) {
@@ -632,6 +677,10 @@ export function craftStudioRecipe(
       recipe.targetKind === 'pose'
         ? [...studio.unlockedPoses, recipe.targetId as PhotoPose]
         : studio.unlockedPoses,
+    unlockedStickers:
+      recipe.targetKind === 'sticker'
+        ? [...studio.unlockedStickers, recipe.targetId as PhotoStickerId]
+        : studio.unlockedStickers,
   };
 
   return {

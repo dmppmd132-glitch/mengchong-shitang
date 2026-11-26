@@ -46,7 +46,17 @@ export type PhotoBackground =
   | 'beach_vacation'
   | 'sakura_path'
   | 'halloween_party'
-  | 'christmas_cabin';
+  | 'christmas_cabin'
+  | 'bird_treetop_sky'
+  | 'squirrel_acorn_forest'
+  | 'rabbit_carrot_garden'
+  | 'forest_cabin'
+  | 'acorn_trail'
+  | 'lakeside_sunset'
+  | 'waterfront_bridge'
+  | 'market_night'
+  | 'wooden_stalls'
+  | 'dream_lodge_bg';
 
 export type PhotoFilter =
   | 'none'
@@ -60,7 +70,14 @@ export type PhotoFilter =
   | 'forest'
   | 'cloud'
   | 'kitchen'
-  | 'party';
+  | 'party'
+  | 'morning_glow'
+  | 'forest_warm_sun'
+  | 'meadow_pastel'
+  | 'forest_filter'
+  | 'lake_aqua'
+  | 'lakeside_breeze'
+  | 'market_warm_sun';
 
 export type PhotoFrame =
   | 'none'
@@ -72,9 +89,16 @@ export type PhotoFrame =
   | 'gold'
   | 'golden_memory'
   | 'coop_heart'
-  | 'strawberry_polaroid';
+  | 'strawberry_polaroid'
+  | 'feather_frame'
+  | 'acorn_frame'
+  | 'carrot_frame'
+  | 'waterdrop_frame'
+  | 'duck_frame'
+  | 'market_sign_frame'
+  | 'wood_frame';
 
-export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor';
+export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town';
 
 export type PhotoStickerId =
   | 'heart'
@@ -135,7 +159,7 @@ export interface StudioScoreBreakdown {
 
 export interface StudioCraftRecipe {
   id: string;
-  targetKind: 'background' | 'frame' | 'filter' | 'pose';
+  targetKind: 'background' | 'frame' | 'filter' | 'pose' | 'sticker';
   targetId: string;
   name: string;
   emoji: string;
@@ -510,7 +534,12 @@ export type TitleId =
   | 'coop_best_host'
   | 'fashion_photographer'
   | 'strawberry_sweetheart_title'
-  | 'strawberry_fashionista';
+  | 'strawberry_fashionista'
+  | 'town_explorer'
+  | 'yard_host_master'
+  | 'acorn_forest_ranger'
+  | 'lakeside_angler'
+  | 'town_market_vip';
 
 export type PersonalityId =
   | 'greedy'
@@ -554,7 +583,7 @@ export interface Toy {
   petAction: PiggyActionState;
 }
 
-export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop';
+export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop' | 'town_coop';
 
 export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
 
@@ -564,7 +593,8 @@ export type CoopBadgeId =
   | 'farm_relay_master'
   | 'town_host'
   | 'best_outfit_partner'
-  | 'strawberry_sweetheart_partner';
+  | 'strawberry_sweetheart_partner'
+  | 'town_explore_partner';
 
 export interface CoopGoal {
   id: string;
@@ -718,6 +748,12 @@ export interface VisitorLevelReward {
   decorId?: VisitorDecorId;
   accessoryId?: string;
   titleId?: TitleId;
+  studioMaterials?: number;
+  unlockStudio?: {
+    backgroundId?: PhotoBackground;
+    filterId?: PhotoFilter;
+    frameId?: PhotoFrame;
+  };
 }
 
 export interface Visitor {
@@ -819,7 +855,7 @@ export interface CoopVisitorSession {
   sharedToBoard: boolean;
 }
 
-export type TownOrderCategory = 'visitor' | 'coop' | 'advanced';
+export type TownOrderCategory = 'visitor' | 'coop' | 'photo' | 'advanced';
 
 export interface TownOrderItemReq {
   key: string;
@@ -831,12 +867,26 @@ export interface TownOrderItemReq {
   deliveredQty: number;
 }
 
+export interface TownOrderPhotoReq {
+  targetCount: number;
+  currentCount: number;
+  visitorId?: VisitorId;
+  requiresStudioScene?: boolean;
+  label: string;
+}
+
 export interface TownOrderReward {
   coins: number;
   furnitureShards: number;
   farmSpeedTickets: number;
   rareIngredients: Partial<Record<IngredientId, number>>;
   treats?: Partial<Record<VisitorTreatId, number>>;
+  studioMaterials?: number;
+  unlockStudio?: {
+    backgroundId?: PhotoBackground;
+    filterId?: PhotoFilter;
+    frameId?: PhotoFrame;
+  };
 }
 
 export interface TownOrder {
@@ -848,6 +898,7 @@ export interface TownOrder {
   description: string;
   emoji: string;
   requirements: TownOrderItemReq[];
+  photoRequirement?: TownOrderPhotoReq;
   reward: TownOrderReward;
   createdAt: number;
   expiresAt: number;
@@ -877,6 +928,244 @@ export interface CoopHubState {
   duoStreakWeeks?: number;
   lastDuoCompletedWeek?: string | null;
   coopEventSession?: CoopEventSession | null;
+  coopTownSession?: CoopTownExploreSession | null;
+  townExploreStreakDays?: number;
+  lastTownExploreCompletedDate?: string | null;
+}
+
+export type TownLocationId =
+  | 'home_yard'
+  | 'acorn_forest'
+  | 'lake_park'
+  | 'town_market'
+  | 'festival_plaza';
+
+export type ActiveTownLocationId = Exclude<TownLocationId, 'festival_plaza'>;
+
+export type TownVisitorId =
+  | 'bird'
+  | 'squirrel'
+  | 'rabbit'
+  | 'butterfly'
+  | 'hedgehog'
+  | 'deer'
+  | 'duck'
+  | 'frog'
+  | 'otter'
+  | 'cat_visitor'
+  | 'dog_visitor'
+  | 'hamster_visitor'
+  | 'fox';
+
+export type TownVisitorRarity = 'common' | 'rare';
+
+export type VisitorHutFacilityId =
+  | 'bird_feeder'
+  | 'nut_bowl'
+  | 'carrot_patch'
+  | 'mini_pond'
+  | 'flower_bush'
+  | 'lantern'
+  | 'treat_table'
+  | 'rare_sign';
+
+export interface VisitorHutLevelInfo {
+  level: 1 | 2 | 3 | 4 | 5;
+  name: string;
+  emoji: string;
+  upgradeCostCoins: number;
+  dailyCapacityBonus: number;
+  stayBonusPercent: number;
+  rareRateBonusPercent: number;
+  description: string;
+  unlockBonusText: string;
+  rewardBackgroundId?: PhotoBackground;
+}
+
+export interface VisitorHutFacility {
+  id: VisitorHutFacilityId;
+  name: string;
+  emoji: string;
+  priceCoins: number;
+  description: string;
+  effectLabel: string;
+  targetVisitorId?: TownVisitorId;
+}
+
+export interface VisitorHutState {
+  level: 1 | 2 | 3 | 4 | 5;
+  builtFacilities: VisitorHutFacilityId[];
+}
+
+export interface TownLocationDefinition {
+  id: TownLocationId;
+  name: string;
+  subtitle: string;
+  emoji: string;
+  themeGradient: string;
+  badgeClass: string;
+  description: string;
+  unlockConditionLabel: string;
+  commonVisitorIds: TownVisitorId[];
+  rareVisitorIds: TownVisitorId[];
+  rewardHighlights: string[];
+  recommendedBackgroundIds: PhotoBackground[];
+  recommendedFilterIds: PhotoFilter[];
+  recommendedFrameIds: PhotoFrame[];
+  reserved?: boolean;
+}
+
+export interface TownVisitorDefinition {
+  id: TownVisitorId;
+  name: string;
+  speciesLabel: string;
+  emoji: string;
+  rarity: TownVisitorRarity;
+  homeLocationIds: ActiveTownLocationId[];
+  accentColor: string;
+  bgGradient: string;
+  description: string;
+  baseWeight: number;
+  stayDurationMs: number;
+  favoriteOfferingKeys: string[];
+  dislikedOfferingKeys: string[];
+  favoriteTagsLabel: string;
+  dislikedTagsLabel: string;
+  arrivalLines: string[];
+  favoriteFeedLines: string[];
+  neutralFeedLines: string[];
+  dislikedFeedLines: string[];
+  rareBonusLabel?: string;
+}
+
+export interface TownLocationVisitorInstance {
+  visitId: string;
+  locationId: ActiveTownLocationId;
+  visitorId: TownVisitorId;
+  rarity: TownVisitorRarity;
+  arrivedAt: number;
+  departAt: number;
+  fedCount: number;
+  maxFeedCount: number;
+  photoTaken: boolean;
+  lastFeedReaction: 'favorite' | 'neutral' | 'disliked' | null;
+  lastFeedLine: string | null;
+  lastRewardSummary: string | null;
+}
+
+export interface TownVisitorAffinityRecord {
+  visitorId: TownVisitorId;
+  level: number;
+  exp: number;
+  totalVisits: number;
+  totalFed: number;
+  totalPhotos: number;
+  firstMetAt: number | null;
+}
+
+export type TownQuestKind =
+  | 'host_location_visitor'
+  | 'photo_location'
+  | 'photo_visitor'
+  | 'forage_acorn'
+  | 'lake_fishing'
+  | 'deliver_market_dish'
+  | 'buy_market_furniture';
+
+export interface TownLocationQuest {
+  id: string;
+  locationId: ActiveTownLocationId;
+  kind: TownQuestKind;
+  title: string;
+  description: string;
+  emoji: string;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  targetVisitorId?: TownVisitorId;
+  rewardTownTickets: number;
+  rewardCoins: number;
+  rewardStudioMaterials?: number;
+  rewardFurnitureShards?: number;
+  rewardFilterShards?: number;
+  rewardIngredientId?: IngredientId;
+  rewardIngredientQty?: number;
+}
+
+export interface TownLocationProgressState {
+  locationId: ActiveTownLocationId;
+  dailyDate: string;
+  dailyVisitorsCount: number;
+  activeVisitors: TownLocationVisitorInstance[];
+  dailyQuests: TownLocationQuest[];
+  allQuestsBonusClaimed: boolean;
+  totalVisitsHosted: number;
+  totalPhotosTaken: number;
+  unlockedBackgroundIds: PhotoBackground[];
+  unlockedFilterIds: PhotoFilter[];
+  unlockedFrameIds: PhotoFrame[];
+  encyclopediaRewardClaimed: boolean;
+}
+
+export type TownShopItemCategory = 'filter' | 'background' | 'accessory' | 'title';
+
+export interface TownShopItem {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  category: TownShopItemCategory;
+  targetId: string;
+  ticketPrice: number;
+  locationLabel: string;
+}
+
+export type CoopTownExploreTemplateId = 'forest_picnic' | 'lake_fishing';
+
+export interface CoopTownExploreStep {
+  key: 'acorn' | 'forest_photo' | 'fishing' | 'duck_care';
+  label: string;
+  emoji: string;
+  target: number;
+  progress: number;
+  contributorUserIds: string[];
+}
+
+export interface CoopTownExploreSession {
+  id: string;
+  templateId: CoopTownExploreTemplateId;
+  locationId: ActiveTownLocationId;
+  dateKey: string;
+  title: string;
+  description: string;
+  emoji: string;
+  steps: CoopTownExploreStep[];
+  completed: boolean;
+  completedAt: number | null;
+  claimedByUserIds: string[];
+  lastUpdatedByName: string | null;
+  lastUpdatedAt: number | null;
+}
+
+export interface TownCurrency {
+  balance: number;
+  totalEarned: number;
+}
+
+export interface TownMapState {
+  currentLocationId: ActiveTownLocationId;
+  unlockedLocationIds: ActiveTownLocationId[];
+  townTickets: TownCurrency;
+  visitorHut: VisitorHutState;
+  locations: Record<ActiveTownLocationId, TownLocationProgressState>;
+  visitorAffinities: Record<TownVisitorId, TownVisitorAffinityRecord>;
+  purchasedShopItemIds: string[];
+  unlockedMarketFurnitureIds: string[];
+  acornsCollectedTotal: number;
+  fishingGamesPlayedTotal: number;
+  fishingBestScore: number;
+  marketDishesDeliveredTotal: number;
 }
 
 export type EventId = 'strawberry_season';
@@ -1287,7 +1576,8 @@ export type MemoryType =
   | 'festival'
   | 'dialogue'
   | 'milestone'
-  | 'visitor';
+  | 'visitor'
+  | 'town';
 
 export interface MemoryEntry {
   id: string;
@@ -1452,6 +1742,8 @@ export interface GameState {
   townOrders?: TownOrder[];
   photoStudio?: PhotoStudioState;
   seasonalEvent?: SeasonalEvent;
+  filterShards?: number;
+  townMap?: TownMapState;
 }
 
 export interface FloatingFeedback {

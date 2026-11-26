@@ -15,6 +15,7 @@ import {
   VisitorTreatId,
 } from '../../types';
 import {
+  formatAffinityExp,
   getAvailableVisitorOfferings,
   getNextAffinityThreshold,
   isYardMoodBuffActive,
@@ -29,6 +30,7 @@ interface VisitorModalProps {
   onFeedVisitor: (offering: VisitorOffering) => void;
   onBuyTreat: (treatId: VisitorTreatId) => void;
   onCapturePhoto: (visitorId: VisitorId, shareToBoard?: boolean) => void;
+  onOpenVisitorStudio?: (visitorId: VisitorId) => void;
   onOpenOrderBoard: () => void;
 }
 
@@ -40,6 +42,7 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
   onFeedVisitor,
   onBuyTreat,
   onCapturePhoto,
+  onOpenVisitorStudio,
   onOpenOrderBoard,
 }) => {
   const visitorState = game.visitorState;
@@ -185,7 +188,7 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
                     </p>
                     {activeVisit.likesYard ? (
                       <p className="text-[11px] font-extrabold text-[#1F6B54] bg-[#E6F8F1] border border-[#9ADBC2] rounded-xl px-2 py-1">
-                        🌿 這位訪客喜歡你的庭院（{activeVisit.yardMatchReasons.join('、')}）
+                        🌿 訪客很喜歡這裡！（{activeVisit.yardMatchReasons.join('、')}）
                       </p>
                     ) : (
                       <p className="text-[10px] font-bold text-[#8B6F68] bg-white/75 rounded-xl px-2 py-1">
@@ -232,7 +235,9 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
                           好感度 Lv.{activeAffinity.level} / 5
                         </span>
                         <span className="tabular-nums">
-                          {nextCap === null ? '已滿級 MAX' : `${activeAffinity.exp} / ${nextCap}`}
+                          {nextCap === null
+                            ? '已滿級 MAX'
+                            : `${formatAffinityExp(activeAffinity.exp)} / ${nextCap}`}
                         </span>
                       </div>
                       <div className="h-2 rounded-full bg-white/80 border border-[#EED9D0] overflow-hidden">
@@ -275,6 +280,20 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
                     </button>
                   )}
                 </div>
+
+                {onOpenVisitorStudio && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenVisitorStudio(activeVisit.visitorId);
+                    }}
+                    className="w-full min-h-[42px] rounded-2xl bg-gradient-to-r from-[#FF7A9E] to-[#F59E0B] text-white text-xs font-extrabold shadow-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.99] transition"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>🎨 前往攝影棚與{activeVisitorDef.speciesLabel}合影（姿勢・濾鏡・相框）</span>
+                  </button>
+                )}
               </div>
 
               {/* Feeding Section */}
@@ -285,7 +304,7 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
                       選擇食材或點心招待（本次 {activeVisit.fedCount}/{activeVisit.maxFeedCount} 次）
                     </h4>
                     <p className="text-[10px] font-bold text-[#8E756E]">
-                      餵喜歡的食物可獲得較多好感與禮物；不喜歡的食物也不會扣分喔！
+                      最愛 +2 好感 · 普通 +1 · 不喜歡 +0.5（絕不懲罰扣分，放心招待！）
                     </p>
                   </div>
                 </div>
@@ -454,7 +473,7 @@ export const VisitorModal: React.FC<VisitorModalProps> = ({
                         不喜歡：{visitor.preference.dislikedTagsLabel}
                       </span>
                       <span className="px-2 py-0.5 rounded-lg bg-white/85 border border-[#EAD9D0] text-[#6E544E] tabular-nums">
-                        累積招待 {aff?.totalFed ?? 0} 次 · {nextCap ? `${exp}/${nextCap}` : 'MAX'}
+                        累積招待 {aff?.totalFed ?? 0} 次 · {nextCap ? `${formatAffinityExp(exp)}/${nextCap}` : 'MAX'}
                       </span>
                     </div>
 

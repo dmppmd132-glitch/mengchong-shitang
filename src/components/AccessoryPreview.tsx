@@ -607,6 +607,36 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="0" cy="-2" r="2.4" fill="#FFE066" />
         </g>
       )}
+      {accessoryId === 'town_deer_antlers' && (
+        <g transform="translate(32, 36)">
+          <path d="M -20 8 Q 0 -2 20 8" fill="none" stroke="#8C5630" strokeWidth="4.2" strokeLinecap="round" />
+          <path d="M -12 2 L -18 -18 M -15 -8 L -23 -11 M 12 2 L 18 -18 M 15 -8 L 23 -11" fill="none" stroke="#8C5630" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="-21" cy="-12" rx="4.5" ry="2.8" transform="rotate(-24 -21 -12)" fill="#77C986" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="19" cy="-13" r="3.4" fill="#FF6B8B" stroke="#5A3E36" strokeWidth="1.8" />
+        </g>
+      )}
+      {accessoryId === 'town_duck_hat' && (
+        <g transform="translate(32, 36)">
+          <path d="M -20 4 C -20 -16 20 -16 20 4 Z" fill="#FFE474" stroke="#5A3E36" strokeWidth="2.6" />
+          <ellipse cx="0" cy="6" rx="24" ry="6" fill="#FFCC4D" stroke="#5A3E36" strokeWidth="2.6" />
+          <ellipse cx="0" cy="7" rx="9" ry="4" fill="#FF9B3D" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="-7" cy="-3" r="2.2" fill="#5A3E36" />
+          <circle cx="7" cy="-3" r="2.2" fill="#5A3E36" />
+        </g>
+      )}
+      {accessoryId === 'town_fox_tail' && (
+        <g transform="translate(32, 34)">
+          <path
+            d="M -18 14 C -24 -10 2 -22 18 -10 C 24 -4 20 12 6 16 C -6 19 -14 18 -18 14 Z"
+            fill="#F2843C"
+            stroke="#5A3E36"
+            strokeWidth="2.8"
+            strokeLinejoin="round"
+          />
+          <path d="M 8 -14 C 18 -11 22 0 15 9 C 10 4 7 -5 8 -14 Z" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="-12" cy="11" r="4" fill="#FFE066" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
     </svg>
   );
 };

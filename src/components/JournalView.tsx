@@ -21,6 +21,7 @@ import { getRoundnessTier } from '../data/growth';
 import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
 import {
+  ActiveTownLocationId,
   CloudSyncStatus,
   CloudUser,
   EncyclopediaState,
@@ -90,7 +91,10 @@ interface JournalViewProps {
   onShareRecapToBoard?: (recap: MonthlyRecap) => Promise<string | null>;
   onShareTextToBoard?: (title: string, body: string) => Promise<string | null>;
   onGoToKitchen?: (recipeId?: string) => void;
+  onCraftStudioRecipe?: (recipeId: string) => void;
   onOpenPetList?: () => void;
+  onClaimTownEncyclopediaReward?: (locationId: ActiveTownLocationId) => void;
+  onOpenTownMap?: (locationId?: ActiveTownLocationId) => void;
 }
 
 interface ChartPoint {
@@ -148,7 +152,10 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onShareRecapToBoard,
   onShareTextToBoard,
   onGoToKitchen,
+  onCraftStudioRecipe,
   onOpenPetList,
+  onClaimTownEncyclopediaReward,
+  onOpenTownMap,
 }) => {
   const [section, setSection] = useState<JournalSection>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
@@ -389,13 +396,23 @@ export const JournalView: React.FC<JournalViewProps> = ({
           encyclopedia={encyclopedia}
           unlockedAccessories={unlockedAccessories}
           house={house}
+          visitorState={game?.visitorState}
+          photoStudio={game?.photoStudio}
+          unlockedPhotoPoses={game?.memoryAlbum.unlockedPhotoPoses}
+          unlockedPhotoFrames={game?.memoryAlbum.unlockedPhotoFrames}
+          coins={game?.coins}
           ingredients={game?.ingredients}
           favoriteFoodIds={getPetSpeciesInfo(pet.species).favoriteFoodIds}
           eventOwnedCatalogIds={game ? getEventCarryoverCatalogOwnedIds(game) : []}
           eventEnded={game?.seasonalEvent?.status === 'ended'}
+          game={game}
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
           onGoToKitchen={onGoToKitchen}
+          onCraftStudioRecipe={onCraftStudioRecipe}
+          onOpenStudio={() => onOpenWardrobePhotoMode?.('wardrobe')}
+          onClaimTownEncyclopediaReward={onClaimTownEncyclopediaReward}
+          onOpenTownMap={onOpenTownMap}
         />
       ) : section === 'evolution' ? (
         <EvolutionAtlasView

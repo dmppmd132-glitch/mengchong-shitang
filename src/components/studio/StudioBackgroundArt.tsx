@@ -414,6 +414,249 @@ export const StudioBackgroundArt: React.FC<StudioBackgroundArtProps> = ({
           </svg>
         );
 
+      case 'bird_treetop_sky':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBirdSky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8FD4FF" />
+                <stop offset="65%" stopColor="#DFF4FF" />
+                <stop offset="100%" stopColor="#D7F2C7" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBirdSky)" />
+            <circle cx="298" cy="40" r="22" fill="#FFE680" opacity="0.92" />
+            <g fill="#FFFFFF" opacity="0.9">
+              <circle cx="58" cy="52" r="18" />
+              <circle cx="78" cy="46" r="22" />
+              <circle cx="100" cy="54" r="16" />
+              <circle cx="210" cy="42" r="15" />
+              <circle cx="230" cy="40" r="18" />
+            </g>
+            {/* Lush Oak Treetop Canopy & Branches */}
+            <path d="M0,168 Q180,150 360,166 L360,220 L0,220 Z" fill="#95D67B" />
+            <path d="M-8,124 Q64,88 128,108" fill="none" stroke="#8C593B" strokeWidth="10" strokeLinecap="round" />
+            <path d="M368,116 Q296,86 244,104" fill="none" stroke="#8C593B" strokeWidth="10" strokeLinecap="round" />
+            {[16, 52, 88, 276, 314, 348].map((cx, i) => (
+              <circle key={cx} cx={cx} cy={i % 2 === 0 ? 74 : 92} r="28" fill="#5CB86E" opacity="0.9" />
+            ))}
+            {/* Cute Hanging Wooden Bird Feeder */}
+            <line x1="76" y1="98" x2="76" y2="122" stroke="#6E473B" strokeWidth="2.5" />
+            <polygon points="58,124 76,112 94,124" fill="#D97A54" />
+            <rect x="63" y="124" width="26" height="20" rx="3" fill="#FFF3DA" stroke="#8C593B" strokeWidth="2" />
+          </svg>
+        );
+
+      case 'squirrel_acorn_forest':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgAcornForest" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFE1A8" />
+                <stop offset="65%" stopColor="#FFF5E0" />
+                <stop offset="100%" stopColor="#E4D29E" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgAcornForest)" />
+            <circle cx="62" cy="44" r="24" fill="#FFD166" opacity="0.85" />
+            {/* Autumn Trees */}
+            {[36, 90, 278, 326].map((tx, idx) => (
+              <g key={tx} transform={`translate(${tx}, ${idx % 2 === 0 ? 74 : 84})`}>
+                <rect x="-7" y="40" width="14" height="58" fill="#8D5B4C" />
+                <circle cx="0" cy="14" r="34" fill={idx % 2 === 0 ? '#E89242' : '#D97236'} opacity="0.9" />
+                <circle cx="-18" cy="24" r="22" fill="#F2B154" opacity="0.85" />
+              </g>
+            ))}
+            {/* Golden Forest Floor & Acorns */}
+            <path d="M0,164 Q180,150 360,164 L360,220 L0,220 Z" fill="#C9A86A" />
+            {[56, 108, 256, 312].map((ax, i) => (
+              <g key={ax} transform={`translate(${ax}, ${178 + (i % 2) * 10})`}>
+                <ellipse cx="0" cy="4" rx="7" ry="8" fill="#C47C3C" />
+                <path d="M-8,0 Q0,-8 8,0 Z" fill="#6E4124" />
+              </g>
+            ))}
+          </svg>
+        );
+
+      case 'rabbit_carrot_garden':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgCarrotGarden" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFE0EC" />
+                <stop offset="56%" stopColor="#FFF8EE" />
+                <stop offset="100%" stopColor="#D7F3C4" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgCarrotGarden)" />
+            {/* Floral Trellis Arch */}
+            <path d="M52,168 A128,118 0 0,1 308,168" fill="none" stroke="#9ED685" strokeWidth="9" />
+            {[74, 128, 180, 232, 286].map((fx, i) => (
+              <g key={fx} transform={`translate(${fx}, ${i === 2 ? 50 : i === 1 || i === 3 ? 66 : 104})`}>
+                <circle cx="0" cy="0" r="8" fill={i % 2 === 0 ? '#FF9EB8' : '#FFE07D'} />
+                <circle cx="0" cy="0" r="3.5" fill="#FFFFFF" />
+              </g>
+            ))}
+            {/* Rolling Lawn & Carrot Garden Patches */}
+            <path d="M0,156 Q180,140 360,156 L360,220 L0,220 Z" fill="#9DE07F" />
+            {[46, 86, 274, 314].map((cx, i) => (
+              <g key={cx} transform={`translate(${cx}, ${178 + (i % 2) * 8})`}>
+                <ellipse cx="0" cy="6" rx="14" ry="5" fill="#8C593B" />
+                <polygon points="0,6 -5,-6 5,-6" fill="#FF7E38" />
+                <circle cx="-3" cy="-9" r="4" fill="#4EB55B" />
+                <circle cx="3" cy="-9" r="4" fill="#4EB55B" />
+              </g>
+            ))}
+          </svg>
+        );
+
+      case 'forest_cabin':
+      case 'acorn_trail':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgTownForest" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={backgroundId === 'forest_cabin' ? '#CDEFD6' : '#FFE4B5'} />
+                <stop offset="65%" stopColor="#F4F8E6" />
+                <stop offset="100%" stopColor="#B8DB9B" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgTownForest)" />
+            <circle cx="305" cy="40" r="22" fill="#FFE07D" opacity="0.85" />
+            {[36, 86, 286, 330].map((tx, i) => (
+              <g key={tx} transform={`translate(${tx}, ${i % 2 === 0 ? 78 : 88})`}>
+                <rect x="-6" y="34" width="12" height="58" fill="#8D5B4C" />
+                <polygon points="0,-32 -28,22 28,22" fill={i % 2 === 0 ? '#4B9B63' : '#65B576'} />
+                <polygon points="0,-10 -32,42 32,42" fill={i % 2 === 0 ? '#3E8754' : '#52A164'} />
+              </g>
+            ))}
+            {backgroundId === 'forest_cabin' && (
+              <g transform="translate(222, 108)">
+                <rect x="0" y="18" width="66" height="46" rx="4" fill="#E3B382" stroke="#5A3E36" strokeWidth="2.5" />
+                <polygon points="-8,20 33,-10 74,20" fill="#B97343" stroke="#5A3E36" strokeWidth="2.5" strokeLinejoin="round" />
+                <rect x="24" y="36" width="16" height="28" rx="3" fill="#8D5632" />
+                <rect x="8" y="32" width="11" height="11" rx="2" fill="#FFF3B8" />
+              </g>
+            )}
+            <path d="M0,162 Q180,148 360,162 L360,220 L0,220 Z" fill="#90CA7C" />
+            {backgroundId === 'acorn_trail' && (
+              <path d="M88,220 Q168,176 235,158 L266,162 Q216,184 196,220 Z" fill="#E6C596" opacity="0.9" />
+            )}
+          </svg>
+        );
+
+      case 'lakeside_sunset':
+      case 'waterfront_bridge':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgTownLake" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={backgroundId === 'lakeside_sunset' ? '#FFB59E' : '#9FDFFF'} />
+                <stop offset="52%" stopColor={backgroundId === 'lakeside_sunset' ? '#FFE6BA' : '#EAF9FF'} />
+                <stop offset="100%" stopColor={backgroundId === 'lakeside_sunset' ? '#7BBEE8' : '#73CEEE'} />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgTownLake)" />
+            {backgroundId === 'lakeside_sunset' ? (
+              <circle cx="180" cy="96" r="34" fill="#FFD17A" opacity="0.88" />
+            ) : (
+              <>
+                <ellipse cx="82" cy="40" rx="28" ry="12" fill="#FFFFFF" opacity="0.88" />
+                <ellipse cx="282" cy="36" rx="24" ry="11" fill="#FFFFFF" opacity="0.84" />
+              </>
+            )}
+            <path d="M0,126 Q180,118 360,126 L360,220 L0,220 Z" fill={backgroundId === 'lakeside_sunset' ? '#70B0DC' : '#6CC8ED'} />
+            <path d="M18,144 Q180,104 342,144" fill="none" stroke="#B67642" strokeWidth="10" strokeLinecap="round" />
+            <path d="M18,132 Q180,92 342,132" fill="none" stroke="#D99B5B" strokeWidth="3.5" />
+            <path d="M40,182 Q100,174 160,182 M210,192 Q270,184 330,192" stroke="#EAF9FF" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+          </svg>
+        );
+
+      case 'market_night':
+      case 'wooden_stalls':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgTownMarket" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={backgroundId === 'market_night' ? '#362D66' : '#FFE3BD'} />
+                <stop offset="68%" stopColor={backgroundId === 'market_night' ? '#6D4F7D' : '#FFF4E0'} />
+                <stop offset="100%" stopColor="#D7B28E" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgTownMarket)" />
+            {backgroundId === 'market_night' && (
+              <>
+                <circle cx="52" cy="32" r="2.2" fill="#FFE680" />
+                <circle cx="136" cy="24" r="2.6" fill="#FFE680" />
+                <circle cx="294" cy="30" r="2.2" fill="#FFE680" />
+              </>
+            )}
+            <path d="M0,46 Q90,64 180,46 Q270,64 360,46" fill="none" stroke="#5A3E36" strokeWidth="2.5" />
+            {[45, 115, 245, 315].map((lx) => (
+              <circle key={lx} cx={lx} cy="56" r="10" fill="#FF9854" stroke="#5A3E36" strokeWidth="2" />
+            ))}
+            <rect x="24" y="106" width="84" height="62" rx="4" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="2.2" />
+            <path d="M18,106 L26,84 H106 L114,106 Z" fill="#FF7B8E" stroke="#5A3E36" strokeWidth="2.2" />
+            <rect x="252" y="106" width="84" height="62" rx="4" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="2.2" />
+            <path d="M246,106 L254,84 H334 L342,106 Z" fill="#77C986" stroke="#5A3E36" strokeWidth="2.2" />
+            <rect x="0" y="164" width="360" height="56" fill="#C9A27A" />
+          </svg>
+        );
+
+      case 'dream_lodge_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgDreamLodge" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFD9EB" />
+                <stop offset="55%" stopColor="#FFF4EA" />
+                <stop offset="100%" stopColor="#D7F3CE" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgDreamLodge)" />
+            <rect x="108" y="54" width="144" height="114" rx="12" fill="#FFFDF6" stroke="#5A3E36" strokeWidth="2.6" />
+            <polygon points="94,60 180,14 266,60" fill="#FF86B0" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+            <circle cx="180" cy="38" r="8" fill="#FFE066" />
+            <path d="M126,64 Q180,82 234,64" fill="none" stroke="#FFD54F" strokeWidth="3" />
+            <path d="M0,164 Q180,150 360,164 L360,220 L0,220 Z" fill="#9EE08A" />
+          </svg>
+        );
+
       case 'christmas_cabin':
       default:
         return (

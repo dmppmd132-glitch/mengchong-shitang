@@ -11,6 +11,7 @@ import {
   PetExpression,
   PiggyActionState,
   SharedHouse,
+  TownMapState,
   VisitorSystemState,
   YardMoodBuffPeriod,
 } from '../../types';
@@ -65,6 +66,8 @@ interface FarmSceneBannerProps {
   onGoToFarm: () => void;
   onOpenVisitorModal?: () => void;
   onOpenTownOrders?: () => void;
+  townMap?: TownMapState;
+  onOpenTownMap?: () => void;
 }
 
 export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
@@ -82,6 +85,8 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   onGoToFarm,
   onOpenVisitorModal,
   onOpenTownOrders,
+  townMap,
+  onOpenTownMap,
 }) => {
   const { fenceId, flowerbedId, signId } = house.activeFarmDecor;
   const hasSprinkler = house.farmUpgrades.sprinklerLevel > 0;
@@ -255,7 +260,7 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
             <button
               type="button"
               onClick={onOpenVisitorModal}
-              className="absolute left-1/2 top-1 z-[65] -translate-x-1/2 max-w-[92%] rounded-full border-2 border-[#6B5344] bg-[#FFFDF8]/95 px-3 py-1 text-[11px] font-extrabold text-[#B83B64] shadow-sm inline-flex items-center gap-1.5 hover:bg-white active:scale-95 transition whitespace-nowrap"
+              className="absolute left-1/2 top-1 z-[65] -translate-x-1/2 max-w-[94%] rounded-2xl border-2 border-[#6B5344] bg-[#FFFDF8]/95 px-2.5 py-1 text-[11px] font-extrabold text-[#B83B64] shadow-sm inline-flex flex-wrap items-center justify-center gap-1 hover:bg-white active:scale-95 transition"
             >
               <span>{VISITOR_BY_ID[visitorState.activeVisit.visitorId].emoji}</span>
               <span>
@@ -263,7 +268,13 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
                   ? '庭院好像有客人來了！'
                   : `${VISITOR_BY_ID[visitorState.activeVisit.visitorId].name}正在庭院作客`}
               </span>
-              <span className="text-[10px] text-[#1F6B54]">點擊招待 ›</span>
+              {visitorState.activeVisit.likesYard ? (
+                <span className="rounded-full bg-[#E6F8F1] border border-[#9ADBC2] px-1.5 py-0.2 text-[9.5px] font-extrabold text-[#1F6B54] whitespace-nowrap">
+                  訪客很喜歡這裡！
+                </span>
+              ) : (
+                <span className="text-[10px] text-[#1F6B54] whitespace-nowrap">點擊招待 ›</span>
+              )}
             </button>
           )}
 
@@ -289,6 +300,17 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
                 size={60}
                 showAffinityBadge={visitorState.affinities[visitorState.activeVisit.visitorId]?.level}
               />
+            </button>
+          )}
+
+          {/* Quick Town Map & Visitor Hut Chip */}
+          {onOpenTownMap && (
+            <button
+              type="button"
+              onClick={onOpenTownMap}
+              className="absolute left-2 bottom-2 z-40 rounded-full border-[1.5px] border-[#6B5344] bg-[#E8F8F1]/95 px-2.5 py-1 text-[10px] font-extrabold text-[#1F6B54] shadow-xs hover:bg-white active:scale-95 transition"
+            >
+              🗺️ 小鎮地圖 · 小屋 Lv.{townMap?.visitorHut.level ?? 1}
             </button>
           )}
 

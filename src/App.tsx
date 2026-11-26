@@ -30,6 +30,7 @@ import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SharedPetModal } from './components/SharedPetModal';
 import { TownOrderBoardModal } from './components/visitors/TownOrderBoardModal';
 import { VisitorModal } from './components/visitors/VisitorModal';
+import { TownMapModal, TownMapTab } from './components/town/TownMapModal';
 import { WardrobePhotoModal } from './components/WardrobePhotoModal';
 import { WardrobeView } from './components/WardrobeView';
 import { ACCESSORY_THEME_BY_ID } from './data/accessories';
@@ -80,6 +81,7 @@ import {
 } from './services/sharedPet';
 import {
   Accessory,
+  ActiveTownLocationId,
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
@@ -120,6 +122,8 @@ import {
   TabKey,
   ThemeSetId,
   TitleId,
+  TownVisitorId,
+  VisitorHutFacilityId,
   VisitorId,
   VisitorOffering,
   VisitorTreatId,
@@ -247,10 +251,32 @@ import {
   syncDailyTasks,
 } from './utils/storage';
 import {
+  advancePhotoTownOrders,
   claimTownOrderReward,
   deliverTownOrderItem,
   syncTownOrders,
 } from './utils/townOrders';
+import {
+  advanceCoopTownExploreStep,
+  buyMarketFurniture,
+  buyTownShopItem,
+  buyVisitorHutFacility,
+  captureTownVisitorPhoto,
+  claimCoopTownReward,
+  claimLocationAllQuestsBonus,
+  claimLocationEncyclopediaReward,
+  claimLocationQuestReward,
+  deliverMarketDish,
+  enterTownLocation,
+  feedTownVisitor,
+  forageForestAcorn,
+  recordTownLocationPhoto,
+  settleLakeFishingMinigame,
+  spawnTownLocationVisitor,
+  syncCoopTownExploration,
+  syncTownMapState,
+  upgradeVisitorHut,
+} from './utils/townMap';
 import {
   applyEventOnCookStrawberry,
   applyEventOnFeedStrawberry,
@@ -319,6 +345,10 @@ export default function App() {
   const [eventModalOpen, setEventModalOpen] = useState<boolean>(false);
   const [visitorModalOpen, setVisitorModalOpen] = useState<boolean>(false);
   const [townOrderModalOpen, setTownOrderModalOpen] = useState<boolean>(false);
+  const [townMapOpen, setTownMapOpen] = useState<boolean>(false);
+  const [townMapInitialTab, setTownMapInitialTab] = useState<TownMapTab>('map');
+  const [townMapFocusLocationId, setTownMapFocusLocationId] =
+    useState<ActiveTownLocationId | null>(null);
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
@@ -326,6 +356,11 @@ export default function App() {
   const [wardrobePhotoTab, setWardrobePhotoTab] = useState<
     'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog'
   >('shoot');
+  const [wardrobePhotoVisitorId, setWardrobePhotoVisitorId] = useState<VisitorId | null>(null);
+  const [wardrobePhotoTownLocationId, setWardrobePhotoTownLocationId] =
+    useState<ActiveTownLocationId | null>(null);
+  const [wardrobePhotoTownVisitorId, setWardrobePhotoTownVisitorId] =
+    useState<TownVisitorId | null>(null);
   const [shareCardPayload, setShareCardPayload] = useState<ShareCardPayload | null>(null);
   const [selectedMemoryEntry, setSelectedMemoryEntry] = useState<MemoryEntry | null>(null);
   const [wardrobeReactionText, setWardrobeReactionText] = useState<string | null>(null);
@@ -659,8 +694,12 @@ export default function App() {
         const prevPartnerEventIds = new Set(
           gameRef.current.coop.offlineEvents.map((ev) => ev.id)
         );
-        const newEventCoop = getOfflinePartnerEvents(nextMerged.coop, cloudUser.id).find(
-          (ev) => ev.gameType === 'event_coop' && !prevPartnerEventIds.has(ev.id)
+        const newPartnerCoopEv = getOfflinePartnerEvents(nextMerged.coop, cloudUser.id).find(
+          (ev) =>
+            (ev.gameType === 'event_coop' ||
+              ev.gameType === 'visitor_coop' ||
+              ev.gameType === 'town_coop') &&
+            !prevPartnerEventIds.has(ev.id)
         );
         const nextMergedActive = getActivePet(nextMerged);
         applyCloudStateLocally(nextMerged, `夥伴剛剛照顧了${nextMergedActive.name}與小屋！`);
@@ -669,10 +708,16 @@ export default function App() {
           ...prev.slice(-4),
           {
             id: fbId,
-            text: newEventCoop
-              ? `${newEventCoop.actorName} ${newEventCoop.summary}`
+            text: newPartnerCoopEv
+              ? `${newPartnerCoopEv.actorName} ${newPartnerCoopEv.summary}`
               : '夥伴剛更新了共養空間！',
-            emoji: newEventCoop ? '🍓' : '💞',
+            emoji: newPartnerCoopEv
+              ? newPartnerCoopEv.gameType === 'event_coop'
+                ? '🍓'
+                : newPartnerCoopEv.gameType === 'town_coop'
+                ? '🗺️'
+                : '🐾'
+              : '💞',
           },
         ]);
         window.setTimeout(() => {
@@ -701,19 +746,28 @@ export default function App() {
             gameRef.current.coop.offlineEvents.map((ev) => ev.id)
           );
           const mergedState = mergeCoopRemoteState(gameRef.current, res.state, cloudUser.id);
-          const newEventCoop = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
-            (ev) => ev.gameType === 'event_coop' && !prevPartnerEventIds.has(ev.id)
+          const newPartnerCoopEv = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
+            (ev) =>
+              (ev.gameType === 'event_coop' ||
+                ev.gameType === 'visitor_coop' ||
+                ev.gameType === 'town_coop') &&
+              !prevPartnerEventIds.has(ev.id)
           );
           const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
           applyCloudStateLocally({ ...mergedState, dialogue: evaluatedDialogue });
-          if (newEventCoop) {
+          if (newPartnerCoopEv) {
             const fbId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             setFeedbacks((prev) => [
               ...prev.slice(-4),
               {
                 id: fbId,
-                text: `${newEventCoop.actorName} ${newEventCoop.summary}`,
-                emoji: '🍓',
+                text: `${newPartnerCoopEv.actorName} ${newPartnerCoopEv.summary}`,
+                emoji:
+                  newPartnerCoopEv.gameType === 'event_coop'
+                    ? '🍓'
+                    : newPartnerCoopEv.gameType === 'town_coop'
+                    ? '🗺️'
+                    : '🐾',
               },
             ]);
             window.setTimeout(() => {
@@ -1062,6 +1116,8 @@ export default function App() {
         draft = syncTownOrders(draft, now);
         draft = syncVisitorSystem(draft, now).nextState;
         draft = syncSeasonalEventState(draft, new Date(now));
+        draft = syncTownMapState(draft, new Date(now));
+        draft = syncCoopTownExploration(draft, hasShared, new Date(now));
         const nextDialogue = evaluateAndSelectDialogue(draft, currentUserId);
         return {
           ...draft,
@@ -1089,8 +1145,13 @@ export default function App() {
       lastAnnouncedVisitIdRef.current = activeVisit.visitId;
       soundFX.heart(game.soundEnabled);
       const info = VISITOR_BY_ID[activeVisit.visitorId];
-      pushFeedback('庭院好像有客人來了！', info.emoji);
-      setSpeech('庭院好像有客人來了！快去看看是誰吧～');
+      if (activeVisit.likesYard) {
+        pushFeedback('庭院好像有客人來了！訪客很喜歡這裡！', info.emoji);
+        setSpeech(`庭院好像有客人來了！${info.speciesLabel}看起來好喜歡這裡的佈置～`);
+      } else {
+        pushFeedback('庭院好像有客人來了！', info.emoji);
+        setSpeech('庭院好像有客人來了！快去看看是誰吧～');
+      }
     }
   }, [
     game.visitorState?.activeVisit?.visitId,
@@ -3779,13 +3840,20 @@ export default function App() {
     });
     if (!res.ok) return;
     soundFX.heart(game.soundEnabled);
-    const capturedPhoto = res.nextState.house.photos[0];
+    const capturedPhoto = res.photo ?? res.nextState.house.photos[0];
     let finalState = res.nextState;
     if (shareToBoard && finalState.coop.coopVisitor?.visitorId === visitorId) {
       finalState = markCoopVisitorPhotoShared(finalState);
     }
+    const orderRes = capturedPhoto
+      ? advancePhotoTownOrders(finalState, capturedPhoto)
+      : { nextState: finalState, newlyCompletedOrderTitles: [] };
+    finalState = orderRes.nextState;
     setGame(finalState);
     if (res.notice) pushFeedback(res.notice, '📸');
+    for (const orderTitle of orderRes.newlyCompletedOrderTitles) {
+      pushFeedback(`完成攝影訂單「${orderTitle}」！可領取攝影材料囉`, '📋');
+    }
     if (shareToBoard && capturedPhoto) {
       void handleSharePhotoToBoard(capturedPhoto, capturedPhoto.caption);
     }
@@ -3919,6 +3987,8 @@ export default function App() {
     setGrowthRoadmapOpen(false);
     setVisitorModalOpen(false);
     setTownOrderModalOpen(false);
+    setTownMapOpen(false);
+    setTownMapFocusLocationId(null);
     setEventModalOpen(false);
     setResetModalOpen(false);
   };
@@ -3933,11 +4003,213 @@ export default function App() {
 
   const handleOpenScenePhoto = (
     scene: PhotoScene = 'wardrobe',
-    tab: 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog' = 'shoot'
+    tab: 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog' = 'shoot',
+    visitorId: VisitorId | null = null,
+    townLocationId: ActiveTownLocationId | null = null,
+    townVisitorId: TownVisitorId | null = null
   ) => {
     setWardrobePhotoScene(scene);
     setWardrobePhotoTab(tab);
+    setWardrobePhotoVisitorId(visitorId);
+    setWardrobePhotoTownLocationId(townLocationId);
+    setWardrobePhotoTownVisitorId(townVisitorId);
     setWardrobePhotoOpen(true);
+  };
+
+  const handleOpenVisitorStudio = (visitorId?: VisitorId) => {
+    const targetId =
+      visitorId ?? gameRef.current.visitorState?.activeVisit?.visitorId ?? 'bird';
+    setVisitorModalOpen(false);
+    setTownOrderModalOpen(false);
+    handleOpenScenePhoto('visitor', 'shoot', targetId);
+  };
+
+  const handleOpenTownMap = (
+    tab: TownMapTab = 'map',
+    locationId: ActiveTownLocationId | null = null
+  ) => {
+    setGame((prev) =>
+      syncCoopTownExploration(syncTownMapState(prev), Boolean(sharedRoom))
+    );
+    setTownMapInitialTab(tab);
+    setTownMapFocusLocationId(locationId);
+    setTownMapOpen(true);
+  };
+
+  const handleOpenTownLocationStudio = (
+    locationId: ActiveTownLocationId,
+    visitorId?: TownVisitorId | null
+  ) => {
+    setTownMapOpen(false);
+    handleOpenScenePhoto('town', 'shoot', null, locationId, visitorId ?? null);
+  };
+
+  const handleTownEnterLocation = (locationId: ActiveTownLocationId) => {
+    const res = enterTownLocation(gameRef.current, locationId);
+    setGame(res.nextState);
+    if (res.ok && res.notice) {
+      soundFX.heart(game.soundEnabled);
+      pushFeedback(res.notice, '🗺️');
+    }
+    return res;
+  };
+
+  const handleTownSpawnVisitor = (locationId: ActiveTownLocationId) => {
+    const res = spawnTownLocationVisitor(gameRef.current, locationId);
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) pushFeedback(res.notice, '🐾');
+    }
+    return res;
+  };
+
+  const handleTownFeedVisitor = (
+    locationId: ActiveTownLocationId,
+    visitId: string,
+    offerings: VisitorOffering[]
+  ) => {
+    const visit = gameRef.current.townMap?.locations[locationId]?.activeVisitors.find(
+      (v) => v.visitId === visitId
+    );
+    const res = feedTownVisitor(gameRef.current, locationId, visitId, offerings);
+    if (!res.ok) return res;
+    let nextState = res.nextState;
+    if (locationId === 'lake_park' && visit?.visitorId === 'duck') {
+      const coopRes = advanceCoopTownExploreStep(
+        nextState,
+        'duck_care',
+        currentUserId,
+        actorName,
+        1
+      );
+      nextState = coopRes.nextState;
+      if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
+    }
+    soundFX.heart(game.soundEnabled);
+    setGame(nextState);
+    if (res.notice) pushFeedback(res.notice, '🍪');
+    return { ...res, nextState };
+  };
+
+  const handleTownForageAcorn = () => {
+    const res = forageForestAcorn(gameRef.current);
+    if (!res.ok) return res;
+    const coopRes = advanceCoopTownExploreStep(
+      res.nextState,
+      'acorn',
+      currentUserId,
+      actorName,
+      1
+    );
+    soundFX.pop(game.soundEnabled);
+    setGame(coopRes.nextState);
+    if (res.notice) pushFeedback(res.notice, '🌰');
+    if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
+    return { ...res, nextState: coopRes.nextState };
+  };
+
+  const handleTownSettleFishing = (caughtCount: number) => {
+    const res = settleLakeFishingMinigame(gameRef.current, caughtCount);
+    if (!res.ok) return res;
+    const coopRes = advanceCoopTownExploreStep(
+      res.nextState,
+      'fishing',
+      currentUserId,
+      actorName,
+      1
+    );
+    soundFX.levelUp(game.soundEnabled);
+    setGame(coopRes.nextState);
+    if (res.notice) pushFeedback(res.notice, '🎣');
+    if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
+    return { ...res, nextState: coopRes.nextState };
+  };
+
+  const handleTownDeliverMarketDish = (foodId: string) => {
+    const res = deliverMarketDish(gameRef.current, foodId);
+    if (!res.ok) return res;
+    soundFX.pop(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🍱');
+    return res;
+  };
+
+  const handleTownBuyMarketFurniture = (itemId: string) => {
+    const res = buyMarketFurniture(gameRef.current, itemId);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🪑');
+    return res;
+  };
+
+  const handleTownClaimLocationQuest = (
+    locationId: ActiveTownLocationId,
+    questId: string
+  ) => {
+    const res = claimLocationQuestReward(gameRef.current, locationId, questId);
+    if (!res.ok) return res;
+    soundFX.pop(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🎫');
+    return res;
+  };
+
+  const handleTownClaimAllQuestsBonus = (locationId: ActiveTownLocationId) => {
+    const res = claimLocationAllQuestsBonus(gameRef.current, locationId);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🎉');
+    return res;
+  };
+
+  const handleTownUpgradeHut = () => {
+    const res = upgradeVisitorHut(gameRef.current);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🏡');
+    return res;
+  };
+
+  const handleTownBuyFacility = (facilityId: VisitorHutFacilityId) => {
+    const res = buyVisitorHutFacility(gameRef.current, facilityId);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🛠️');
+    return res;
+  };
+
+  const handleTownBuyShopItem = (shopItemId: string) => {
+    const res = buyTownShopItem(gameRef.current, shopItemId);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🛍️');
+    return res;
+  };
+
+  const handleTownClaimCoopReward = () => {
+    const res = claimCoopTownReward(gameRef.current, currentUserId);
+    if (!res.ok) return res;
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '💞');
+    return res;
+  };
+
+  const handleClaimTownEncyclopediaReward = (locationId: ActiveTownLocationId) => {
+    const res = claimLocationEncyclopediaReward(gameRef.current, locationId);
+    if (!res.ok) {
+      if (res.error) pushFeedback(res.error, '💡');
+      return;
+    }
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    if (res.notice) pushFeedback(res.notice, '🏆');
   };
 
   const handleSaveWardrobePhoto = (params: {
@@ -3951,6 +4223,9 @@ export default function App() {
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
     duoPet?: DuoPhotoPetInfo;
+    visitorId?: VisitorId;
+    townLocationId?: ActiveTownLocationId;
+    townVisitorId?: TownVisitorId;
     isCoopPhoto?: boolean;
   }): RoomPhotoRecord => {
     soundFX.heart(game.soundEnabled);
@@ -3961,13 +4236,73 @@ export default function App() {
       actorName,
       hasSharedRoom: Boolean(sharedRoom),
     });
-    setGame(evtRes.nextState);
+    const orderRes = advancePhotoTownOrders(evtRes.nextState, photo);
+    let finalState = orderRes.nextState;
+    if (params.scene === 'town' && params.townLocationId) {
+      const townPhotoRes = recordTownLocationPhoto(
+        finalState,
+        photo,
+        params.townLocationId,
+        params.townVisitorId
+      );
+      finalState = townPhotoRes.nextState;
+      if (townPhotoRes.notice) {
+        pushFeedback(townPhotoRes.notice, '🗺️');
+      }
+      if (params.townVisitorId) {
+        const activeVisit = finalState.townMap?.locations[
+          params.townLocationId
+        ]?.activeVisitors.find((v) => v.visitorId === params.townVisitorId);
+        if (activeVisit) {
+          const capRes = captureTownVisitorPhoto(
+            finalState,
+            params.townLocationId,
+            activeVisit.visitId
+          );
+          finalState = capRes.nextState;
+        }
+      }
+      if (params.townLocationId === 'acorn_forest') {
+        const coopRes = advanceCoopTownExploreStep(
+          finalState,
+          'forest_photo',
+          currentUserId,
+          actorName,
+          1
+        );
+        finalState = coopRes.nextState;
+        if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
+      } else if (
+        params.townLocationId === 'lake_park' &&
+        params.townVisitorId === 'duck'
+      ) {
+        const coopRes = advanceCoopTownExploreStep(
+          finalState,
+          'duck_care',
+          currentUserId,
+          actorName,
+          1
+        );
+        finalState = coopRes.nextState;
+        if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
+      }
+    }
+    setGame(finalState);
     pushFeedback(
-      params.duoPet ? '已儲存雙人合照到照片牆！' : '已儲存寫真到照片牆！',
+      params.duoPet
+        ? '已儲存雙人合照到照片牆！'
+        : params.visitorId
+        ? `已將與${VISITOR_BY_ID[params.visitorId].speciesLabel}的合影存入照片牆！`
+        : params.townLocationId
+        ? '已儲存小鎮地點寫真到照片牆！'
+        : '已儲存寫真到照片牆！',
       '📸'
     );
     if (evtRes.ticketsEarned > 0) {
       pushFeedback(`草莓主題寫真 +${evtRes.ticketsEarned} 草莓券`, '🍓');
+    }
+    for (const orderTitle of orderRes.newlyCompletedOrderTitles) {
+      pushFeedback(`完成攝影訂單「${orderTitle}」！可領取攝影材料囉`, '📋');
     }
     return photo;
   };
@@ -4658,6 +4993,8 @@ export default function App() {
                   seasonalEvent={game.seasonalEvent ?? null}
                   eventBadgeCount={getEventActionBadgeCount(game, currentUserId)}
                   onOpenSeasonalEvent={() => setEventModalOpen(true)}
+                  townMap={game.townMap}
+                  onOpenTownMap={() => handleOpenTownMap('map')}
                 />
               )}
 
@@ -4768,6 +5105,7 @@ export default function App() {
                   }}
                   onOpenVisitorModal={handleOpenVisitorModal}
                   onOpenTownOrders={() => setTownOrderModalOpen(true)}
+                  onOpenTownMap={() => handleOpenTownMap('map')}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
                   onTogglePhotoLike={handleTogglePhotoLike}
                   onAddPhotoComment={handleAddPhotoComment}
@@ -4820,7 +5158,12 @@ export default function App() {
                     setCanteenInitialSection('kitchen');
                     setActiveTab('canteen');
                   }}
+                  onCraftStudioRecipe={handleCraftStudioRecipe}
                   onOpenPetList={() => setActiveTab('pets')}
+                  onClaimTownEncyclopediaReward={handleClaimTownEncyclopediaReward}
+                  onOpenTownMap={(locId) =>
+                    handleOpenTownMap(locId ? 'location' : 'map', locId ?? null)
+                  }
                 />
               )}
 
@@ -4991,6 +5334,9 @@ export default function App() {
           sharedRoom={sharedRoom}
           initialScene={wardrobePhotoScene}
           initialTab={wardrobePhotoTab}
+          initialVisitorId={wardrobePhotoVisitorId}
+          initialTownLocationId={wardrobePhotoTownLocationId}
+          initialTownVisitorId={wardrobePhotoTownVisitorId}
           unlockedPoses={game.memoryAlbum.unlockedPhotoPoses}
           unlockedFrames={game.memoryAlbum.unlockedPhotoFrames}
           onSavePhoto={handleSaveWardrobePhoto}
@@ -5084,6 +5430,7 @@ export default function App() {
           onFeedVisitor={handleFeedVisitor}
           onBuyTreat={handleBuyVisitorTreat}
           onCapturePhoto={handleCaptureVisitorPhoto}
+          onOpenVisitorStudio={(vId) => handleOpenVisitorStudio(vId)}
           onOpenOrderBoard={() => {
             setVisitorModalOpen(false);
             setTownOrderModalOpen(true);
@@ -5101,6 +5448,7 @@ export default function App() {
           onContributeCoopVisitor={handleContributeCoopVisitor}
           onClaimCoopVisitorReward={handleClaimCoopVisitorReward}
           onCaptureVisitorPhoto={handleCaptureVisitorPhoto}
+          onOpenPhotoOrderStudio={(vId) => handleOpenVisitorStudio(vId)}
           onCraftShardFurniture={handleCraftShardFurniture}
           onBuyTreat={handleBuyVisitorTreat}
         />
@@ -5138,6 +5486,31 @@ export default function App() {
           }}
           onOpenSharedPet={() => setSharedModalOpen(true)}
           onSharePhotoToBoard={handleSharePhotoToBoard}
+        />
+
+        <TownMapModal
+          open={townMapOpen}
+          onClose={() => setTownMapOpen(false)}
+          game={game}
+          sharedRoom={sharedRoom}
+          currentUserId={currentUserId}
+          initialTab={townMapInitialTab}
+          initialLocationId={townMapFocusLocationId}
+          onEnterLocation={handleTownEnterLocation}
+          onSpawnVisitor={handleTownSpawnVisitor}
+          onFeedVisitor={handleTownFeedVisitor}
+          onOpenLocationPhoto={handleOpenTownLocationStudio}
+          onForageAcorn={handleTownForageAcorn}
+          onSettleFishing={handleTownSettleFishing}
+          onDeliverMarketDish={handleTownDeliverMarketDish}
+          onBuyMarketFurniture={handleTownBuyMarketFurniture}
+          onClaimLocationQuest={handleTownClaimLocationQuest}
+          onClaimLocationAllBonus={handleTownClaimAllQuestsBonus}
+          onUpgradeHut={handleTownUpgradeHut}
+          onBuyHutFacility={handleTownBuyFacility}
+          onBuyShopItem={handleTownBuyShopItem}
+          onClaimCoopTownReward={handleTownClaimCoopReward}
+          onOpenSharedPet={() => setSharedModalOpen(true)}
         />
       </div>
     </div>

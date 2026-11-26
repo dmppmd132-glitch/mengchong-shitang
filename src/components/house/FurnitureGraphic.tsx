@@ -444,6 +444,46 @@ export const FurnitureGraphic: React.FC<FurnitureGraphicProps> = ({
           </g>
         );
 
+      case 'market_acorn_stall':
+        return (
+          <g>
+            <line x1="16" y1="22" x2="16" y2="50" stroke={COCOA} strokeWidth="2.8" />
+            <line x1="48" y1="22" x2="48" y2="50" stroke={COCOA} strokeWidth="2.8" />
+            <rect x="14" y="36" width="36" height="14" rx="4" fill="#E3B382" stroke={COCOA} strokeWidth="2.2" />
+            <path d="M10,24 L16,12 H48 L54,24 Z" fill="#FF8A9E" stroke={COCOA} strokeWidth="2.2" strokeLinejoin="round" />
+            <rect x="25" y="13" width="14" height="10" fill="#FFF8EC" />
+            <ellipse cx="32" cy="33" rx="6" ry="5" fill="#C47C3C" stroke={COCOA} strokeWidth="1.8" />
+            <path d="M25,31 Q32,25 39,31 Z" fill="#7D4927" stroke={COCOA} strokeWidth="1.6" />
+          </g>
+        );
+
+      case 'market_lantern_stand':
+        return (
+          <g>
+            <path d="M22,52 H42" stroke={COCOA} strokeWidth="3" strokeLinecap="round" />
+            <line x1="26" y1="14" x2="26" y2="52" stroke={COCOA} strokeWidth="3" strokeLinecap="round" />
+            <path d="M26,16 H44" stroke={COCOA} strokeWidth="2.8" strokeLinecap="round" />
+            <line x1="41" y1="16" x2="41" y2="23" stroke={COCOA} strokeWidth="2" />
+            <ellipse cx="41" cy="31" rx="9" ry="10" fill="#FF9A5A" stroke={COCOA} strokeWidth="2.2" />
+            <ellipse cx="41" cy="31" rx="4" ry="10" fill="none" stroke="#FFE699" strokeWidth="1.6" />
+            <rect x="37" y="21" width="8" height="3" rx="1" fill={COCOA} />
+            <rect x="37" y="40" width="8" height="3" rx="1" fill={COCOA} />
+          </g>
+        );
+
+      case 'market_flower_cart':
+        return (
+          <g>
+            <rect x="14" y="28" width="32" height="14" rx="5" fill="#DDA774" stroke={COCOA} strokeWidth="2.2" />
+            <path d="M46,31 L54,24" stroke={COCOA} strokeWidth="2.8" strokeLinecap="round" />
+            <circle cx="22" cy="46" r="6" fill="#FFE6B3" stroke={COCOA} strokeWidth="2.2" />
+            <circle cx="40" cy="46" r="6" fill="#FFE6B3" stroke={COCOA} strokeWidth="2.2" />
+            <circle cx="22" cy="24" r="5" fill="#FF8EB0" stroke={COCOA} strokeWidth="1.8" />
+            <circle cx="31" cy="21" r="5.5" fill="#FFE066" stroke={COCOA} strokeWidth="1.8" />
+            <circle cx="40" cy="25" r="5" fill="#8CD9B0" stroke={COCOA} strokeWidth="1.8" />
+          </g>
+        );
+
       default: {
         const item = ROOM_ITEM_BY_ID[itemId];
         return (

@@ -8,6 +8,7 @@ import {
 } from '../data/memories';
 import { PHOTO_SCENES } from '../data/photoStudio';
 import {
+  ActiveTownLocationId,
   DialogueLine,
   GameMilestoneId,
   GameState,
@@ -29,6 +30,8 @@ import {
   SharedMemory,
   SharedMemoryKey,
   SharedPetRoom,
+  TownVisitorId,
+  VisitorId,
 } from '../types';
 import type { DuoPhotoPetInfo } from '../types/house';
 import { getGrowthStage } from '../data/growth';
@@ -644,6 +647,9 @@ export function saveScenePhoto(
     stickers: PhotoStickerId[];
     duoPet?: DuoPhotoPetInfo;
     isCoopPhoto?: boolean;
+    visitorId?: VisitorId;
+    townLocationId?: ActiveTownLocationId;
+    townVisitorId?: TownVisitorId;
   }
 ): { nextState: GameState; photo: RoomPhotoRecord } {
   const activePet = getActivePet(state);
@@ -652,6 +658,12 @@ export function saveScenePhoto(
     params.title.trim().slice(0, 20) ||
     `${activePet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20);
   const nowTs = Date.now();
+  const resolvedKind: RoomPhotoRecord['photoKind'] =
+    params.scene === 'town'
+      ? 'town'
+      : params.visitorId || params.scene === 'visitor'
+      ? 'visitor'
+      : params.scene;
   const photo: RoomPhotoRecord = {
     id: `photo_${nowTs}_${Math.random().toString(36).slice(2, 6)}`,
     title: cleanTitle,
@@ -671,7 +683,10 @@ export function saveScenePhoto(
       params.scene === 'room' ? [...state.house.roomLayout.placedItems] : [],
     noteHighlight:
       params.scene === 'room' ? state.house.furnitureNotes[0]?.content : undefined,
-    photoKind: params.scene,
+    photoKind: resolvedKind,
+    visitorId: params.visitorId,
+    townLocationId: params.townLocationId,
+    townVisitorId: params.townVisitorId,
     scene: params.scene,
     isCoopPhoto: params.isCoopPhoto,
     wardrobePoseId: params.poseId,
@@ -705,7 +720,11 @@ export function saveScenePhoto(
     uniqueKey: `photo_${photo.id}`,
     petId: activePet.id,
     type:
-      params.scene === 'room'
+      resolvedKind === 'town'
+        ? 'town'
+        : resolvedKind === 'visitor'
+        ? 'visitor'
+        : params.scene === 'room'
         ? 'room'
         : params.scene === 'farm'
         ? 'farm'
@@ -716,6 +735,7 @@ export function saveScenePhoto(
     photoId: photo.id,
     weight: activePet.weight,
     level: activePet.level,
+    isShared: params.isCoopPhoto,
   });
 
   nextState = maybeGrantCatPhotoMemoryCard(nextState).nextState;

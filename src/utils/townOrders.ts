@@ -1,7 +1,15 @@
 import { FOOD_BY_ID } from '../data/foods';
 import { INGREDIENT_IDS, INGREDIENTS } from '../data/kitchen';
 import { TOWN_ORDER_TEMPLATES, TownOrderTemplate, VISITOR_TREAT_BY_ID } from '../data/visitors';
-import { GameState, TownOrder, TownOrderCategory, VisitorTreatId } from '../types';
+import {
+  GameState,
+  RoomPhotoRecord,
+  TownOrder,
+  TownOrderCategory,
+  VisitorTreatId,
+} from '../types';
+import { getPhotoStudioState } from './photoStudio';
+import { grantTownTickets, syncTownMapState } from './townMap';
 
 function formatLocalDate(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -46,12 +54,22 @@ function instantiateOrder(
       requiredQty: r.requiredQty,
       deliveredQty: 0,
     })),
+    photoRequirement: template.photoRequirement
+      ? {
+          ...template.photoRequirement,
+          currentCount: 0,
+        }
+      : undefined,
     reward: {
       coins: template.reward.coins,
       furnitureShards: template.reward.furnitureShards,
       farmSpeedTickets: template.reward.farmSpeedTickets,
       rareIngredients: { ...template.reward.rareIngredients },
       treats: template.reward.treats ? { ...template.reward.treats } : undefined,
+      studioMaterials: template.reward.studioMaterials,
+      unlockStudio: template.reward.unlockStudio
+        ? { ...template.reward.unlockStudio }
+        : undefined,
     },
     createdAt: now,
     expiresAt: getEndOfDayTimestamp(dateKey),
@@ -67,7 +85,7 @@ export function createInitialTownOrders(
   now: number = Date.now()
 ): TownOrder[] {
   const seed = Math.abs(getDaySeed(dateKey));
-  const categories: TownOrderCategory[] = ['visitor', 'coop', 'advanced'];
+  const categories: TownOrderCategory[] = ['visitor', 'coop', 'photo', 'advanced'];
   const orders: TownOrder[] = [];
 
   for (const cat of categories) {
@@ -98,8 +116,6 @@ export function syncTownOrders(
   // Daily refresh if all orders belong to an older date
   const hasTodayOrder = existing.some((o) => o.dateKey === todayKey);
   if (!hasTodayOrder) {
-    // Carry over unfinished recent orders marked overdue so player can still finish cleanly or see them without losing resources,
-    // plus add today's fresh orders (keeping list concise: today's 3 + at most 1 unfinished overdue)
     const carryOver = existing
       .filter((o) => o.claimedByUserIds.length === 0)
       .slice(0, 1)
@@ -111,13 +127,27 @@ export function syncTownOrders(
   }
 
   let changed = false;
-  const nextOrders = existing.map((order) => {
+  let nextOrders = existing.map((order) => {
     if (!order.completed && !order.overdue && now > order.expiresAt) {
       changed = true;
       return { ...order, overdue: true };
     }
     return order;
   });
+
+  // Ensure today's photo order exists even on upgraded mid-day saves
+  const hasTodayPhotoOrder = nextOrders.some(
+    (o) => o.dateKey === todayKey && o.category === 'photo'
+  );
+  if (!hasTodayPhotoOrder) {
+    const photoPool = TOWN_ORDER_TEMPLATES.filter((t) => t.category === 'photo');
+    if (photoPool.length > 0) {
+      const seed = Math.abs(getDaySeed(todayKey));
+      const tpl = photoPool[seed % photoPool.length];
+      nextOrders = [...nextOrders, instantiateOrder(tpl, todayKey, now)];
+      changed = true;
+    }
+  }
 
   if (!changed) return state;
   return {
@@ -196,7 +226,11 @@ export function deliverTownOrderItem(
   const nextReqs = order.requirements.map((r) =>
     r.key === itemKey ? { ...r, deliveredQty: r.deliveredQty + 1 } : r
   );
-  const allDone = nextReqs.every((r) => r.deliveredQty >= r.requiredQty);
+  const itemsDone = nextReqs.every((r) => r.deliveredQty >= r.requiredQty);
+  const photoDone =
+    !order.photoRequirement ||
+    order.photoRequirement.currentCount >= order.photoRequirement.targetCount;
+  const allDone = itemsDone && photoDone;
   const now = Date.now();
 
   const nextOrders = orders.map((o) =>
@@ -222,6 +256,65 @@ export function deliverTownOrderItem(
     notice: allDone
       ? `完成訂單「${order.title}」！快點擊領取獎勵吧！`
       : `已交付 1 份「${req.label}」（${req.deliveredQty + 1}/${req.requiredQty}）`,
+  };
+}
+
+export function advancePhotoTownOrders(
+  state: GameState,
+  photo: RoomPhotoRecord
+): { nextState: GameState; newlyCompletedOrderTitles: string[] } {
+  const orders = state.townOrders ?? [];
+  if (orders.length === 0) {
+    return { nextState: state, newlyCompletedOrderTitles: [] };
+  }
+
+  const isVisitorPhoto =
+    photo.photoKind === 'visitor' || photo.scene === 'visitor' || Boolean(photo.visitorId);
+  if (!isVisitorPhoto) {
+    return { nextState: state, newlyCompletedOrderTitles: [] };
+  }
+
+  let changed = false;
+  const newlyCompletedOrderTitles: string[] = [];
+  const now = Date.now();
+
+  const nextOrders = orders.map((order) => {
+    if (order.completed || !order.photoRequirement) return order;
+    const req = order.photoRequirement;
+    if (req.currentCount >= req.targetCount) return order;
+    if (req.visitorId && photo.visitorId !== req.visitorId) return order;
+    if (req.requiresStudioScene && !(photo.scene === 'visitor' && Boolean(photo.backgroundId))) {
+      return order;
+    }
+
+    changed = true;
+    const nextCount = Math.min(req.targetCount, req.currentCount + 1);
+    const itemsDone = order.requirements.every((r) => r.deliveredQty >= r.requiredQty);
+    const allDone = itemsDone && nextCount >= req.targetCount;
+    if (allDone) {
+      newlyCompletedOrderTitles.push(order.title);
+    }
+    return {
+      ...order,
+      photoRequirement: {
+        ...req,
+        currentCount: nextCount,
+      },
+      completed: allDone,
+      completedAt: allDone ? now : order.completedAt,
+    };
+  });
+
+  if (!changed) {
+    return { nextState: state, newlyCompletedOrderTitles: [] };
+  }
+
+  return {
+    nextState: {
+      ...state,
+      townOrders: nextOrders,
+    },
+    newlyCompletedOrderTitles,
   };
 }
 
@@ -269,27 +362,70 @@ export function claimTownOrderReward(
     }
   }
 
+  const materialsEarned = order.overdue ? 0 : (order.reward.studioMaterials ?? 0);
+  const townTicketsEarned = order.overdue
+    ? 5
+    : order.category === 'coop'
+    ? 10
+    : order.category === 'photo' || order.category === 'advanced'
+    ? 8
+    : 5;
+  const baseStudio = getPhotoStudioState(state);
+  const nextBgs = new Set(baseStudio.unlockedBackgrounds);
+  const nextFilters = new Set(baseStudio.unlockedFilters);
+  const nextFrames = new Set(baseStudio.unlockedFrames);
+
+  if (!order.overdue && order.reward.unlockStudio) {
+    if (order.reward.unlockStudio.backgroundId) {
+      nextBgs.add(order.reward.unlockStudio.backgroundId);
+    }
+    if (order.reward.unlockStudio.filterId) {
+      nextFilters.add(order.reward.unlockStudio.filterId);
+    }
+    if (order.reward.unlockStudio.frameId) {
+      nextFrames.add(order.reward.unlockStudio.frameId);
+    }
+  }
+
   const nextOrders = orders.map((o) =>
     o.id === orderId
       ? { ...o, claimedByUserIds: [...o.claimedByUserIds, userId] }
       : o
   );
 
-  const rewardSummaryParts = [`+${coinsEarned} 金幣`, `+${shardsEarned} 家具碎片`];
+  const rewardSummaryParts = [
+    `+${coinsEarned} 金幣`,
+    `+${townTicketsEarned} 小鎮券`,
+    `+${shardsEarned} 家具碎片`,
+  ];
   if (ticketsEarned > 0) {
     rewardSummaryParts.push(`+${ticketsEarned} 農場加速券`);
   }
+  if (materialsEarned > 0) {
+    rewardSummaryParts.push(`+${materialsEarned} 攝影材料`);
+  }
+
+  const syncedBase = syncTownMapState(state);
+  const nextTownMap = grantTownTickets(syncedBase.townMap!, townTicketsEarned);
 
   return {
     nextState: {
-      ...state,
-      coins: state.coins + coinsEarned,
-      furnitureShards: state.furnitureShards + shardsEarned,
-      farmSpeedTickets: (state.farmSpeedTickets ?? 0) + ticketsEarned,
+      ...syncedBase,
+      coins: syncedBase.coins + coinsEarned,
+      furnitureShards: syncedBase.furnitureShards + shardsEarned,
+      farmSpeedTickets: (syncedBase.farmSpeedTickets ?? 0) + ticketsEarned,
       ingredients: nextIngredients,
       visitorTreats: nextTreats,
+      photoStudio: {
+        ...baseStudio,
+        studioMaterials: baseStudio.studioMaterials + materialsEarned,
+        unlockedBackgrounds: Array.from(nextBgs),
+        unlockedFilters: Array.from(nextFilters),
+        unlockedFrames: Array.from(nextFrames),
+      },
       townOrders: nextOrders,
-      completedTownOrdersCount: (state.completedTownOrdersCount ?? 0) + 1,
+      completedTownOrdersCount: (syncedBase.completedTownOrdersCount ?? 0) + 1,
+      townMap: nextTownMap,
     },
     ok: true,
     notice: order.overdue

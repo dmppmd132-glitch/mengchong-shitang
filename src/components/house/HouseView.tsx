@@ -139,6 +139,7 @@ interface HouseViewProps {
   onGoToFarm: () => void;
   onOpenVisitorModal?: () => void;
   onOpenTownOrders?: () => void;
+  onOpenTownMap?: () => void;
   onSharePhotoToBoard: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
   onTogglePhotoLike: (photoId: string) => void;
   onAddPhotoComment: (photoId: string, content: string) => void;
@@ -170,6 +171,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
   onGoToFarm,
   onOpenVisitorModal,
   onOpenTownOrders,
+  onOpenTownMap,
   onSharePhotoToBoard,
   onTogglePhotoLike,
   onAddPhotoComment,
@@ -2370,10 +2372,22 @@ export const HouseView: React.FC<HouseViewProps> = ({
             onGoToFarm={onGoToFarm}
             onOpenVisitorModal={onOpenVisitorModal}
             onOpenTownOrders={onOpenTownOrders}
+            townMap={game.townMap}
+            onOpenTownMap={onOpenTownMap}
           />
 
           <div className="-mt-2 flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {onOpenTownMap && (
+                <button
+                  type="button"
+                  onClick={onOpenTownMap}
+                  className="min-h-[44px] rounded-full border border-[#A7DFC8] bg-[#E8F8F2] px-3 inline-flex items-center gap-1.5 text-[11px] font-extrabold text-[#1F6B54] shadow-sm transition active:scale-95"
+                >
+                  <span>🗺️</span>
+                  <span>小鎮地圖</span>
+                </button>
+              )}
               {onOpenVisitorModal && (
                 <button
                   type="button"

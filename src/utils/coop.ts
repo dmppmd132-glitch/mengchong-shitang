@@ -60,6 +60,10 @@ import {
   mergeCoopEventSession,
   syncSeasonalEventState,
 } from './seasonalEvent';
+import {
+  mergeCoopTownSession,
+  syncTownMapState,
+} from './townMap';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -1498,7 +1502,7 @@ export function mergeCoopRemoteState(
   }
   const mergedFeedLogs = Array.from(feedLogMap.values());
 
-  return syncSeasonalEventState({
+  return syncTownMapState(syncSeasonalEventState({
     ...remoteState,
     pets: mergedPets,
     activePetId: nextActivePetId,
@@ -1520,6 +1524,8 @@ export function mergeCoopRemoteState(
     visitorState: localState.visitorState ?? remoteState.visitorState,
     visitorTreats: localState.visitorTreats ?? remoteState.visitorTreats,
     farmSpeedTickets: localState.farmSpeedTickets ?? remoteState.farmSpeedTickets,
+    filterShards: localState.filterShards ?? remoteState.filterShards ?? 0,
+    townMap: localState.townMap ?? remoteState.townMap,
     townOrders: mergedTownOrders,
     house: {
       ...remoteState.house,
@@ -1564,6 +1570,18 @@ export function mergeCoopRemoteState(
         localState.coop.coopEventSession,
         remoteState.coop.coopEventSession
       ),
+      coopTownSession: mergeCoopTownSession(
+        localState.coop.coopTownSession,
+        remoteState.coop.coopTownSession
+      ),
+      townExploreStreakDays: Math.max(
+        remoteState.coop.townExploreStreakDays ?? 0,
+        localState.coop.townExploreStreakDays ?? 0
+      ),
+      lastTownExploreCompletedDate:
+        remoteState.coop.lastTownExploreCompletedDate ??
+        localState.coop.lastTownExploreCompletedDate ??
+        null,
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(
@@ -1575,5 +1593,5 @@ export function mergeCoopRemoteState(
       remoteState.photoStudio
     ),
     seasonalEvent: localState.seasonalEvent ?? remoteState.seasonalEvent,
-  });
+  }));
 }

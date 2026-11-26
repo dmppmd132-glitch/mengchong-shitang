@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, Check, Clock, Sparkles, X } from 'lucide-react';
+import { Award, Camera, Check, Clock, Sparkles, X } from 'lucide-react';
 import { ROOM_ITEMS } from '../../data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from '../../data/kitchen';
 import { VISITOR_BY_ID, VISITOR_TREAT_BY_ID, VISITOR_TREATS } from '../../data/visitors';
@@ -18,6 +18,7 @@ interface TownOrderBoardModalProps {
   onContributeCoopVisitor: (itemKey: string) => void;
   onClaimCoopVisitorReward: () => void;
   onCaptureVisitorPhoto: (visitorId: VisitorId, shareToBoard?: boolean) => void;
+  onOpenPhotoOrderStudio?: (visitorId?: VisitorId) => void;
   onCraftShardFurniture: (itemId: string) => void;
   onBuyTreat: (treatId: VisitorTreatId) => void;
 }
@@ -32,6 +33,10 @@ const CATEGORY_LABEL: Record<TownOrderCategory, { label: string; badgeClass: str
   coop: {
     label: '共養訂單',
     badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
+  photo: {
+    label: '📸 攝影訂單',
+    badgeClass: 'bg-[#EEF4FF] border-[#B6D1FA] text-[#2F5B9E]',
   },
   advanced: {
     label: '高級訂單',
@@ -50,6 +55,7 @@ export const TownOrderBoardModal: React.FC<TownOrderBoardModalProps> = ({
   onContributeCoopVisitor,
   onClaimCoopVisitorReward,
   onCaptureVisitorPhoto,
+  onOpenPhotoOrderStudio,
   onCraftShardFurniture,
   onBuyTreat,
 }) => {
@@ -152,6 +158,7 @@ export const TownOrderBoardModal: React.FC<TownOrderBoardModalProps> = ({
                 {[
                   { id: 'all', label: '全部' },
                   { id: 'visitor', label: '🐾 訪客訂單' },
+                  { id: 'photo', label: '📸 攝影訂單' },
                   { id: 'coop', label: '💞 共養訂單' },
                   { id: 'advanced', label: '🌙 高級訂單' },
                 ].map((f) => (
@@ -173,8 +180,13 @@ export const TownOrderBoardModal: React.FC<TownOrderBoardModalProps> = ({
               {filteredOrders.map((order) => {
                 const catMeta = CATEGORY_LABEL[order.category];
                 const claimed = order.claimedByUserIds.includes(currentUserId);
-                const doneQty = order.requirements.reduce((s, r) => s + r.deliveredQty, 0);
-                const totalQty = order.requirements.reduce((s, r) => s + r.requiredQty, 0);
+                const photoReq = order.photoRequirement;
+                const doneQty =
+                  order.requirements.reduce((s, r) => s + r.deliveredQty, 0) +
+                  (photoReq ? photoReq.currentCount : 0);
+                const totalQty =
+                  order.requirements.reduce((s, r) => s + r.requiredQty, 0) +
+                  (photoReq ? photoReq.targetCount : 0);
                 const pct = totalQty > 0 ? Math.round((doneQty / totalQty) * 100) : 0;
 
                 return (
@@ -257,6 +269,39 @@ export const TownOrderBoardModal: React.FC<TownOrderBoardModalProps> = ({
                           </div>
                         );
                       })}
+                      {photoReq && (
+                        <div className="rounded-2xl bg-[#EEF4FF] border border-[#C6DAFC] px-2.5 py-2 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-[#2F5B9E]">
+                              📸 {photoReq.label}{' '}
+                              <span className="tabular-nums">
+                                ({photoReq.currentCount}/{photoReq.targetCount})
+                              </span>
+                            </div>
+                            <div className="text-[10px] font-bold text-[#5E7DB2]">
+                              拍下訪客合照（庭院快拍或攝影棚合影皆可自動計入）
+                            </div>
+                          </div>
+                          {photoReq.currentCount >= photoReq.targetCount ? (
+                            <span className="px-2.5 py-1 rounded-xl bg-[#E6F8F1] text-[#1F6B54] text-[10px] font-extrabold inline-flex items-center gap-0.5 shrink-0">
+                              <Check className="w-3 h-3" /> 已拍好
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={claimed}
+                              onClick={() => {
+                                onClose();
+                                onOpenPhotoOrderStudio?.(photoReq.visitorId ?? order.visitorId);
+                              }}
+                              className="min-h-[38px] px-3 rounded-xl bg-[#4F84D6] text-white text-[11px] font-extrabold inline-flex items-center gap-1 disabled:opacity-40 active:scale-95 shrink-0"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>去拍照 ›</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Reward strip */}
@@ -273,6 +318,13 @@ export const TownOrderBoardModal: React.FC<TownOrderBoardModalProps> = ({
                             ⚡ {order.reward.farmSpeedTickets} 加速券
                           </span>
                         )}
+                        {!order.overdue &&
+                          order.reward.studioMaterials &&
+                          order.reward.studioMaterials > 0 && (
+                            <span className="px-2 py-0.5 rounded-lg bg-[#F4EEFF] border border-[#D4C3FA] text-[#6042A6]">
+                              🎞️ {order.reward.studioMaterials} 攝影材料
+                            </span>
+                          )}
                         {!order.overdue &&
                           INGREDIENT_IDS.map((ingId) => {
                             const qty = order.reward.rareIngredients[ingId] ?? 0;

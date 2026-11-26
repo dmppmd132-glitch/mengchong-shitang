@@ -48,13 +48,24 @@ import {
   RESERVED_SPECIAL_PETS,
 } from '../data/pets';
 import {
+  VISITOR_AFFINITY_THRESHOLDS,
   VISITOR_BY_ID,
   VISITOR_DECOR_BY_ID,
   VISITOR_TREAT_BY_ID,
 } from '../data/visitors';
 import {
+  ACTIVE_TOWN_LOCATION_IDS,
+  COOP_TOWN_EXPLORE_TEMPLATES,
+  LOCATION_DAILY_QUEST_TEMPLATES,
+  TOWN_MARKET_FURNITURE_IDS,
+  TOWN_SHOP_ITEM_BY_ID,
+  TOWN_VISITOR_BY_ID,
+  VISITOR_HUT_FACILITY_BY_ID,
+} from '../data/town';
+import {
   AccessorySlot,
   AccessoryTheme,
+  ActiveTownLocationId,
   CoopBadgeId,
   CoopEventSession,
   CoopFarmOrderState,
@@ -67,6 +78,8 @@ import {
   CoopSession,
   CoopDuoChallengeSubmission,
   CoopDuoPhotoChallengeState,
+  CoopTownExploreSession,
+  CoopTownExploreTemplateId,
   CoopVisitorContribution,
   CoopVisitorRequirement,
   CoopVisitorSession,
@@ -128,13 +141,21 @@ import {
   ThemeSetId,
   TimePeriodId,
   TitleId,
+  TownLocationProgressState,
+  TownLocationQuest,
+  TownLocationVisitorInstance,
+  TownMapState,
   TownOrder,
   TownOrderCategory,
   TownOrderItemReq,
+  TownOrderPhotoReq,
+  TownVisitorAffinityRecord,
+  TownVisitorId,
   TreasuryContribution,
   VisitorAffinity,
   VisitorBehavior,
   VisitorDecorId,
+  VisitorHutFacilityId,
   VisitorId,
   VisitorSystemState,
   VisitorTreatId,
@@ -219,6 +240,12 @@ import {
   createInitialSeasonalEvent,
   syncSeasonalEventState,
 } from './seasonalEvent';
+import {
+  createInitialTownMapState,
+  getOrCreateCoopTownSession,
+  getTownVisitorLevelForExp,
+  syncTownMapState,
+} from './townMap';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -318,11 +345,13 @@ export function createInitialGameState(): GameState {
     dialogue: createInitialDialogueState(today),
     memoryAlbum: createInitialMemoryAlbumState('布丁'),
     farmSpeedTickets: 1,
+    filterShards: 0,
     visitorTreats: { seeds_mix: 2, fresh_lettuce: 1 },
     visitorState: createInitialVisitorState(),
     townOrders: createInitialTownOrders(today),
     photoStudio: createInitialPhotoStudioState(),
     seasonalEvent: createInitialSeasonalEvent(),
+    townMap: createInitialTownMapState(),
   };
 }
 
@@ -1110,10 +1139,13 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             kindRaw === 'room' ||
             kindRaw === 'farm' ||
             kindRaw === 'album' ||
-            kindRaw === 'visitor'
+            kindRaw === 'visitor' ||
+            kindRaw === 'town'
               ? kindRaw
               : undefined;
           const visitorId = asVisitorId(p.visitorId) ?? undefined;
+          const townLocationId = asActiveTownLocationId(p.townLocationId) ?? undefined;
+          const townVisitorId = asTownVisitorId(p.townVisitorId) ?? undefined;
           const duoPetRaw = isRecord(p.duoPet) ? p.duoPet : null;
           const duoPet: RoomPhotoRecord['duoPet'] = duoPetRaw
             ? {
@@ -1161,6 +1193,8 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             noteHighlight: typeof p.noteHighlight === 'string' ? p.noteHighlight : undefined,
             photoKind,
             visitorId,
+            townLocationId,
+            townVisitorId,
             isCoopPhoto: typeof p.isCoopPhoto === 'boolean' ? p.isCoopPhoto : undefined,
             scene: asPhotoScene(p.scene),
             wardrobePoseId: asWardrobePose(p.wardrobePoseId),
@@ -1279,10 +1313,29 @@ function asCoopBadgeId(value: unknown): CoopBadgeId | null {
 }
 
 function asCoopGameType(value: unknown): CoopGameType {
-  if (value === 'farm_relay' || value === 'visitor_coop' || value === 'event_coop') {
+  if (
+    value === 'farm_relay' ||
+    value === 'visitor_coop' ||
+    value === 'event_coop' ||
+    value === 'town_coop'
+  ) {
     return value;
   }
   return 'room_decor';
+}
+
+function asActiveTownLocationId(value: unknown): ActiveTownLocationId | null {
+  if (typeof value === 'string' && ACTIVE_TOWN_LOCATION_IDS.includes(value as ActiveTownLocationId)) {
+    return value as ActiveTownLocationId;
+  }
+  return null;
+}
+
+function asTownVisitorId(value: unknown): TownVisitorId | null {
+  if (typeof value === 'string' && value in TOWN_VISITOR_BY_ID) {
+    return value as TownVisitorId;
+  }
+  return null;
 }
 
 function asVisitorId(value: unknown): VisitorId | null {
@@ -1608,6 +1661,7 @@ function parseCoopHubState(raw: unknown): CoopHubState {
 
   const duoChallenge = parseCoopDuoChallenge(raw.duoChallenge);
   const coopEventSession = parseCoopEventSession(raw.coopEventSession, todayStr);
+  const coopTownSession = parseCoopTownSession(raw.coopTownSession, todayStr);
 
   return syncCoopHubState(
     {
@@ -1635,9 +1689,267 @@ function parseCoopHubState(raw: unknown): CoopHubState {
       lastDuoCompletedWeek:
         typeof raw.lastDuoCompletedWeek === 'string' ? raw.lastDuoCompletedWeek : null,
       coopEventSession,
+      coopTownSession,
+      townExploreStreakDays: Math.max(0, Math.floor(asNumber(raw.townExploreStreakDays, 0))),
+      lastTownExploreCompletedDate:
+        typeof raw.lastTownExploreCompletedDate === 'string'
+          ? raw.lastTownExploreCompletedDate
+          : null,
     },
     todayStr
   );
+}
+
+function parseCoopTownSession(
+  raw: unknown,
+  todayStr: string
+): CoopTownExploreSession | null {
+  if (!isRecord(raw)) return null;
+  const dateKey = asString(raw.dateKey, todayStr);
+  const templateId: CoopTownExploreTemplateId =
+    raw.templateId === 'lake_fishing' ? 'lake_fishing' : 'forest_picnic';
+  const tpl =
+    COOP_TOWN_EXPLORE_TEMPLATES.find((t) => t.templateId === templateId) ??
+    COOP_TOWN_EXPLORE_TEMPLATES[0];
+  const fallback = getOrCreateCoopTownSession(dateKey);
+
+  const rawSteps = Array.isArray(raw.steps)
+    ? raw.steps.filter((s): s is Record<string, unknown> => isRecord(s))
+    : [];
+
+  const steps = tpl.steps.map((tplStep) => {
+    const found = rawSteps.find((s) => s.key === tplStep.key);
+    const progress = found
+      ? Math.min(tplStep.target, Math.max(0, Math.floor(asNumber(found.progress, 0))))
+      : 0;
+    const contributors =
+      found && Array.isArray(found.contributorUserIds)
+        ? Array.from(
+            new Set(
+              found.contributorUserIds.filter((u): u is string => typeof u === 'string')
+            )
+          )
+        : [];
+    return {
+      ...tplStep,
+      progress,
+      contributorUserIds: contributors,
+    };
+  });
+
+  return {
+    id: asString(raw.id, fallback.id),
+    templateId: tpl.templateId,
+    locationId: tpl.locationId,
+    dateKey,
+    title: asString(raw.title, tpl.title),
+    description: asString(raw.description, tpl.description),
+    emoji: asString(raw.emoji, tpl.emoji),
+    steps,
+    completed: raw.completed === true || steps.every((s) => s.progress >= s.target),
+    completedAt:
+      typeof raw.completedAt === 'number' && Number.isFinite(raw.completedAt)
+        ? raw.completedAt
+        : null,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? Array.from(
+          new Set(raw.claimedByUserIds.filter((u): u is string => typeof u === 'string'))
+        )
+      : [],
+    lastUpdatedByName: asNullableString(raw.lastUpdatedByName),
+    lastUpdatedAt:
+      typeof raw.lastUpdatedAt === 'number' && Number.isFinite(raw.lastUpdatedAt)
+        ? raw.lastUpdatedAt
+        : null,
+  };
+}
+
+function parseTownMapState(raw: unknown): TownMapState {
+  const defaults = createInitialTownMapState();
+  if (!isRecord(raw)) return defaults;
+
+  const currentLocationId = asActiveTownLocationId(raw.currentLocationId) ?? 'home_yard';
+  const unlockedLocationIds: ActiveTownLocationId[] = Array.isArray(raw.unlockedLocationIds)
+    ? Array.from(
+        new Set<ActiveTownLocationId>([
+          'home_yard',
+          ...raw.unlockedLocationIds
+            .map(asActiveTownLocationId)
+            .filter((x): x is ActiveTownLocationId => x !== null),
+        ])
+      )
+    : ['home_yard'];
+
+  const rawTickets = isRecord(raw.townTickets) ? raw.townTickets : {};
+  const townTickets = {
+    balance: Math.max(0, Math.floor(asNumber(rawTickets.balance, 0))),
+    totalEarned: Math.max(0, Math.floor(asNumber(rawTickets.totalEarned, 0))),
+  };
+
+  const rawHut = isRecord(raw.visitorHut) ? raw.visitorHut : {};
+  const hutLvRaw = Math.floor(asNumber(rawHut.level, 1));
+  const hutLevel = (hutLvRaw >= 1 && hutLvRaw <= 5 ? hutLvRaw : 1) as 1 | 2 | 3 | 4 | 5;
+  const builtFacilities = Array.isArray(rawHut.builtFacilities)
+    ? Array.from(
+        new Set(
+          rawHut.builtFacilities.filter(
+            (f): f is VisitorHutFacilityId =>
+              typeof f === 'string' && f in VISITOR_HUT_FACILITY_BY_ID
+          )
+        )
+      )
+    : [];
+
+  const rawLocations = isRecord(raw.locations) ? raw.locations : {};
+  const locations = { ...defaults.locations };
+  for (const locId of ACTIVE_TOWN_LOCATION_IDS) {
+    const defLoc = defaults.locations[locId];
+    const rLoc = isRecord(rawLocations[locId]) ? rawLocations[locId] : {};
+    const dailyDate = asString(rLoc.dailyDate, defLoc.dailyDate);
+
+    const activeVisitors: TownLocationVisitorInstance[] = Array.isArray(rLoc.activeVisitors)
+      ? rLoc.activeVisitors
+          .filter((v): v is Record<string, unknown> => isRecord(v))
+          .map((v) => {
+            const vid = asTownVisitorId(v.visitorId);
+            if (!vid) return null;
+            const vDef = TOWN_VISITOR_BY_ID[vid];
+            return {
+              visitId: asString(v.visitId, `tv_${Date.now()}`),
+              locationId: locId,
+              visitorId: vid,
+              rarity: vDef.rarity,
+              arrivedAt: asNumber(v.arrivedAt, Date.now()),
+              departAt: asNumber(v.departAt, Date.now() + 3600000),
+              fedCount: Math.max(0, Math.floor(asNumber(v.fedCount, 0))),
+              maxFeedCount: Math.max(1, Math.floor(asNumber(v.maxFeedCount, 2))),
+              photoTaken: v.photoTaken === true,
+              lastFeedReaction:
+                v.lastFeedReaction === 'favorite' ||
+                v.lastFeedReaction === 'neutral' ||
+                v.lastFeedReaction === 'disliked'
+                  ? v.lastFeedReaction
+                  : null,
+              lastFeedLine: asNullableString(v.lastFeedLine),
+              lastRewardSummary: asNullableString(v.lastRewardSummary),
+            } as TownLocationVisitorInstance;
+          })
+          .filter((v): v is TownLocationVisitorInstance => v !== null)
+      : [];
+
+    const rawQuests = Array.isArray(rLoc.dailyQuests)
+      ? rLoc.dailyQuests.filter((q): q is Record<string, unknown> => isRecord(q))
+      : [];
+    const dailyQuests: TownLocationQuest[] = LOCATION_DAILY_QUEST_TEMPLATES[locId].map((tpl) => {
+      const rq = rawQuests.find((q) => q.id === tpl.id);
+      const progress = rq
+        ? Math.min(tpl.target, Math.max(0, Math.floor(asNumber(rq.progress, 0))))
+        : 0;
+      return {
+        ...tpl,
+        progress,
+        completed: rq?.completed === true || progress >= tpl.target,
+        claimed: rq?.claimed === true,
+      };
+    });
+
+    locations[locId] = {
+      locationId: locId,
+      dailyDate,
+      dailyVisitorsCount: Math.max(0, Math.floor(asNumber(rLoc.dailyVisitorsCount, 0))),
+      activeVisitors,
+      dailyQuests,
+      allQuestsBonusClaimed: rLoc.allQuestsBonusClaimed === true,
+      totalVisitsHosted: Math.max(0, Math.floor(asNumber(rLoc.totalVisitsHosted, 0))),
+      totalPhotosTaken: Math.max(0, Math.floor(asNumber(rLoc.totalPhotosTaken, 0))),
+      unlockedBackgroundIds: Array.isArray(rLoc.unlockedBackgroundIds)
+        ? Array.from(
+            new Set(
+              rLoc.unlockedBackgroundIds
+                .map(asStudioBg)
+                .filter((b): b is PhotoBackground => b !== null)
+            )
+          )
+        : [],
+      unlockedFilterIds: Array.isArray(rLoc.unlockedFilterIds)
+        ? Array.from(
+            new Set(
+              rLoc.unlockedFilterIds
+                .map(asStudioFilter)
+                .filter((f): f is PhotoFilter => f !== null)
+            )
+          )
+        : [],
+      unlockedFrameIds: Array.isArray(rLoc.unlockedFrameIds)
+        ? Array.from(
+            new Set(
+              rLoc.unlockedFrameIds
+                .map(asStudioFrame)
+                .filter((fr): fr is PhotoFrame => fr !== null)
+            )
+          )
+        : [],
+      encyclopediaRewardClaimed: rLoc.encyclopediaRewardClaimed === true,
+    } as TownLocationProgressState;
+  }
+
+  const visitorAffinities = { ...defaults.visitorAffinities };
+  const rawAffs = isRecord(raw.visitorAffinities) ? raw.visitorAffinities : {};
+  for (const vid of Object.keys(TOWN_VISITOR_BY_ID) as TownVisitorId[]) {
+    const rAff = isRecord(rawAffs[vid]) ? rawAffs[vid] : {};
+    const exp = Math.max(0, Math.floor(asNumber(rAff.exp, 0)));
+    visitorAffinities[vid] = {
+      visitorId: vid,
+      exp,
+      level: getTownVisitorLevelForExp(exp),
+      totalVisits: Math.max(0, Math.floor(asNumber(rAff.totalVisits, 0))),
+      totalFed: Math.max(0, Math.floor(asNumber(rAff.totalFed, 0))),
+      totalPhotos: Math.max(0, Math.floor(asNumber(rAff.totalPhotos, 0))),
+      firstMetAt:
+        typeof rAff.firstMetAt === 'number' && Number.isFinite(rAff.firstMetAt)
+          ? rAff.firstMetAt
+          : null,
+    } as TownVisitorAffinityRecord;
+  }
+
+  const purchasedShopItemIds = Array.isArray(raw.purchasedShopItemIds)
+    ? Array.from(
+        new Set(
+          raw.purchasedShopItemIds.filter(
+            (id): id is string => typeof id === 'string' && id in TOWN_SHOP_ITEM_BY_ID
+          )
+        )
+      )
+    : [];
+
+  const validMarketFurnSet = new Set<string>(TOWN_MARKET_FURNITURE_IDS);
+  const unlockedMarketFurnitureIds = Array.isArray(raw.unlockedMarketFurnitureIds)
+    ? Array.from(
+        new Set(
+          raw.unlockedMarketFurnitureIds.filter(
+            (id): id is string => typeof id === 'string' && validMarketFurnSet.has(id)
+          )
+        )
+      )
+    : [];
+
+  return {
+    currentLocationId,
+    unlockedLocationIds,
+    townTickets,
+    visitorHut: {
+      level: hutLevel,
+      builtFacilities,
+    },
+    locations,
+    visitorAffinities,
+    purchasedShopItemIds,
+    unlockedMarketFurnitureIds,
+    acornsCollectedTotal: Math.max(0, Math.floor(asNumber(raw.acornsCollectedTotal, 0))),
+    fishingGamesPlayedTotal: Math.max(0, Math.floor(asNumber(raw.fishingGamesPlayedTotal, 0))),
+    fishingBestScore: Math.max(0, Math.floor(asNumber(raw.fishingBestScore, 0))),
+    marketDishesDeliveredTotal: Math.max(0, Math.floor(asNumber(raw.marketDishesDeliveredTotal, 0))),
+  };
 }
 
 function parseCoopEventSession(raw: unknown, todayStr: string): CoopEventSession | null {
@@ -2113,11 +2425,27 @@ function parseVisitorSystemState(raw: unknown): VisitorSystemState {
 
   const defaultAffs = createDefaultAffinities();
   const affinities: Record<VisitorId, VisitorAffinity> = { ...defaultAffs };
+  const legacyThresholds = [0, 35, 90, 175, 290] as const;
   if (isRecord(raw.affinities)) {
     (['bird', 'squirrel', 'rabbit'] as VisitorId[]).forEach((vId) => {
       const item = raw.affinities && isRecord(raw.affinities) ? raw.affinities[vId] : null;
       if (isRecord(item)) {
-        const exp = Math.max(0, Math.floor(asNumber(item.exp, 0)));
+        const rawExp = Math.round(Math.max(0, asNumber(item.exp, 0)) * 2) / 2;
+        let exp = rawExp;
+        const savedLevel =
+          typeof item.level === 'number' && Number.isFinite(item.level)
+            ? Math.min(5, Math.max(1, Math.floor(item.level)))
+            : null;
+        if (savedLevel !== null && getAffinityLevelFromExp(rawExp) > savedLevel) {
+          const oldMin = legacyThresholds[savedLevel - 1] ?? 0;
+          const oldMax = legacyThresholds[savedLevel] ?? 420;
+          const newMin = VISITOR_AFFINITY_THRESHOLDS[savedLevel - 1] ?? 0;
+          const newMax = VISITOR_AFFINITY_THRESHOLDS[savedLevel] ?? 36;
+          const span = Math.max(1, oldMax - oldMin);
+          const ratio = Math.min(0.95, Math.max(0, (rawExp - oldMin) / span));
+          exp =
+            Math.round((newMin + ratio * Math.max(1, newMax - newMin)) * 2) / 2;
+        }
         const level = getAffinityLevelFromExp(exp);
         affinities[vId] = {
           visitorId: vId,
@@ -2213,7 +2541,10 @@ function parseTownOrders(raw: unknown): TownOrder[] {
     if (!id) continue;
     const catRaw = item.category;
     const category: TownOrderCategory =
-      catRaw === 'visitor' || catRaw === 'coop' || catRaw === 'advanced'
+      catRaw === 'visitor' ||
+      catRaw === 'coop' ||
+      catRaw === 'photo' ||
+      catRaw === 'advanced'
         ? catRaw
         : 'visitor';
     const requirements: TownOrderItemReq[] = Array.isArray(item.requirements)
@@ -2241,6 +2572,25 @@ function parseTownOrders(raw: unknown): TownOrder[] {
             };
           })
       : [];
+    let photoRequirement: TownOrderPhotoReq | undefined;
+    if (isRecord(item.photoRequirement)) {
+      const targetCount = Math.max(
+        1,
+        Math.floor(asNumber(item.photoRequirement.targetCount, 1))
+      );
+      const currentCount = Math.min(
+        targetCount,
+        Math.max(0, Math.floor(asNumber(item.photoRequirement.currentCount, 0)))
+      );
+      photoRequirement = {
+        targetCount,
+        currentCount,
+        visitorId: asVisitorId(item.photoRequirement.visitorId) ?? undefined,
+        requiresStudioScene:
+          item.photoRequirement.requiresStudioScene === true ? true : undefined,
+        label: asString(item.photoRequirement.label, '拍攝訪客合照'),
+      };
+    }
     const rawReward = isRecord(item.reward) ? item.reward : {};
     const rareIngredients: Partial<Record<IngredientId, number>> = {};
     if (isRecord(rawReward.rareIngredients)) {
@@ -2260,6 +2610,33 @@ function parseTownOrders(raw: unknown): TownOrder[] {
         }
       }
     }
+    let unlockStudio: TownOrder['reward']['unlockStudio'];
+    if (isRecord(rawReward.unlockStudio)) {
+      const backgroundId =
+        typeof rawReward.unlockStudio.backgroundId === 'string' &&
+        rawReward.unlockStudio.backgroundId in PHOTO_BACKGROUND_BY_ID
+          ? (rawReward.unlockStudio.backgroundId as PhotoBackground)
+          : undefined;
+      const filterId =
+        typeof rawReward.unlockStudio.filterId === 'string' &&
+        rawReward.unlockStudio.filterId in PHOTO_FILTER_BY_ID
+          ? (rawReward.unlockStudio.filterId as PhotoFilter)
+          : undefined;
+      const frameId =
+        typeof rawReward.unlockStudio.frameId === 'string' &&
+        rawReward.unlockStudio.frameId in PHOTO_FRAME_BY_ID
+          ? (rawReward.unlockStudio.frameId as PhotoFrame)
+          : undefined;
+      if (backgroundId || filterId || frameId) {
+        unlockStudio = { backgroundId, filterId, frameId };
+      }
+    }
+    const studioMaterials =
+      typeof rawReward.studioMaterials === 'number' &&
+      Number.isFinite(rawReward.studioMaterials) &&
+      rawReward.studioMaterials > 0
+        ? Math.floor(rawReward.studioMaterials)
+        : undefined;
 
     orders.push({
       id,
@@ -2270,12 +2647,15 @@ function parseTownOrders(raw: unknown): TownOrder[] {
       description: asString(item.description, ''),
       emoji: asString(item.emoji, '📋'),
       requirements,
+      photoRequirement,
       reward: {
         coins: Math.max(0, Math.floor(asNumber(rawReward.coins, 30))),
         furnitureShards: Math.max(0, Math.floor(asNumber(rawReward.furnitureShards, 1))),
         farmSpeedTickets: Math.max(0, Math.floor(asNumber(rawReward.farmSpeedTickets, 1))),
         rareIngredients,
         treats: Object.keys(treats).length > 0 ? treats : undefined,
+        studioMaterials,
+        unlockStudio,
       },
       createdAt: asNumber(item.createdAt, Date.now()),
       expiresAt: asNumber(item.expiresAt, Date.now() + 86400000),
@@ -2745,8 +3125,10 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     coop: createInitialCoopHubState(todayStr),
     dialogue: createInitialDialogueState(todayStr),
     memoryAlbum: createInitialMemoryAlbumState(pet.name),
+    filterShards: 0,
     photoStudio: createInitialPhotoStudioState(),
     seasonalEvent: createInitialSeasonalEvent(),
+    townMap: createInitialTownMapState(),
   };
 }
 
@@ -3103,11 +3485,13 @@ export function normalizeGameState(parsed: unknown): GameState | null {
       0,
       Math.floor(asNumber(parsed.farmSpeedTickets, base.farmSpeedTickets ?? 1))
     ),
+    filterShards: Math.max(0, Math.floor(asNumber(parsed.filterShards, 0))),
     visitorTreats: parseVisitorTreats(parsed.visitorTreats),
     visitorState: parseVisitorSystemState(parsed.visitorState),
     townOrders: parseTownOrders(parsed.townOrders),
     photoStudio: parsePhotoStudioState(parsed.photoStudio),
     seasonalEvent: parseSeasonalEvent(parsed.seasonalEvent),
+    townMap: parseTownMapState(parsed.townMap),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -3126,6 +3510,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     });
     hydrated = evaluateAndSyncMilestones(hydrated, false).nextState;
   }
+  hydrated = syncTownMapState(hydrated);
   hydrated = syncPhotoStudioState(hydrated).nextState;
   hydrated = syncSeasonalEventState(hydrated);
   return hydrated;

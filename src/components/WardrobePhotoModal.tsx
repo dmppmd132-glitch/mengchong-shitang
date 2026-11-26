@@ -6,7 +6,6 @@ import {
   Check,
   Clock,
   Coins,
-  Hammer,
   HeartHandshake,
   Lock,
   Send,
@@ -30,12 +29,16 @@ import {
   PHOTO_SCENE_BY_ID,
   PHOTO_STICKERS,
   PHOTO_STICKER_BY_ID,
-  STUDIO_BADGES,
-  STUDIO_CRAFT_RECIPES,
   STUDIO_SHOP_FILTERS,
 } from '../data/photoStudio';
 import { getPetSpeciesInfo } from '../data/species';
 import {
+  TOWN_LOCATION_BY_ID,
+  TOWN_VISITOR_BY_ID,
+} from '../data/town';
+import { VISITOR_BY_ID, VISITORS } from '../data/visitors';
+import {
+  ActiveTownLocationId,
   GameState,
   Pet,
   PetPersonality,
@@ -48,6 +51,8 @@ import {
   PhotoStickerId,
   RoomPhotoRecord,
   SharedPetRoom,
+  TownVisitorId,
+  VisitorId,
 } from '../types';
 import { DuoPhotoPetInfo } from '../types/house';
 import { getPetDisplayPersonality } from '../utils/pets';
@@ -56,7 +61,6 @@ import {
   evaluateWeeklyOutfitScore,
   getLocalWeekKey,
   getOrCreateWeeklyDuoChallenge,
-  getStudioCollectionProgress,
   getWeekTimeRemainingText,
   getWeeklyChallengeTitleSuggestion,
   getWeeklyOutfitChallengeTheme,
@@ -64,6 +68,9 @@ import {
 } from '../utils/photoStudio';
 import { PiggyCharacter } from './PiggyCharacter';
 import { StudioBackgroundArt } from './studio/StudioBackgroundArt';
+import { StudioCatalogSection } from './studio/StudioCatalogSection';
+import { TownVisitorSprite } from './town/TownArtwork';
+import { VisitorSprite } from './visitors/VisitorIllustrations';
 
 type StudioTab = 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog';
 type ShootStep = 'pose' | 'background' | 'filter' | 'frame' | 'sticker' | 'capture';
@@ -80,6 +87,9 @@ interface WardrobePhotoModalProps {
   sharedRoom: SharedPetRoom | null;
   initialScene?: PhotoScene;
   initialTab?: StudioTab;
+  initialVisitorId?: VisitorId | null;
+  initialTownLocationId?: ActiveTownLocationId | null;
+  initialTownVisitorId?: TownVisitorId | null;
   unlockedPoses?: PhotoPose[];
   unlockedFrames?: PhotoFrame[];
   onSavePhoto: (params: {
@@ -93,6 +103,9 @@ interface WardrobePhotoModalProps {
     frameId: PhotoFrame;
     stickers: PhotoStickerId[];
     duoPet?: DuoPhotoPetInfo;
+    visitorId?: VisitorId;
+    townLocationId?: ActiveTownLocationId;
+    townVisitorId?: TownVisitorId;
     isCoopPhoto?: boolean;
   }) => RoomPhotoRecord;
   onSharePhotoToBoard?: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
@@ -147,6 +160,9 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
   sharedRoom,
   initialScene = 'wardrobe',
   initialTab = 'shoot',
+  initialVisitorId = null,
+  initialTownLocationId = null,
+  initialTownVisitorId = null,
   unlockedPoses = [],
   unlockedFrames = [],
   onSavePhoto,
@@ -166,6 +182,13 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
   const [studioTab, setStudioTab] = useState<StudioTab>(initialTab);
   const [shootStep, setShootStep] = useState<ShootStep>('pose');
   const [scene, setScene] = useState<PhotoScene>(initialScene);
+  const [studioVisitorId, setStudioVisitorId] = useState<VisitorId | null>(initialVisitorId);
+  const [studioTownLocationId, setStudioTownLocationId] = useState<ActiveTownLocationId>(
+    initialTownLocationId ?? 'home_yard'
+  );
+  const [studioTownVisitorId, setStudioTownVisitorId] = useState<TownVisitorId | null>(
+    initialTownVisitorId
+  );
   const [poseId, setPoseId] = useState<PhotoPose>('happy');
   const [backgroundId, setBackgroundId] = useState<PhotoBackground>('pink_room');
   const [facing, setFacing] = useState<PetViewDirection>('front');
@@ -304,24 +327,78 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
     setStudioTab(initialTab);
     setShootStep('pose');
     setScene(initialScene);
-    const defaultBg: PhotoBackground =
+
+    const resolvedVisitorId: VisitorId | null =
+      initialScene === 'visitor'
+        ? initialVisitorId ?? game?.visitorState?.activeVisit?.visitorId ?? 'bird'
+        : null;
+    setStudioVisitorId(resolvedVisitorId);
+
+    const resolvedTownLocId: ActiveTownLocationId =
+      initialTownLocationId ?? game?.townMap?.currentLocationId ?? 'home_yard';
+    setStudioTownLocationId(resolvedTownLocId);
+    const resolvedTownVisitorId: TownVisitorId | null =
+      initialScene === 'town'
+        ? initialTownVisitorId ??
+          game?.townMap?.locations[resolvedTownLocId]?.activeVisitors[0]?.visitorId ??
+          null
+        : null;
+    setStudioTownVisitorId(resolvedTownVisitorId);
+
+    const visitorDefaultBgMap: Record<VisitorId, PhotoBackground> = {
+      bird: 'bird_treetop_sky',
+      squirrel: 'squirrel_acorn_forest',
+      rabbit: 'rabbit_carrot_garden',
+    };
+
+    let defaultBg: PhotoBackground =
       initialScene === 'farm'
         ? 'strawberry_field'
         : initialScene === 'room'
         ? 'kitchen'
         : 'pink_room';
+    let defaultFilter: PhotoFilter = 'none';
+    let defaultFrame: PhotoFrame = ownedFrameSet.has('rounded') ? 'rounded' : 'none';
+
+    if (initialScene === 'visitor' && resolvedVisitorId) {
+      const preferredVisitorBg = visitorDefaultBgMap[resolvedVisitorId];
+      if (ownedBgSet.has(preferredVisitorBg)) {
+        defaultBg = preferredVisitorBg;
+      } else if (resolvedVisitorId === 'rabbit') {
+        defaultBg = 'strawberry_field';
+      } else if (ownedBgSet.has('forest_camp')) {
+        defaultBg = 'forest_camp';
+      }
+    } else if (initialScene === 'town') {
+      const locDef = TOWN_LOCATION_BY_ID[resolvedTownLocId];
+      const recBg = locDef.recommendedBackgroundIds.find((b) => ownedBgSet.has(b));
+      if (recBg) defaultBg = recBg;
+      const recFilter = locDef.recommendedFilterIds.find((f) => ownedFilterSet.has(f));
+      if (recFilter) defaultFilter = recFilter;
+      const recFrame = locDef.recommendedFrameIds.find((fr) => ownedFrameSet.has(fr));
+      if (recFrame) defaultFrame = recFrame;
+    }
+
     setBackgroundId(defaultBg);
-    setFilterId('none');
-    setFrameId(ownedFrameSet.has('rounded') ? 'rounded' : 'none');
+    setFilterId(defaultFilter);
+    setFrameId(defaultFrame);
     setPoseId('happy');
     setFacing('front');
     setStickers([]);
     const sceneMeta = PHOTO_SCENE_BY_ID[initialScene] ?? PHOTO_SCENES[0];
-    setTitle(`${pet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20));
+    setTitle(
+      initialScene === 'visitor' && resolvedVisitorId
+        ? `${pet.name}與${VISITOR_BY_ID[resolvedVisitorId].speciesLabel}`.slice(0, 20)
+        : initialScene === 'town'
+        ? resolvedTownVisitorId
+          ? `${TOWN_LOCATION_BY_ID[resolvedTownLocId].name}・${TOWN_VISITOR_BY_ID[resolvedTownVisitorId].speciesLabel}`.slice(0, 20)
+          : `${pet.name}的${TOWN_LOCATION_BY_ID[resolvedTownLocId].name}遊記`.slice(0, 20)
+        : `${pet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20)
+    );
     setCaption('');
     setDuoTitle(`${pet.name}與${selectedDuoPartner.name}的野餐日`.slice(0, 20));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialScene, initialTab, pet.name]);
+  }, [open, initialScene, initialTab, initialVisitorId, initialTownLocationId, initialTownVisitorId, pet.name]);
 
   if (!open) return null;
 
@@ -346,7 +423,6 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
     theme: weeklyTheme,
   });
 
-  const collectionProgress = getStudioCollectionProgress(studio);
   const duoChallengeState = game
     ? getOrCreateWeeklyDuoChallenge(game)
     : null;
@@ -376,11 +452,23 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
     `${pet.name}的${activeScene.defaultTitleSuffix}`.slice(0, 20);
 
   const handleSaveOnly = () => {
+    const activeVisitorId =
+      scene === 'visitor' && studioVisitorId ? studioVisitorId : undefined;
+    const activeTownLocId =
+      scene === 'town' ? studioTownLocationId : undefined;
+    const activeTownVisId =
+      scene === 'town' && studioTownVisitorId ? studioTownVisitorId : undefined;
     const photo = onSavePhoto({
       title: getCleanTitle(),
       caption:
         caption.trim() ||
-        `${activeBg.label} · ${activePose.label} · ${activeFilter.label}濾鏡紀念`,
+        (activeVisitorId
+          ? `與${VISITOR_BY_ID[activeVisitorId].name}在${activeBg.label}合影・${activePose.label}`
+          : activeTownLocId
+          ? activeTownVisId
+            ? `在「${TOWN_LOCATION_BY_ID[activeTownLocId].name}」與${TOWN_VISITOR_BY_ID[activeTownVisId].name}合影！`
+            : `在「${TOWN_LOCATION_BY_ID[activeTownLocId].name}」拍下小鎮風景照！`
+          : `${activeBg.label} · ${activePose.label} · ${activeFilter.label}濾鏡紀念`),
       scene,
       poseId,
       backgroundId,
@@ -388,6 +476,10 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
       filterId,
       frameId,
       stickers,
+      visitorId: activeVisitorId,
+      townLocationId: activeTownLocId,
+      townVisitorId: activeTownVisId,
+      isCoopPhoto: (activeVisitorId || activeTownLocId) && Boolean(sharedRoom) ? true : undefined,
     });
     showToastNotice(`已將「${photo.title}」存入照片牆與回憶冊！`);
   };
@@ -399,9 +491,21 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
     }
     setSubmitting(true);
     try {
+      const activeVisitorId =
+        scene === 'visitor' && studioVisitorId ? studioVisitorId : undefined;
+      const activeTownLocId =
+        scene === 'town' ? studioTownLocationId : undefined;
+      const activeTownVisId =
+        scene === 'town' && studioTownVisitorId ? studioTownVisitorId : undefined;
       const cleanCaption =
         caption.trim() ||
-        `在${activeBg.label}留下可愛穿搭照～（${activePose.label}・${activeFilter.label}）`;
+        (activeVisitorId
+          ? `與${VISITOR_BY_ID[activeVisitorId].name}在${activeBg.label}留下紀念合影！（${activePose.label}・${activeFilter.label}）`
+          : activeTownLocId
+          ? activeTownVisId
+            ? `在「${TOWN_LOCATION_BY_ID[activeTownLocId].name}」與${TOWN_VISITOR_BY_ID[activeTownVisId].name}合影！（${activePose.label}）`
+            : `在「${TOWN_LOCATION_BY_ID[activeTownLocId].name}」留下小鎮旅拍紀念！`
+          : `在${activeBg.label}留下可愛穿搭照～（${activePose.label}・${activeFilter.label}）`);
       const photo = onSavePhoto({
         title: getCleanTitle(),
         caption: cleanCaption,
@@ -412,6 +516,10 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         filterId,
         frameId,
         stickers,
+        visitorId: activeVisitorId,
+        townLocationId: activeTownLocId,
+        townVisitorId: activeTownVisId,
+        isCoopPhoto: (activeVisitorId || activeTownLocId) && Boolean(sharedRoom) ? true : undefined,
       });
       const err = await onSharePhotoToBoard(photo, cleanCaption);
       showToastNotice(
@@ -508,6 +616,14 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
 
   const renderLiveStage = (duoPartner?: Pet | null) => {
     const duoPose = PHOTO_POSE_BY_ID[duoPartnerPoseId] ?? PHOTO_POSE_BY_ID.happy;
+    const activeVisitor =
+      !duoPartner && scene === 'visitor' && studioVisitorId
+        ? VISITOR_BY_ID[studioVisitorId]
+        : null;
+    const activeTownVisitor =
+      !duoPartner && scene === 'town' && studioTownVisitorId
+        ? TOWN_VISITOR_BY_ID[studioTownVisitorId]
+        : null;
     return (
       <div className={`${activeFrame.outerClass} relative`}>
         {activeFrame.cornerEmojis && (
@@ -584,7 +700,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
               interactive={false}
               customAnimClass={activePose.animClass}
               viewDirection={facing}
-              size={duoPartner ? 118 : 146}
+              size={duoPartner ? 118 : activeVisitor || activeTownVisitor ? 128 : 146}
             />
             {duoPartner && (
               <PiggyCharacter
@@ -600,6 +716,22 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                 size={118}
               />
             )}
+            {activeVisitor && (
+              <VisitorSprite
+                visitorId={activeVisitor.id}
+                behavior="sitting"
+                reaction="favorite"
+                size={86}
+                className="mb-1"
+              />
+            )}
+            {activeTownVisitor && (
+              <TownVisitorSprite
+                visitorId={activeTownVisitor.id}
+                happy
+                className="w-20 h-20 mb-1"
+              />
+            )}
           </div>
 
           {/* Auto-displayed Date, Pet Name & Weight */}
@@ -613,7 +745,15 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
             <span>{todayLabel}</span>
             <span>·</span>
             <span>
-              {duoPartner ? `${pet.name} & ${duoPartner.name}` : pet.name}
+              {duoPartner
+                ? `${pet.name} & ${duoPartner.name}`
+                : activeVisitor
+                ? `${pet.name} & ${activeVisitor.speciesLabel}`
+                : activeTownVisitor
+                ? `${pet.name} & ${activeTownVisitor.speciesLabel}`
+                : scene === 'town'
+                ? `${pet.name} @ ${TOWN_LOCATION_BY_ID[studioTownLocationId].name}`
+                : pet.name}
             </span>
             <span>·</span>
             <span>{pet.weight.toFixed(1)} kg</span>
@@ -721,6 +861,140 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
           {/* TAB 1: STUDIO SHOOT */}
           {studioTab === 'shoot' && (
             <>
+              {scene === 'visitor' ? (
+                <div className="rounded-2xl bg-[#EEF8F4] border border-[#BDE4D5] px-2.5 py-2 flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[11px] font-extrabold text-[#1F6B54] mr-0.5">
+                      🐾 訪客合影：
+                    </span>
+                    {VISITORS.map((v) => {
+                      const active = studioVisitorId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => {
+                            setStudioVisitorId(v.id);
+                            setTitle(`${pet.name}與${v.speciesLabel}`.slice(0, 20));
+                          }}
+                          className={`min-h-[34px] px-2.5 rounded-xl text-[11px] font-extrabold inline-flex items-center gap-1 border transition ${
+                            active
+                              ? 'bg-white border-[#52B788] text-[#1F6B54] shadow-xs'
+                              : 'bg-white/60 border-[#D5ECE2] text-[#5B756B]'
+                          }`}
+                        >
+                          <span>{v.emoji}</span>
+                          <span>{v.speciesLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScene('wardrobe');
+                      setStudioVisitorId(null);
+                      setTitle(`${pet.name}的穿搭日記`.slice(0, 20));
+                    }}
+                    className="min-h-[34px] px-2.5 rounded-xl bg-white border border-[#E7D8D0] text-[10px] font-extrabold text-[#6E544E]"
+                  >
+                    切換獨照
+                  </button>
+                </div>
+              ) : scene === 'town' ? (
+                <div className="rounded-2xl bg-[#EEF8F4] border border-[#BDE4D5] px-2.5 py-2 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-extrabold text-[#1F6B54]">
+                      🗺️ 地點攝影：{TOWN_LOCATION_BY_ID[studioTownLocationId].emoji}{' '}
+                      {TOWN_LOCATION_BY_ID[studioTownLocationId].name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScene('wardrobe');
+                        setStudioTownVisitorId(null);
+                        setTitle(`${pet.name}的穿搭日記`.slice(0, 20));
+                      }}
+                      className="min-h-[32px] px-2 rounded-xl bg-white border border-[#E7D8D0] text-[10px] font-extrabold text-[#6E544E]"
+                    >
+                      切換獨照
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStudioTownVisitorId(null);
+                        setTitle(
+                          `${pet.name}的${TOWN_LOCATION_BY_ID[studioTownLocationId].name}遊記`.slice(
+                            0,
+                            20
+                          )
+                        );
+                      }}
+                      className={`min-h-[32px] px-2 rounded-xl text-[10.5px] font-extrabold border ${
+                        studioTownVisitorId === null
+                          ? 'bg-white border-[#52B788] text-[#1F6B54]'
+                          : 'bg-white/60 border-[#D5ECE2] text-[#5B756B]'
+                      }`}
+                    >
+                      🐾 只拍毛孩風景照
+                    </button>
+                    {[
+                      ...TOWN_LOCATION_BY_ID[studioTownLocationId].commonVisitorIds,
+                      ...TOWN_LOCATION_BY_ID[studioTownLocationId].rareVisitorIds,
+                    ].map((vid) => {
+                      const tv = TOWN_VISITOR_BY_ID[vid];
+                      const active = studioTownVisitorId === vid;
+                      return (
+                        <button
+                          key={vid}
+                          type="button"
+                          onClick={() => {
+                            setStudioTownVisitorId(vid);
+                            setTitle(
+                              `${TOWN_LOCATION_BY_ID[studioTownLocationId].name}・${tv.speciesLabel}`.slice(
+                                0,
+                                20
+                              )
+                            );
+                          }}
+                          className={`min-h-[32px] px-2 rounded-xl text-[10.5px] font-extrabold border inline-flex items-center gap-1 ${
+                            active
+                              ? 'bg-white border-[#52B788] text-[#1F6B54]'
+                              : 'bg-white/60 border-[#D5ECE2] text-[#5B756B]'
+                          }`}
+                        >
+                          <span>{tv.emoji}</span>
+                          <span>{tv.speciesLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                game?.visitorState && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetId: VisitorId =
+                          game.visitorState?.activeVisit?.visitorId ?? 'bird';
+                        setScene('visitor');
+                        setStudioVisitorId(targetId);
+                        setTitle(
+                          `${pet.name}與${VISITOR_BY_ID[targetId].speciesLabel}`.slice(0, 20)
+                        );
+                      }}
+                      className="min-h-[34px] px-2.5 rounded-xl bg-[#EEF8F4] border border-[#BDE4D5] text-[11px] font-extrabold text-[#1F6B54] inline-flex items-center gap-1 hover:bg-[#E1F3EB] transition"
+                    >
+                      <span>🐾</span>
+                      <span>切換與小鎮訪客合影</span>
+                    </button>
+                  </div>
+                )
+              )}
+
               {renderLiveStage(null)}
 
               {/* Step Sequence Indicator: 姿勢 → 背景 → 濾鏡 → 相框 → 貼圖 → 拍照 */}
@@ -1730,204 +2004,13 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
 
           {/* TAB 5: STUDIO CATALOG & MATERIAL CRAFTING */}
           {studioTab === 'catalog' && (
-            <div className="space-y-3.5">
-              <section className="rounded-2xl bg-[#FFFDF8] border-2 border-[#F4DFD7] p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-extrabold text-[#4A3531]">
-                    📖 攝影棚收集圖鑑
-                  </h3>
-                  <span className="text-xs font-extrabold text-[#D64470] tabular-nums">
-                    {collectionProgress.totalOwned} / {collectionProgress.totalCatalog}
-                  </span>
-                </div>
-                <div className="grid grid-cols-5 gap-1.5 text-center text-[10px] font-extrabold text-[#5A3E36]">
-                  <div className="rounded-xl bg-[#FAF4EE] p-1.5">
-                    <div>姿勢</div>
-                    <div className="tabular-nums text-[#C43463]">
-                      {collectionProgress.posesOwned}/{collectionProgress.posesTotal}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#FAF4EE] p-1.5">
-                    <div>背景</div>
-                    <div className="tabular-nums text-[#1F6B54]">
-                      {collectionProgress.backgroundsOwned}/{collectionProgress.backgroundsTotal}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#FAF4EE] p-1.5">
-                    <div>濾鏡</div>
-                    <div className="tabular-nums text-[#355A9C]">
-                      {collectionProgress.filtersOwned}/{collectionProgress.filtersTotal}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#FAF4EE] p-1.5">
-                    <div>相框</div>
-                    <div className="tabular-nums text-[#8A5610]">
-                      {collectionProgress.framesOwned}/{collectionProgress.framesTotal}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#FAF4EE] p-1.5">
-                    <div>貼圖</div>
-                    <div className="tabular-nums text-[#B83B64]">
-                      {collectionProgress.stickersOwned}/{collectionProgress.stickersTotal}
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-1 flex flex-wrap gap-1.5">
-                  {Object.values(STUDIO_BADGES).map((badge) => {
-                    const owned = studio.unlockedStudioBadges.includes(badge.id);
-                    return (
-                      <div
-                        key={badge.id}
-                        className={`rounded-xl border px-2.5 py-1.5 text-[10px] font-extrabold flex items-center gap-1.5 ${
-                          owned
-                            ? 'bg-[#FFF3D8] border-[#F0CF7A] text-[#7A540E]'
-                            : 'bg-[#FAF4EE] border-[#EADCD5] text-[#8E756E]'
-                        }`}
-                      >
-                        <span>{badge.emoji}</span>
-                        <span>{badge.name}</span>
-                        <span className="font-bold">
-                          · {owned ? '已獲得' : badge.conditionText}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Material Crafting Workshop */}
-              <section className="space-y-2">
-                <div className="flex items-center justify-between px-0.5">
-                  <h4 className="text-xs font-extrabold text-[#4A3531] inline-flex items-center gap-1">
-                    <Hammer className="w-3.5 h-3.5 text-[#C43463]" />
-                    <span>攝影材料合成（限定背景＆相框）</span>
-                  </h4>
-                  <span className="text-[11px] font-bold text-[#7D635D] tabular-nums">
-                    🎞️ {studio.studioMaterials} · 🖼️ {studio.studioFrameShards}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {STUDIO_CRAFT_RECIPES.map((rec) => {
-                    const alreadyOwned =
-                      (rec.targetKind === 'background' &&
-                        ownedBgSet.has(rec.targetId as PhotoBackground)) ||
-                      (rec.targetKind === 'frame' &&
-                        ownedFrameSet.has(rec.targetId as PhotoFrame)) ||
-                      (rec.targetKind === 'filter' &&
-                        ownedFilterSet.has(rec.targetId as PhotoFilter)) ||
-                      (rec.targetKind === 'pose' &&
-                        ownedPoseSet.has(rec.targetId as PhotoPose));
-
-                    const canCraft =
-                      !alreadyOwned &&
-                      studio.studioMaterials >= rec.materialCost &&
-                      studio.studioFrameShards >= rec.frameShardCost &&
-                      coins >= rec.coinCost;
-
-                    return (
-                      <article
-                        key={rec.id}
-                        className="rounded-2xl bg-white border-2 border-[#EFE0D7] p-2.5 flex items-center justify-between gap-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-[#4A3531]">
-                            {rec.emoji} {rec.name}
-                          </div>
-                          <p className="text-[10px] text-[#7D635D] leading-snug">
-                            {rec.description}
-                          </p>
-                          <p className="text-[10px] font-extrabold text-[#8A5610] tabular-nums mt-0.5">
-                            需求：🎞️ {rec.materialCost} · 🖼️ {rec.frameShardCost} · 🪙 {rec.coinCost}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={alreadyOwned || !canCraft}
-                          onClick={() => onCraftRecipe?.(rec.id)}
-                          className={`min-h-[40px] px-3 rounded-xl text-[11px] font-extrabold shrink-0 transition ${
-                            alreadyOwned
-                              ? 'bg-[#E6F8F1] text-[#1F6B54]'
-                              : canCraft
-                              ? 'bg-[#FF7A9E] text-white shadow-xs active:scale-95'
-                              : 'bg-[#EFE6E2] text-[#A89690] cursor-not-allowed'
-                          }`}
-                        >
-                          {alreadyOwned ? '已擁有' : '合成'}
-                        </button>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Full Catalog Overview of Out-of-Rotation & Achievement Items */}
-              <section className="space-y-2">
-                <h4 className="text-xs font-extrabold text-[#4A3531]">
-                  ✨ 全部攝影棚藏品一覽
-                </h4>
-                <div className="space-y-1.5">
-                  {PHOTO_POSES.filter((p) => !ownedPoseSet.has(p.id)).map((p) => (
-                    <div
-                      key={`cat_pose_${p.id}`}
-                      className="rounded-xl bg-[#FAF4EE] px-3 py-2 flex items-center justify-between gap-2 text-[11px]"
-                    >
-                      <span className="font-extrabold text-[#4A3531]">
-                        {p.emoji} 姿勢：{p.label}
-                      </span>
-                      <span className="font-bold text-[#7D635D] text-right">
-                        {p.unlockHint}
-                      </span>
-                    </div>
-                  ))}
-                  {PHOTO_BACKGROUNDS.filter((b) => !ownedBgSet.has(b.id)).map((b) => (
-                    <div
-                      key={`cat_bg_${b.id}`}
-                      className="rounded-xl bg-[#FAF4EE] px-3 py-2 flex items-center justify-between gap-2 text-[11px]"
-                    >
-                      <span className="font-extrabold text-[#4A3531]">
-                        {b.emoji} 背景：{b.label}
-                      </span>
-                      <span className="font-bold text-[#7D635D] text-right">
-                        {b.unlockHint}
-                      </span>
-                    </div>
-                  ))}
-                  {STUDIO_SHOP_FILTERS.filter((f) => !ownedFilterSet.has(f.id)).map((f) => (
-                    <div
-                      key={`cat_fl_${f.id}`}
-                      className="rounded-xl bg-[#FAF4EE] px-3 py-2 flex items-center justify-between gap-2 text-[11px]"
-                    >
-                      <span className="font-extrabold text-[#4A3531]">
-                        {f.emoji} 濾鏡：{f.label}
-                      </span>
-                      <span className="font-bold text-[#7D635D] text-right">
-                        {f.unlockHint}
-                      </span>
-                    </div>
-                  ))}
-                  {PHOTO_FRAMES.filter((fr) => !ownedFrameSet.has(fr.id)).map((fr) => (
-                    <div
-                      key={`cat_fr_${fr.id}`}
-                      className="rounded-xl bg-[#FAF4EE] px-3 py-2 flex items-center justify-between gap-2 text-[11px]"
-                    >
-                      <span className="font-extrabold text-[#4A3531]">
-                        {fr.emoji} 相框：{fr.label}
-                      </span>
-                      <span className="font-bold text-[#7D635D] text-right">
-                        {fr.unlockHint}
-                      </span>
-                    </div>
-                  ))}
-                  {collectionProgress.totalOwned === collectionProgress.totalCatalog && (
-                    <div className="rounded-2xl bg-[#E6F8F1] border border-[#A7E0CB] p-3 text-center text-xs font-extrabold text-[#1F6B54]">
-                      <Sparkles className="w-4 h-4 inline mr-1" />
-                      恭喜收集完成全部攝影棚藏品！
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
+            <StudioCatalogSection
+              studio={studio}
+              coins={coins}
+              extraUnlockedPoses={unlockedPoses}
+              extraUnlockedFrames={unlockedFrames}
+              onCraftRecipe={onCraftRecipe}
+            />
           )}
         </div>
       </div>

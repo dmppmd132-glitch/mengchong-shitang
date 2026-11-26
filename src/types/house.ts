@@ -9,6 +9,8 @@ import type {
   PhotoScene,
   PhotoStickerId,
   PiggyActionState,
+  TownLocationId,
+  TownVisitorId,
   VisitorId,
 } from './index';
 
@@ -186,8 +188,10 @@ export interface RoomPhotoRecord {
   flooringId: FlooringId;
   placedItems: PlacedRoomItem[];
   noteHighlight?: string;
-  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album' | 'visitor';
+  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album' | 'visitor' | 'town';
   visitorId?: VisitorId;
+  townLocationId?: TownLocationId;
+  townVisitorId?: TownVisitorId;
   isCoopPhoto?: boolean;
   scene?: PhotoScene;
   wardrobePoseId?: PhotoPose;

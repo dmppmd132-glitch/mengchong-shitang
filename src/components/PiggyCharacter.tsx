@@ -384,6 +384,23 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <circle cx="0" cy="-4" r="2.5" fill="#FFE066" />
         </g>
       )}
+      {equipped.head === 'town_deer_antlers' && (
+        <g transform="translate(120, 68)">
+          <path d="M -28 8 Q 0 -4 28 8" fill="none" stroke="#8C5630" strokeWidth="4.8" strokeLinecap="round" />
+          <path d="M -16 2 L -25 -22 M -20 -9 L -31 -13 M 16 2 L 25 -22 M 20 -9 L 31 -13" fill="none" stroke="#8C5630" strokeWidth="4.5" strokeLinecap="round" />
+          <ellipse cx="-27" cy="-14" rx="5.5" ry="3.2" transform="rotate(-24 -27 -14)" fill="#77C986" stroke="#5A3E36" strokeWidth="2.2" />
+          <circle cx="25" cy="-15" r="4" fill="#FF6B8B" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {equipped.head === 'town_duck_hat' && (
+        <g transform="translate(120, 64)">
+          <path d="M -28 8 C -28 -20 28 -20 28 8 Z" fill="#FFE474" stroke="#5A3E36" strokeWidth="3.4" />
+          <ellipse cx="0" cy="9" rx="33" ry="8" fill="#FFCC4D" stroke="#5A3E36" strokeWidth="3.2" />
+          <ellipse cx="0" cy="11" rx="12" ry="5" fill="#FF9B3D" stroke="#5A3E36" strokeWidth="2.4" />
+          <circle cx="-10" cy="-2" r="2.8" fill="#5A3E36" />
+          <circle cx="10" cy="-2" r="2.8" fill="#5A3E36" />
+        </g>
+      )}
     </>
   );
 
@@ -762,6 +779,19 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                   <path d="M -22 -6 Q -44 -14 -56 -12" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
                   <path d="M 22 -6 Q 44 -14 56 -12" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
                   <circle cx="0" cy="4" r="8" fill="#FFD54F" stroke="#5A3E36" strokeWidth="3" />
+                </g>
+              )}
+              {equipped.back === 'town_fox_tail' && (
+                <g transform="translate(120, 166)">
+                  <path
+                    d="M -12 10 C -26 -22 10 -44 38 -26 C 48 -14 38 14 14 20 C -4 24 -10 18 -12 10 Z"
+                    fill="#F2843C"
+                    stroke="#5A3E36"
+                    strokeWidth="4"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M 22 -30 C 38 -24 44 -6 32 10 C 23 0 18 -14 22 -30 Z" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="3" />
+                  <circle cx="-6" cy="8" r="6" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.8" />
                 </g>
               )}
 
@@ -1182,6 +1212,19 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 <ellipse cx="204" cy="118" rx="24" ry="15" transform="rotate(24 204 118)" fill="#E3F6FF" stroke="#5A3E36" strokeWidth="3.4" />
               </g>
             )
+          )}
+          {equipped.back === 'town_fox_tail' && (
+            <g transform={isSideView ? 'translate(184, 166) scale(0.95)' : 'translate(178, 174) scale(0.9)'}>
+              <path
+                d="M -10 10 C -18 -20 12 -40 36 -22 C 44 -12 36 14 14 18 C -2 22 -8 16 -10 10 Z"
+                fill="#F2843C"
+                stroke="#5A3E36"
+                strokeWidth="3.8"
+                strokeLinejoin="round"
+              />
+              <path d="M 20 -26 C 34 -20 40 -4 30 10 C 22 2 17 -12 20 -26 Z" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.8" />
+              <circle cx="-4" cy="8" r="5" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.6" />
+            </g>
           )}
 
           {/* Ears behind body */}

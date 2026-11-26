@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Award,
+  Camera,
   ChefHat,
   CheckCircle2,
   Coins,
@@ -9,6 +10,8 @@ import {
   HelpCircle,
   Home,
   Lock,
+  MapPin,
+  PawPrint,
   Sparkles,
   Utensils,
 } from 'lucide-react';
@@ -38,7 +41,28 @@ import {
 } from '../data/house';
 import { INGREDIENTS, KITCHEN_RECIPES } from '../data/kitchen';
 import { STRAWBERRY_EVENT_CATALOG_ENTRIES } from '../data/events/strawberrySeason';
-import { EncyclopediaState, IngredientId, SharedHouse, TitleId } from '../types';
+import {
+  PHOTO_BACKGROUND_BY_ID,
+  PHOTO_FILTER_BY_ID,
+  PHOTO_FRAME_BY_ID,
+} from '../data/photoStudio';
+import {
+  VISITOR_AFFINITY_THRESHOLDS,
+  VISITOR_DECOR_BY_ID,
+  VISITORS,
+} from '../data/visitors';
+import {
+  ActiveTownLocationId,
+  EncyclopediaState,
+  GameState,
+  IngredientId,
+  PhotoFrame,
+  PhotoPose,
+  PhotoStudioState,
+  SharedHouse,
+  TitleId,
+  VisitorSystemState,
+} from '../types';
 import {
   getAccessoryObtainLabel,
   getAccessoryRarityMeta,
@@ -52,37 +76,74 @@ import {
   getFurnitureMilestoneThresholds,
   getHouseEncyclopediaCounts,
 } from '../utils/house';
+import {
+  createInitialPhotoStudioState,
+  getStudioCollectionProgress,
+} from '../utils/photoStudio';
+import { getOverallTownEncyclopediaSummary } from '../utils/townMap';
+import { formatAffinityExp } from '../utils/visitors';
 import { AccessoryPreview } from './AccessoryPreview';
 import { CropIllustration } from './house/FarmIllustrations';
 import { FurnitureGraphic } from './house/FurnitureGraphic';
+import { StudioCatalogSection } from './studio/StudioCatalogSection';
+import { TownEncyclopediaSection } from './town/TownEncyclopediaSection';
+import { VisitorSprite } from './visitors/VisitorIllustrations';
 
-export type EncyclopediaSection = 'foods' | 'recipes' | 'accessories' | 'house' | 'events';
+export type EncyclopediaSection =
+  | 'foods'
+  | 'recipes'
+  | 'accessories'
+  | 'house'
+  | 'events'
+  | 'visitors'
+  | 'studio'
+  | 'town';
 type RecipeFilter = 'all' | 'learned' | 'locked';
 
 interface EncyclopediaViewProps {
   encyclopedia: EncyclopediaState;
   unlockedAccessories: string[];
   house: SharedHouse;
+  visitorState?: VisitorSystemState;
+  photoStudio?: PhotoStudioState;
+  unlockedPhotoPoses?: PhotoPose[];
+  unlockedPhotoFrames?: PhotoFrame[];
+  coins?: number;
   ingredients?: Record<IngredientId, number>;
   favoriteFoodIds?: string[];
   eventOwnedCatalogIds?: string[];
   eventEnded?: boolean;
+  game?: GameState;
   initialSection?: EncyclopediaSection;
   onSelectTitle?: (titleId: TitleId | null) => void;
   onGoToKitchen?: (recipeId?: string) => void;
+  onCraftStudioRecipe?: (recipeId: string) => void;
+  onOpenStudio?: () => void;
+  onClaimTownEncyclopediaReward?: (locationId: ActiveTownLocationId) => void;
+  onOpenTownMap?: (locationId?: ActiveTownLocationId) => void;
 }
 
 export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
   encyclopedia,
   unlockedAccessories,
   house,
+  visitorState,
+  photoStudio,
+  unlockedPhotoPoses = [],
+  unlockedPhotoFrames = [],
+  coins = 0,
   ingredients,
   favoriteFoodIds = [],
   eventOwnedCatalogIds = [],
   eventEnded = false,
+  game,
   initialSection = 'foods',
   onSelectTitle,
   onGoToKitchen,
+  onCraftStudioRecipe,
+  onOpenStudio,
+  onClaimTownEncyclopediaReward,
+  onOpenTownMap,
 }) => {
   const [section, setSection] = useState<EncyclopediaSection>(initialSection);
   const [recipeFilter, setRecipeFilter] = useState<RecipeFilter>('all');
@@ -141,12 +202,31 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
     'fashion_photographer',
     'strawberry_sweetheart_title',
     'strawberry_fashionista',
+    'town_explorer',
+    'yard_host_master',
+    'acorn_forest_ranger',
+    'lakeside_angler',
+    'town_market_vip',
   ];
 
   const eventOwnedSet = new Set(eventOwnedCatalogIds);
   const collectedEventCount = STRAWBERRY_EVENT_CATALOG_ENTRIES.filter((entry) =>
     eventOwnedSet.has(entry.id)
   ).length;
+
+  const visitedCount = VISITORS.filter((v) => {
+    const aff = visitorState?.affinities[v.id];
+    return Boolean(aff && (aff.firstHostedAt !== null || aff.totalVisits > 0));
+  }).length;
+
+  const baseStudio = photoStudio ?? createInitialPhotoStudioState();
+  const effectiveStudio: PhotoStudioState = {
+    ...baseStudio,
+    unlockedPoses: Array.from(new Set([...baseStudio.unlockedPoses, ...unlockedPhotoPoses])),
+    unlockedFrames: Array.from(new Set([...baseStudio.unlockedFrames, ...unlockedPhotoFrames])),
+  };
+  const studioProgress = getStudioCollectionProgress(effectiveStudio);
+  const townSummary = game ? getOverallTownEncyclopediaSummary(game) : null;
 
   return (
     <div className="space-y-4">
@@ -207,11 +287,47 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
           <button
             type="button"
             onClick={() => setSection('events')}
-            className="col-span-2 rounded-2xl bg-white/90 border border-[#F4C8D8] px-3 py-2 flex items-center justify-between text-left hover:bg-white transition"
+            className="rounded-2xl bg-white/90 border border-[#F4C8D8] px-3 py-2 text-left hover:bg-white transition"
           >
-            <div className="text-[11px] font-bold text-[#826862]">🍓 活動圖鑑（草莓季限定）</div>
-            <div className="text-xs font-extrabold text-[#C43463] tabular-nums">
+            <div className="text-[11px] font-bold text-[#826862]">🍓 活動圖鑑</div>
+            <div className="text-xs font-extrabold text-[#C43463] tabular-nums mt-0.5">
               已收集 {collectedEventCount} / {STRAWBERRY_EVENT_CATALOG_ENTRIES.length}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('visitors')}
+            className="rounded-2xl bg-white/90 border border-[#BFE6D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">🐾 訪客圖鑑</div>
+            <div className="text-xs font-extrabold text-[#1F6B54] tabular-nums mt-0.5">
+              已相遇 {visitedCount} / {VISITORS.length}
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('studio')}
+            className="rounded-2xl bg-white/95 border border-[#F2C9D8] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">📸 攝影棚圖鑑</div>
+            <div className="text-xs font-extrabold text-[#B83B64] tabular-nums mt-0.5">
+              已收集 {studioProgress.totalOwned} / {studioProgress.totalCatalog}
+            </div>
+            <div className="text-[10px] font-bold text-[#8A5610] tabular-nums mt-0.5">
+              🎞️ {effectiveStudio.studioMaterials} 材料・合成區
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSection('town')}
+            className="rounded-2xl bg-white/95 border border-[#BFE6D6] px-3 py-2 text-left hover:bg-white transition"
+          >
+            <div className="text-[11px] font-bold text-[#826862]">🗺️ 小鎮圖鑑</div>
+            <div className="text-xs font-extrabold text-[#1F6B54] tabular-nums mt-0.5">
+              已收集 {townSummary ? `${townSummary.collected} / ${townSummary.total}` : '查看進度'}
+            </div>
+            <div className="text-[10px] font-bold text-[#256D57] mt-0.5">
+              📍 4 大地點＆訪客
             </div>
           </button>
         </div>
@@ -260,11 +376,11 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         </div>
       </section>
 
-      <div className="grid grid-cols-5 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
+      <div className="grid grid-cols-4 gap-1 bg-[#F2E5DE] p-1.5 rounded-2xl">
         <button
           type="button"
           onClick={() => setSection('foods')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'foods'
               ? 'bg-white text-[#D64470] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -276,7 +392,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('recipes')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'recipes'
               ? 'bg-white text-[#B84C24] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -288,7 +404,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('accessories')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'accessories'
               ? 'bg-white text-[#256D57] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -300,7 +416,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('house')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'house'
               ? 'bg-white text-[#9D5B12] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -312,7 +428,7 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         <button
           type="button"
           onClick={() => setSection('events')}
-          className={`min-h-[48px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
             section === 'events'
               ? 'bg-white text-[#C43463] shadow-xs'
               : 'text-[#7D635D] hover:text-[#4A3531]'
@@ -320,6 +436,46 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
         >
           <Gift className="w-3.5 h-3.5 shrink-0" />
           <span className="tabular-nums">活動 {collectedEventCount}/{STRAWBERRY_EVENT_CATALOG_ENTRIES.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('visitors')}
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'visitors'
+              ? 'bg-white text-[#1F6B54] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <PawPrint className="w-3.5 h-3.5 shrink-0" />
+          <span className="tabular-nums">訪客 {visitedCount}/{VISITORS.length}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('studio')}
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'studio'
+              ? 'bg-white text-[#B83B64] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5 shrink-0" />
+          <span className="tabular-nums">
+            攝影棚 {studioProgress.totalOwned}/{studioProgress.totalCatalog}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('town')}
+          className={`min-h-[46px] rounded-xl text-[10.5px] font-extrabold inline-flex flex-col items-center justify-center gap-0.5 transition whitespace-nowrap ${
+            section === 'town'
+              ? 'bg-white text-[#1F6B54] shadow-xs'
+              : 'text-[#7D635D] hover:text-[#4A3531]'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5 shrink-0" />
+          <span className="tabular-nums">
+            小鎮 {townSummary ? `${townSummary.collected}/${townSummary.total}` : '圖鑑'}
+          </span>
         </button>
       </div>
 
@@ -1259,6 +1415,190 @@ export const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({
             })}
           </div>
         </section>
+      )}
+      {section === 'visitors' && (
+        <section className="space-y-3">
+          <div className="rounded-3xl bg-gradient-to-br from-[#E9F8F2] to-[#FFFDF8] border-2 border-[#BFE6D6] p-3.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-extrabold text-[#1F6B54]">
+                  🐾 小鎮庭院訪客圖鑑
+                </h3>
+                <p className="text-[11px] font-bold text-[#6E5C56] mt-0.5">
+                  在庭院擺設樹木、盆栽或花圃吸引客人！累積好感度可解鎖限定擺飾、攝影棚濾鏡／相框／背景與榮譽稱號。
+                </p>
+              </div>
+              <span className="text-xs font-extrabold text-[#1F6B54] tabular-nums shrink-0">
+                {visitedCount} / {VISITORS.length}
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-[#D8EFE5] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#52B788] to-[#2D8B68] transition-all duration-300"
+                style={{
+                  width: `${Math.round((visitedCount / VISITORS.length) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {VISITORS.map((visitor) => {
+              const aff = visitorState?.affinities[visitor.id];
+              const level = aff?.level ?? 1;
+              const exp = aff?.exp ?? 0;
+              const met = Boolean(aff && (aff.firstHostedAt !== null || aff.totalVisits > 0));
+              const nextThreshold =
+                level < 5 ? VISITOR_AFFINITY_THRESHOLDS[level] ?? null : null;
+              const prevThreshold = VISITOR_AFFINITY_THRESHOLDS[level - 1] ?? 0;
+              const pct = nextThreshold
+                ? Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Math.round(((exp - prevThreshold) / (nextThreshold - prevThreshold)) * 100)
+                    )
+                  )
+                : 100;
+
+              return (
+                <article
+                  key={visitor.id}
+                  className={`rounded-3xl border-2 p-3.5 space-y-2.5 ${
+                    met
+                      ? 'bg-[#FFFDF8] border-[#CFE8DC]'
+                      : 'bg-[#F6F1EC] border-[#E6DCD4]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 rounded-2xl bg-[#F4FBF8] border border-[#D4ECE1] flex items-center justify-center shrink-0">
+                      <VisitorSprite
+                        visitorId={visitor.id}
+                        behavior="sitting"
+                        size={56}
+                        showAffinityBadge={level}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-extrabold text-[#4A3531] truncate">
+                          {visitor.emoji} {visitor.name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-lg bg-[#FFF3D8] border border-[#F2CE6D] text-[10px] font-extrabold text-[#8A5610] tabular-nums shrink-0">
+                          Lv.{level} / 5
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium text-[#6E544E] leading-snug">
+                        {visitor.description}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-[#E8F7F0] text-[#1F6B54]">
+                          ❤️ 喜歡：{visitor.preference.favoriteTagsLabel}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#FFF2EE] text-[#A84836]">
+                          🙅 不愛：{visitor.preference.dislikedTagsLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Affinity meter */}
+                  <div className="rounded-2xl bg-[#FAF4EE] border border-[#EFE2D8] px-3 py-2 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-extrabold text-[#5A3E36] tabular-nums">
+                      <span>
+                        好感度累積 {formatAffinityExp(exp)}
+                        {nextThreshold ? ` / ${nextThreshold}` : ' (MAX)'}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#826862]">
+                        {met
+                          ? `來訪 ${aff?.totalVisits ?? 0} 次 · 招待 ${aff?.totalFed ?? 0} 次`
+                          : '尚未在庭院相遇'}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[#EADCD3] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#FF9DB8] to-[#52B788] transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] font-bold text-[#256D57] bg-[#EFFAF5] border border-[#CDECE0] rounded-xl px-2.5 py-1.5">
+                    🏡 {visitor.yardTip}
+                  </p>
+
+                  {/* Lv.2 ~ Lv.5 milestones */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-extrabold text-[#7D635D]">
+                      好感度解鎖里程碑
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {visitor.levelRewards
+                        .filter((r) => r.level >= 2)
+                        .map((reward) => {
+                          const unlocked = level >= reward.level;
+                          const decor = reward.decorId
+                            ? VISITOR_DECOR_BY_ID[reward.decorId]
+                            : null;
+                          const studioBits: string[] = [];
+                          if (reward.unlockStudio?.filterId) {
+                            const f = PHOTO_FILTER_BY_ID[reward.unlockStudio.filterId];
+                            if (f) studioBits.push(`濾鏡「${f.label}」`);
+                          }
+                          if (reward.unlockStudio?.frameId) {
+                            const fr = PHOTO_FRAME_BY_ID[reward.unlockStudio.frameId];
+                            if (fr) studioBits.push(`相框「${fr.label}」`);
+                          }
+                          if (reward.unlockStudio?.backgroundId) {
+                            const bg = PHOTO_BACKGROUND_BY_ID[reward.unlockStudio.backgroundId];
+                            if (bg) studioBits.push(`背景「${bg.label}」`);
+                          }
+                          return (
+                            <div
+                              key={reward.level}
+                              className={`rounded-xl border px-2.5 py-1.5 flex items-center justify-between gap-2 text-[11px] ${
+                                unlocked
+                                  ? 'bg-[#E9F8F1] border-[#A7E0CB] text-[#1F6B54]'
+                                  : 'bg-[#FAF5F0] border-[#EAE0D7] text-[#7D635D]'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <span className="font-extrabold">
+                                  {unlocked ? '✅' : '🔒'} Lv.{reward.level} · {reward.title}
+                                </span>
+                                <p className="text-[10px] font-medium leading-snug mt-0.5">
+                                  {decor ? `${decor.emoji} ${decor.name} · ` : ''}
+                                  {studioBits.length > 0 ? `${studioBits.join('、')} · ` : ''}
+                                  {reward.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+      {section === 'studio' && (
+        <StudioCatalogSection
+          studio={effectiveStudio}
+          coins={coins}
+          extraUnlockedPoses={unlockedPhotoPoses}
+          extraUnlockedFrames={unlockedPhotoFrames}
+          onCraftRecipe={onCraftStudioRecipe}
+          onOpenStudio={onOpenStudio}
+        />
+      )}
+      {section === 'town' && game && (
+        <TownEncyclopediaSection
+          game={game}
+          onClaimLocationReward={onClaimTownEncyclopediaReward}
+          onOpenLocation={(locId) => onOpenTownMap?.(locId)}
+        />
       )}
     </div>
   );
