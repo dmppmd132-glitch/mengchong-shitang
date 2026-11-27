@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, MessageCircleHeart, Send, Smile, Trash2, X } from 'lucide-react';
+import { getTitleDefinition } from '../data/encyclopedia';
 import { getStickerById, PET_STICKERS } from '../data/stickers';
-import { Pet, PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom } from '../types';
+import { Pet, PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom, TitleId } from '../types';
 import { PiggySticker } from './PiggySticker';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
 
@@ -25,6 +26,7 @@ interface MessageBoardModalProps {
   onDeleteMessage: (messageId: string) => Promise<void>;
   onTogglePhotoLike?: (photoId: string) => void;
   onAddPhotoComment?: (photoId: string, content: string) => void;
+  activeTitle?: TitleId | null;
 }
 
 const PHOTO_TAG_REGEX = /\[photo:([^\]]+)\]/;
@@ -62,6 +64,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
   onDeleteMessage,
   onTogglePhotoLike,
   onAddPhotoComment,
+  activeTitle = null,
 }) => {
   const [text, setText] = useState<string>('');
   const [selectedSticker, setSelectedSticker] = useState<PetStickerId | null>(null);
@@ -136,6 +139,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                 {sharedRoom
                   ? '兩人共養即時同步中 · 傳貼圖給夥伴'
                   : '寫下照顧悄悄話，或貼上可愛萌寵貼圖'}
+                {activeTitle ? ` · ${getTitleDefinition(activeTitle).emoji} ${getTitleDefinition(activeTitle).name}` : ''}
               </p>
             </div>
           </div>
@@ -182,10 +186,18 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex items-center gap-1.5 mb-1 px-1">
+                  <div className="flex items-center gap-1.5 mb-1 px-1 flex-wrap">
                     <span className="text-[11px] font-extrabold text-[#7D635D]">
                       {isMine ? '我' : msg.authorName}
                     </span>
+                    {msg.authorTitleId && (() => {
+                      const tDef = getTitleDefinition(msg.authorTitleId);
+                      return (
+                        <span className="text-[10px] font-extrabold text-[#B83B64]">
+                          · {tDef.emoji} {tDef.name}
+                        </span>
+                      );
+                    })()}
                     <span className="text-[10px] font-bold text-[#A58E87] tabular-nums">
                       {formatMessageTime(msg.createdAt)}
                     </span>

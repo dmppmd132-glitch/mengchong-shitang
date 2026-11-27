@@ -1,6 +1,7 @@
+import { TITLE_DEFINITIONS } from '../data/encyclopedia';
 import { isValidStickerId } from '../data/stickers';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { PetMessage, PetStickerId } from '../types';
+import { PetMessage, PetStickerId, TitleId } from '../types';
 
 interface RawMessageRow {
   id?: unknown;
@@ -23,18 +24,31 @@ function formatAuthorLabel(email: string): string {
 }
 
 const PET_TARGET_REGEX = /^\[pet:([^:\]]+):([^\]]+)\]\s*/;
+const AUTHOR_TITLE_REGEX = /^\[title:([a-zA-Z0-9_]+)\]\s*/;
+
+function asTitleId(val: unknown): TitleId | null {
+  if (typeof val !== 'string') return null;
+  return val in TITLE_DEFINITIONS ? (val as TitleId) : null;
+}
 
 function encodeMessageContentWithTarget(
   content: string,
   targetPetId?: string | null,
-  targetPetName?: string | null
+  targetPetName?: string | null,
+  authorTitleId?: TitleId | null
 ): string {
-  const clean = content.trim();
-  if (!targetPetId || !targetPetName) return clean;
-  const safeId = targetPetId.replace(/[:\]]/g, '');
-  const safeName = targetPetName.replace(/[:\]]/g, ' ').trim();
-  if (!safeId || !safeName) return clean;
-  return clean ? `[pet:${safeId}:${safeName}] ${clean}` : `[pet:${safeId}:${safeName}]`;
+  let result = content.trim();
+  if (targetPetId && targetPetName) {
+    const safeId = targetPetId.replace(/[:\]]/g, '');
+    const safeName = targetPetName.replace(/[:\]]/g, ' ').trim();
+    if (safeId && safeName) {
+      result = result ? `[pet:${safeId}:${safeName}] ${result}` : `[pet:${safeId}:${safeName}]`;
+    }
+  }
+  if (authorTitleId && authorTitleId in TITLE_DEFINITIONS) {
+    result = result ? `[title:${authorTitleId}] ${result}` : `[title:${authorTitleId}]`;
+  }
+  return result;
 }
 
 function parseMessageRow(raw: unknown): PetMessage | null {
@@ -44,11 +58,16 @@ function parseMessageRow(raw: unknown): PetMessage | null {
   if (!id || !authorId) return null;
 
   const email = typeof raw.author_email === 'string' ? raw.author_email : '';
-  const rawContent = typeof raw.content === 'string' ? raw.content : '';
-  const petMatch = PET_TARGET_REGEX.exec(rawContent);
+  let workingContent = typeof raw.content === 'string' ? raw.content : '';
+  const titleMatch = AUTHOR_TITLE_REGEX.exec(workingContent);
+  const authorTitleId = titleMatch ? asTitleId(titleMatch[1]) : null;
+  if (titleMatch) {
+    workingContent = workingContent.replace(AUTHOR_TITLE_REGEX, '').trim();
+  }
+  const petMatch = PET_TARGET_REGEX.exec(workingContent);
   const targetPetId = petMatch ? petMatch[1] : null;
   const targetPetName = petMatch ? petMatch[2] : null;
-  const content = petMatch ? rawContent.replace(PET_TARGET_REGEX, '').trim() : rawContent;
+  const content = petMatch ? workingContent.replace(PET_TARGET_REGEX, '').trim() : workingContent;
   const stickerId = isValidStickerId(raw.sticker_id) ? raw.sticker_id : null;
   const createdMs =
     typeof raw.created_at === 'string' ? Date.parse(raw.created_at) : Date.now();
@@ -57,6 +76,7 @@ function parseMessageRow(raw: unknown): PetMessage | null {
     id,
     authorId,
     authorName: formatAuthorLabel(email),
+    authorTitleId,
     content,
     stickerId,
     createdAt: Number.isFinite(createdMs) ? createdMs : Date.now(),
@@ -112,6 +132,7 @@ export async function sendSharedMessage(params: {
   stickerId: PetStickerId | null;
   targetPetId?: string | null;
   targetPetName?: string | null;
+  authorTitleId?: TitleId | null;
 }): Promise<{ message: PetMessage | null; error: string | null }> {
   if (!isSupabaseConfigured || !supabase) {
     return { message: null, error: '尚未設定 Supabase 環境變數。' };
@@ -120,7 +141,8 @@ export async function sendSharedMessage(params: {
   const encodedContent = encodeMessageContentWithTarget(
     params.content,
     params.targetPetId,
-    params.targetPetName
+    params.targetPetName,
+    params.authorTitleId
   );
 
   const { data, error } = await supabase

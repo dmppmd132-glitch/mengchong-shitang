@@ -398,6 +398,66 @@ export const TownVisitorSprite: React.FC<{
         </svg>
       );
 
+    case 'sakura_sprite':
+      return (
+        <svg viewBox="0 0 80 80" className={`${className} ${bounce}`} aria-hidden="true">
+          <path d="M22,42 C10,24 14,16 32,32 Z" fill="#FFD6EA" stroke={COCOA} strokeWidth="2.2" />
+          <path d="M58,42 C70,24 66,16 48,32 Z" fill="#FFD6EA" stroke={COCOA} strokeWidth="2.2" />
+          <circle cx="40" cy="36" r="16" fill="#FFF3F8" stroke={COCOA} strokeWidth="2.6" />
+          <path d="M28,24 Q40,12 52,24 Q44,28 36,28 Z" fill="#FF8EB8" stroke={COCOA} strokeWidth="2" />
+          <circle cx="34" cy="36" r="2.4" fill={COCOA} />
+          <circle cx="46" cy="36" r="2.4" fill={COCOA} />
+          <circle cx="30" cy="41" r="2.8" fill="#FF94B6" opacity="0.65" />
+          <circle cx="50" cy="41" r="2.8" fill="#FF94B6" opacity="0.65" />
+          <path d="M26,52 L54,52 L50,68 L30,68 Z" fill="#FFA6CA" stroke={COCOA} strokeWidth="2.4" strokeLinejoin="round" />
+        </svg>
+      );
+
+    case 'firefly':
+      return (
+        <svg viewBox="0 0 80 80" className={`${className} ${bounce}`} aria-hidden="true">
+          <ellipse cx="26" cy="30" rx="12" ry="7" transform="rotate(-25 26 30)" fill="#E4FAFF" stroke={COCOA} strokeWidth="2" opacity="0.9" />
+          <ellipse cx="54" cy="30" rx="12" ry="7" transform="rotate(25 54 30)" fill="#E4FAFF" stroke={COCOA} strokeWidth="2" opacity="0.9" />
+          <circle cx="40" cy="54" r="14" fill="#FFE66D" opacity="0.45" />
+          <ellipse cx="40" cy="52" rx="10" ry="11" fill="#FFE875" stroke={COCOA} strokeWidth="2.4" />
+          <circle cx="40" cy="34" r="12" fill="#4E4266" stroke={COCOA} strokeWidth="2.4" />
+          <circle cx="35" cy="33" r="2.2" fill="#FFFFFF" />
+          <circle cx="45" cy="33" r="2.2" fill="#FFFFFF" />
+          <path d="M35,23 Q30,14 25,16 M45,23 Q50,14 55,16" fill="none" stroke={COCOA} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      );
+
+    case 'snow_fox':
+      return (
+        <svg viewBox="0 0 80 80" className={`${className} ${bounce}`} aria-hidden="true">
+          <polygon points="16,38 20,13 35,28" fill="#EBF4FF" stroke={COCOA} strokeWidth="2.6" strokeLinejoin="round" />
+          <polygon points="64,38 60,13 45,28" fill="#EBF4FF" stroke={COCOA} strokeWidth="2.6" strokeLinejoin="round" />
+          <ellipse cx="40" cy="48" rx="22" ry="19" fill="#FFFFFF" stroke={COCOA} strokeWidth="2.8" />
+          <circle cx="31" cy="44" r="2.8" fill={COCOA} />
+          <circle cx="49" cy="44" r="2.8" fill={COCOA} />
+          <circle cx="40" cy="51" r="3" fill={COCOA} />
+          <circle cx="26" cy="49" r="3.2" fill="#FFA6C2" opacity="0.65" />
+          <circle cx="54" cy="49" r="3.2" fill="#FFA6C2" opacity="0.65" />
+          <rect x="26" y="61" width="28" height="6" rx="3" fill="#7CB9F0" stroke={COCOA} strokeWidth="2" />
+        </svg>
+      );
+
+    case 'arctic_bunny':
+      return (
+        <svg viewBox="0 0 80 80" className={`${className} ${bounce}`} aria-hidden="true">
+          <ellipse cx="29" cy="22" rx="6.5" ry="15" transform="rotate(-10 29 22)" fill="#FFFFFF" stroke={COCOA} strokeWidth="2.5" />
+          <ellipse cx="51" cy="22" rx="6.5" ry="15" transform="rotate(10 51 22)" fill="#FFFFFF" stroke={COCOA} strokeWidth="2.5" />
+          <ellipse cx="29" cy="22" rx="3" ry="9" transform="rotate(-10 29 22)" fill="#DCEEFF" />
+          <ellipse cx="51" cy="22" rx="3" ry="9" transform="rotate(10 51 22)" fill="#DCEEFF" />
+          <ellipse cx="40" cy="49" rx="22" ry="19" fill="#FFFFFF" stroke={COCOA} strokeWidth="2.8" />
+          <circle cx="32" cy="46" r="2.7" fill={COCOA} />
+          <circle cx="48" cy="46" r="2.7" fill={COCOA} />
+          <ellipse cx="40" cy="51" rx="3" ry="2" fill="#FF9EB8" />
+          <circle cx="26" cy="51" r="3.2" fill="#FFB3C9" opacity="0.65" />
+          <circle cx="54" cy="51" r="3.2" fill="#FFB3C9" opacity="0.65" />
+        </svg>
+      );
+
     case 'fox':
     default:
       return (

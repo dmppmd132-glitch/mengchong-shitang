@@ -401,6 +401,21 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <circle cx="10" cy="-2" r="2.8" fill="#5A3E36" />
         </g>
       )}
+      {equipped.head === 'collection_prism_crown' && (
+        <g transform="translate(120, 62)">
+          <path
+            d="M -26 12 L -30 -12 L -12 0 L 0 -22 L 12 0 L 30 -12 L 26 12 Z"
+            fill="#FFE066"
+            stroke="#5A3E36"
+            strokeWidth="3.2"
+            strokeLinejoin="round"
+          />
+          <rect x="-26" y="10" width="52" height="7" rx="3.5" fill="#FFAFD0" stroke="#5A3E36" strokeWidth="2.8" />
+          <polygon points="0,-13 6,-2 0,6 -6,-2" fill="#82E9FF" stroke="#5A3E36" strokeWidth="2.2" />
+          <circle cx="-15" cy="2" r="3.4" fill="#FF7EB6" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="15" cy="2" r="3.4" fill="#A78BFA" stroke="#5A3E36" strokeWidth="1.8" />
+        </g>
+      )}
     </>
   );
 

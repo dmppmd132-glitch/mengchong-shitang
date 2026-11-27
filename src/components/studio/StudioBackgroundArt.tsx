@@ -657,6 +657,215 @@ export const StudioBackgroundArt: React.FC<StudioBackgroundArtProps> = ({
           </svg>
         );
 
+      case 'rainbow_trail_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgRainbowTrail" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#CBEBFF" />
+                <stop offset="55%" stopColor="#FFF6EB" />
+                <stop offset="100%" stopColor="#D7F4C8" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgRainbowTrail)" />
+            <path d="M 16 142 A 164 128 0 0 1 344 142" fill="none" stroke="#FF8EB0" strokeWidth="11" opacity="0.72" />
+            <path d="M 27 142 A 153 118 0 0 1 333 142" fill="none" stroke="#FFD166" strokeWidth="10" opacity="0.75" />
+            <path d="M 37 142 A 143 108 0 0 1 323 142" fill="none" stroke="#8CE99A" strokeWidth="10" opacity="0.75" />
+            <path d="M 47 142 A 133 98 0 0 1 313 142" fill="none" stroke="#74C0FC" strokeWidth="10" opacity="0.75" />
+            <ellipse cx="64" cy="46" rx="28" ry="14" fill="#FFFFFF" opacity="0.9" />
+            <ellipse cx="296" cy="42" rx="30" ry="14" fill="#FFFFFF" opacity="0.9" />
+            <path d="M0,156 Q180,144 360,156 L360,220 L0,220 Z" fill="#A6E690" />
+            <path d="M135,220 Q168,178 180,154 Q192,178 225,220 Z" fill="#FFF3D6" />
+            <circle cx="92" cy="186" r="4" fill="#FF8EB0" />
+            <circle cx="268" cy="182" r="4" fill="#FFD166" />
+            <circle cx="116" cy="172" r="3.5" fill="#74C0FC" />
+          </svg>
+        );
+
+      case 'spring_picnic':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgSpringPicnic" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#DFF4FF" />
+                <stop offset="55%" stopColor="#FFF5F9" />
+                <stop offset="100%" stopColor="#C8EBB4" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgSpringPicnic)" />
+            <circle cx="56" cy="38" r="18" fill="#FFE885" opacity="0.9" />
+            <path d="M0,148 Q120,124 240,146 T360,136 L360,220 L0,220 Z" fill="#A5E089" />
+            <circle cx="310" cy="48" r="36" fill="#FFB8D2" opacity="0.88" />
+            <circle cx="280" cy="56" r="24" fill="#FFCBE0" opacity="0.85" />
+            <rect x="304" y="80" width="12" height="72" rx="4" fill="#8C624A" />
+            <polygon points="88,202 126,158 236,158 272,202" fill="#FFF7F4" stroke="#FF8EB0" strokeWidth="2.5" />
+            <line x1="112" y1="176" x2="248" y2="176" stroke="#FFB6CA" strokeWidth="5" opacity="0.65" />
+            <circle cx="72" cy="88" r="4" fill="#FFA6C9" />
+            <circle cx="142" cy="54" r="3.5" fill="#FFA6C9" />
+            <circle cx="215" cy="74" r="4" fill="#FFC2DB" />
+          </svg>
+        );
+
+      case 'summer_festival':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgSummerFest" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#26285C" />
+                <stop offset="68%" stopColor="#494285" />
+                <stop offset="100%" stopColor="#6D5E82" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgSummerFest)" />
+            {/* Fireworks */}
+            <g stroke="#FFD166" strokeWidth="2" strokeLinecap="round" opacity="0.88">
+              <line x1="76" y1="22" x2="76" y2="62" />
+              <line x1="56" y1="42" x2="96" y2="42" />
+              <line x1="62" y1="28" x2="90" y2="56" />
+              <line x1="90" y1="28" x2="62" y2="56" />
+            </g>
+            <g stroke="#FF8EB8" strokeWidth="2" strokeLinecap="round" opacity="0.88">
+              <line x1="284" y1="28" x2="284" y2="64" />
+              <line x1="266" y1="46" x2="302" y2="46" />
+              <line x1="271" y1="33" x2="297" y2="59" />
+              <line x1="297" y1="33" x2="271" y2="59" />
+            </g>
+            <path d="M0,48 Q90,68 180,48 Q270,68 360,48" fill="none" stroke="#FFE39E" strokeWidth="2" />
+            {[46, 128, 232, 314].map((cx) => (
+              <ellipse key={cx} cx={cx} cy="62" rx="10" ry="13" fill="#FF7C6B" stroke="#FFF2C2" strokeWidth="1.8" />
+            ))}
+            <rect x="0" y="162" width="360" height="58" fill="#5D4866" />
+            <ellipse cx="180" cy="186" rx="94" ry="16" fill="#6FD2F5" stroke="#FFF3DA" strokeWidth="2.5" />
+          </svg>
+        );
+
+      case 'maple_path':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgMaplePath" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFE1BF" />
+                <stop offset="60%" stopColor="#FFF2DA" />
+                <stop offset="100%" stopColor="#E6B27A" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgMaplePath)" />
+            <circle cx="48" cy="64" r="38" fill="#E87148" opacity="0.9" />
+            <circle cx="312" cy="68" r="40" fill="#F0984B" opacity="0.9" />
+            <rect x="42" y="96" width="12" height="70" fill="#7D523D" />
+            <rect x="306" y="100" width="12" height="66" fill="#7D523D" />
+            <path d="M0,158 Q180,142 360,158 L360,220 L0,220 Z" fill="#DDA15E" />
+            <path d="M126,220 Q168,176 180,152 Q192,176 234,220 Z" fill="#F4D3A1" />
+            <circle cx="96" cy="126" r="4.5" fill="#E76F51" />
+            <circle cx="242" cy="112" r="4.5" fill="#F4A261" />
+            <circle cx="164" cy="84" r="4" fill="#E76F51" />
+          </svg>
+        );
+
+      case 'harvest_farm':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgHarvestFarm" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFE0AD" />
+                <stop offset="62%" stopColor="#FFF3D6" />
+                <stop offset="100%" stopColor="#E3BC78" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgHarvestFarm)" />
+            <circle cx="290" cy="44" r="22" fill="#FFB703" opacity="0.88" />
+            <rect x="26" y="88" width="84" height="72" rx="6" fill="#D95D4E" stroke="#6B4433" strokeWidth="2.4" />
+            <polygon points="18,92 68,54 118,92" fill="#B54438" stroke="#6B4433" strokeWidth="2.4" />
+            <rect x="0" y="156" width="360" height="64" fill="#D8AF68" />
+            <circle cx="288" cy="156" r="20" fill="#F4B740" stroke="#6B4433" strokeWidth="2" />
+            <ellipse cx="76" cy="172" rx="18" ry="14" fill="#F28A38" stroke="#6B4433" strokeWidth="2" />
+            <ellipse cx="308" cy="176" rx="16" ry="13" fill="#FFA44E" stroke="#6B4433" strokeWidth="2" />
+          </svg>
+        );
+
+      case 'snow_cabin':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgSnowCabin" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#CAE4FF" />
+                <stop offset="65%" stopColor="#ECF5FF" />
+                <stop offset="100%" stopColor="#FFFFFF" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgSnowCabin)" />
+            <rect x="116" y="74" width="128" height="90" rx="8" fill="#C98A5B" stroke="#5A3E36" strokeWidth="2.4" />
+            <polygon points="102,78 180,32 258,78" fill="#FFFFFF" stroke="#5A3E36" strokeWidth="2.4" strokeLinejoin="round" />
+            <rect x="164" y="106" width="32" height="36" rx="4" fill="#FFE082" stroke="#5A3E36" strokeWidth="2" />
+            <path d="M0,156 Q180,144 360,156 L360,220 L0,220 Z" fill="#F4F9FF" />
+            {/* Snowman */}
+            <circle cx="62" cy="164" r="18" fill="#FFFFFF" stroke="#B8D4EE" strokeWidth="2" />
+            <circle cx="62" cy="138" r="13" fill="#FFFFFF" stroke="#B8D4EE" strokeWidth="2" />
+            <polygon points="62,140 72,142 62,144" fill="#FF8C42" />
+            {[40, 94, 150, 224, 290, 326].map((sx, i) => (
+              <circle key={sx} cx={sx} cy={24 + (i % 3) * 22} r="3" fill="#FFFFFF" />
+            ))}
+          </svg>
+        );
+
+      case 'christmas_market':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgXmasMarket" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#223259" />
+                <stop offset="68%" stopColor="#3B4D7A" />
+                <stop offset="100%" stopColor="#DDEAF8" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgXmasMarket)" />
+            <path d="M0,38 Q180,62 360,38" fill="none" stroke="#FFE082" strokeWidth="2.5" />
+            {[54, 118, 180, 242, 306].map((lx, i) => (
+              <circle key={lx} cx={lx} cy={46 + (i === 2 ? 6 : 0)} r="5" fill={i % 2 === 0 ? '#FFD166' : '#FF7B8E'} />
+            ))}
+            <rect x="26" y="102" width="76" height="62" rx="4" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="2" />
+            <polygon points="18,104 64,74 110,104" fill="#D94E5D" stroke="#FFFFFF" strokeWidth="3" />
+            <rect x="258" y="102" width="76" height="62" rx="4" fill="#FFF3DC" stroke="#5A3E36" strokeWidth="2" />
+            <polygon points="250,104 296,74 342,104" fill="#2E7D54" stroke="#FFFFFF" strokeWidth="3" />
+            <rect x="0" y="162" width="360" height="58" fill="#EBF4FC" />
+          </svg>
+        );
+
       case 'christmas_cabin':
       default:
         return (

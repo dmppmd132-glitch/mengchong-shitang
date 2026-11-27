@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Heart, Lock, Plus, Sparkles, Users } from 'lucide-react';
+import { getTitleDefinition } from '../../data/encyclopedia';
 import { FOOD_BY_ID } from '../../data/foods';
 import { PET_ABILITIES, RESERVED_SPECIAL_PETS } from '../../data/pets';
 import { getPetSpeciesInfo } from '../../data/species';
@@ -215,10 +216,13 @@ export const PetListView: React.FC<PetListViewProps> = ({
           <ArrowLeft className="w-4 h-4" />
           首頁
         </button>
-        <div className="text-center">
+        <div className="text-center min-w-0">
           <h1 className="text-sm font-black text-[#5A3E36]">🐾 寵物清單與領養</h1>
-          <p className="text-[11px] font-bold text-[#8E6F64]">
+          <p className="text-[11px] font-bold text-[#8E6F64] truncate">
             已養 {game.pets.length} / 已解鎖 {slotEval.maxSlots} 欄（上限 6 隻）
+            {game.encyclopedia.activeTitle
+              ? ` · ${getTitleDefinition(game.encyclopedia.activeTitle).emoji} ${getTitleDefinition(game.encyclopedia.activeTitle).name}`
+              : ''}
           </p>
         </div>
         <div className="w-[62px] text-right">

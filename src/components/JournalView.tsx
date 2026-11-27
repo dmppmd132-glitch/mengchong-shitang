@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
+import { getTitleDefinition } from '../data/encyclopedia';
 import { getRoundnessTier } from '../data/growth';
 import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
@@ -24,6 +25,8 @@ import {
   ActiveTownLocationId,
   CloudSyncStatus,
   CloudUser,
+  CollectionItem,
+  CollectionJumpTarget,
   EncyclopediaState,
   GameState,
   MemoryEntry,
@@ -95,6 +98,8 @@ interface JournalViewProps {
   onOpenPetList?: () => void;
   onClaimTownEncyclopediaReward?: (locationId: ActiveTownLocationId) => void;
   onOpenTownMap?: (locationId?: ActiveTownLocationId) => void;
+  onJumpToCollectionTarget?: (target: CollectionJumpTarget, item: CollectionItem) => void;
+  onToggleCollectionReminder?: () => void;
 }
 
 interface ChartPoint {
@@ -156,6 +161,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
   onOpenPetList,
   onClaimTownEncyclopediaReward,
   onOpenTownMap,
+  onJumpToCollectionTarget,
+  onToggleCollectionReminder,
 }) => {
   const [section, setSection] = useState<JournalSection>(initialSection);
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
@@ -309,9 +316,22 @@ export const JournalView: React.FC<JournalViewProps> = ({
             {petSpeciesInfo.emoji}
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-extrabold text-[#4A3531] truncate">
-              {pet.name} · {petSpeciesInfo.shortName} Lv.{pet.level}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs font-extrabold text-[#4A3531] truncate">
+                {pet.name} · {petSpeciesInfo.shortName} Lv.{pet.level}
+              </p>
+              {encyclopedia.activeTitle && (() => {
+                const tDef = getTitleDefinition(encyclopedia.activeTitle);
+                return (
+                  <span
+                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold ${tDef.badgeClass}`}
+                  >
+                    <span aria-hidden="true">{tDef.emoji}</span>
+                    <span>{tDef.name}</span>
+                  </span>
+                );
+              })()}
+            </div>
             <p className="text-[10px] font-bold text-[#256D57] truncate">
               {petAbility.emoji} {petAbility.title}（{petAbility.summary}）
             </p>
@@ -406,6 +426,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
           eventOwnedCatalogIds={game ? getEventCarryoverCatalogOwnedIds(game) : []}
           eventEnded={game?.seasonalEvent?.status === 'ended'}
           game={game}
+          hasSharedRoom={Boolean(sharedRoom)}
           initialSection={initialEncyclopediaSection}
           onSelectTitle={onSelectTitle}
           onGoToKitchen={onGoToKitchen}
@@ -413,6 +434,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
           onOpenStudio={() => onOpenWardrobePhotoMode?.('wardrobe')}
           onClaimTownEncyclopediaReward={onClaimTownEncyclopediaReward}
           onOpenTownMap={onOpenTownMap}
+          onJumpToTarget={onJumpToCollectionTarget}
+          onToggleCollectionReminder={onToggleCollectionReminder}
         />
       ) : section === 'evolution' ? (
         <EvolutionAtlasView

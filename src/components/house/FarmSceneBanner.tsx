@@ -4,20 +4,26 @@ import { ROOM_ITEM_BY_ID, STORAGE_CAPS_BY_LEVEL } from '../../data/house';
 import { INGREDIENT_IDS, INGREDIENTS } from '../../data/kitchen';
 import { PicnicSnackId, SYSTEM_COOKIE_ID, useYardActivities } from '../../hooks/useYardActivities';
 import { VISITOR_BEHAVIOR_META, VISITOR_BY_ID, VISITOR_DECOR_BY_ID } from '../../data/visitors';
+import { SEASON_YARD_THEMES } from '../../data/seasons';
 import {
   CoopVisitorSession,
   IngredientId,
   Pet,
   PetExpression,
   PiggyActionState,
+  SeasonSystemState,
   SharedHouse,
   TownMapState,
   VisitorSystemState,
+  WeatherState,
   YardMoodBuffPeriod,
 } from '../../types';
+import { getSeasonFromDate } from '../../utils/seasons';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { getActiveYardBuffExpiresAt } from '../../utils/farmGrowth';
 import { PiggyCharacter } from '../PiggyCharacter';
+import { SeasonWeatherAtmosphere } from '../seasons/SeasonWeatherAtmosphere';
+import { SeasonWeatherBadge } from '../seasons/SeasonWeatherBadge';
 import { VisitorDecorSvg, VisitorSprite } from '../visitors/VisitorIllustrations';
 import { CropIllustration } from './FarmIllustrations';
 import { FurnitureGraphic } from './FurnitureGraphic';
@@ -68,6 +74,9 @@ interface FarmSceneBannerProps {
   onOpenTownOrders?: () => void;
   townMap?: TownMapState;
   onOpenTownMap?: () => void;
+  seasonSystem?: SeasonSystemState;
+  weather?: WeatherState;
+  onOpenWeatherCenter?: () => void;
 }
 
 export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
@@ -87,7 +96,25 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   onOpenTownOrders,
   townMap,
   onOpenTownMap,
+  seasonSystem,
+  weather,
+  onOpenWeatherCenter,
 }) => {
+  const activeSeasonId = seasonSystem?.currentSeason ?? getSeasonFromDate();
+  const activeWeather: WeatherState = weather ?? {
+    condition: 'clear',
+    temperatureC: 25,
+    label: '晴天',
+    emoji: '☀️',
+    source: 'fixed',
+    updatedAt: 0,
+    cityId: 'kaohsiung',
+    cityName: '高雄',
+  };
+  const activeYardTheme =
+    seasonSystem?.yardThemeOverride && seasonSystem.yardThemeOverride !== 'none'
+      ? SEASON_YARD_THEMES[seasonSystem.yardThemeOverride]
+      : null;
   const { fenceId, flowerbedId, signId } = house.activeFarmDecor;
   const hasSprinkler = house.farmUpgrades.sprinklerLevel > 0;
   const hasGreenhouse = house.farmUpgrades.greenhouseLevel > 0;
@@ -196,17 +223,45 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
       aria-label="萌寵暖暖庭院手繪場景"
       className="relative -mx-4 sm:mx-0 sm:rounded-[28px] overflow-hidden border-y-2 sm:border-2 border-[#6B5344] bg-[#D9E8C4] shadow-[0_4px_0_rgba(107,83,68,0.16)]"
     >
-        {/* Full illustrated courtyard backdrop: warm sky, soft hills, open lawn and short path */}
       <YardSceneBackdropSvg fenceId={fenceId} hasGreenhouse={hasGreenhouse} />
 
+      {activeYardTheme && (
+        <div
+          className="pointer-events-none absolute inset-0 z-[2] opacity-40 mix-blend-multiply"
+          style={{ background: activeYardTheme.skyGradient }}
+          aria-hidden="true"
+        />
+      )}
+
+      <SeasonWeatherAtmosphere
+        seasonId={activeSeasonId}
+        weatherCondition={activeWeather.condition}
+        variant="yard"
+      />
+
       <div className="relative z-10 flex flex-col">
-        {/* 1. TOP ARCHITECTURE ROW: Left Cottage + Clickable Signboard / Right Red-Roofed Barn Storage */}
         <div className="relative flex items-start justify-between pt-2 px-1.5 sm:px-3">
-          <YardCottageSvg
-            houseName={house.houseName}
-            signId={signId}
-            onEditHouseName={onEditHouseName}
-          />
+          <div className="flex flex-col items-start gap-1">
+            <YardCottageSvg
+              houseName={house.houseName}
+              signId={signId}
+              onEditHouseName={onEditHouseName}
+            />
+            <div className="flex flex-wrap items-center gap-1 pl-1">
+              <SeasonWeatherBadge
+                seasonId={activeSeasonId}
+                weather={activeWeather}
+                compact
+                onClick={onOpenWeatherCenter}
+                className="!min-h-[30px] !px-2 !py-0.5 !text-[10px] shadow-xs"
+              />
+              {activeYardTheme && (
+                <span className="rounded-xl border border-[#6B5344]/60 bg-[#FFFDF8]/92 px-2 py-0.5 text-[10px] font-extrabold text-[#5A3E36] shadow-xs whitespace-nowrap">
+                  {activeYardTheme.decorEmojis.join('')} {activeYardTheme.name}
+                </span>
+              )}
+            </div>
+          </div>
 
           <div className="flex flex-col items-end gap-1 pt-2 pr-0.5 w-[46%]">
             <div className="w-full flex justify-end">
@@ -220,7 +275,6 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
               />
             </div>
 
-            {/* Subtle Active Facility Status Badges (Only Shown When Purchased) */}
             {(hasSprinkler || hasGreenhouse) && (
               <div className="flex flex-wrap justify-end gap-1 -mt-1">
                 {hasSprinkler && (

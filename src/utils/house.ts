@@ -1173,6 +1173,7 @@ export function saveRoomSnapshotPhoto(
     filterId: params.filterId,
     frameId: params.frameId,
     weightAtCapture: activePet.weight,
+    authorTitleId: state.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };

@@ -203,6 +203,7 @@ export function saveWardrobePhoto(
     wardrobePoseId: params.poseId,
     filterId: params.filterId,
     frameId: params.frameId,
+    authorTitleId: state.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };

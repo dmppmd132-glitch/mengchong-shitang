@@ -35,6 +35,14 @@ export function createInitialEncyclopediaState(
     claimedAccessoryThemeSets: [],
     unlockedTitles: [],
     activeTitle: null,
+    accessoryWearCounts: {},
+    claimedTotalMilestones: [],
+    unlockedCollectionBadges: [],
+    unlockedChainSetIds: [],
+    collectionReminderEnabled: true,
+    lastCollectionReminderDate: null,
+    lastCollectionReminderDismissedDate: null,
+    collectionOfflineSummary: null,
   };
 }
 

@@ -46,6 +46,11 @@ export function getActiveYardBuffExpiresAt(
   return active.length > 0 ? Math.max(...active.map((period) => period.expiresAt)) : null;
 }
 
+export interface CropGrowthOptions {
+  isPaused?: boolean;
+  minRate?: number;
+}
+
 /**
  * Estimate the real wall-clock time needed from `now`, respecting any remaining active buff
  * windows. A +10% growth rate means work accrues at 1.1x, not a 10% time reduction.
@@ -54,9 +59,14 @@ export function getExpectedCropDurationMs(
   baseDurationMs: number,
   now: number,
   periods: YardMoodBuffPeriod[],
-  extraGrowthMultiplier = 1
+  extraGrowthMultiplier = 1,
+  options?: CropGrowthOptions
 ): number {
-  const baseRate = Math.max(0.5, extraGrowthMultiplier);
+  const minRate = options?.minRate ?? 0.4;
+  const baseRate = options?.isPaused ? 0 : Math.max(minRate, extraGrowthMultiplier);
+  if (baseRate <= 0) {
+    return Math.max(0, Math.ceil(baseDurationMs));
+  }
   let remainingWorkMs = Math.max(0, baseDurationMs);
   let cursor = now;
 
@@ -88,20 +98,25 @@ export function getCropGrowthState(
   plot: CropPlot,
   now: number,
   periods: YardMoodBuffPeriod[],
-  extraGrowthMultiplier = 1
+  extraGrowthMultiplier = 1,
+  options?: CropGrowthOptions
 ): CropGrowthState {
   if (plot.plantedAt === null || plot.cropId === null || plot.durationMs <= 0) {
     return { effectiveElapsedMs: 0, remainingMs: 0, progressPercent: 0, isReady: false };
   }
 
-  const baseRate = Math.max(0.5, extraGrowthMultiplier);
+  const minRate = options?.minRate ?? 0.4;
+  const isPaused = Boolean(options?.isPaused);
+  const baseRate = isPaused ? 0 : Math.max(minRate, extraGrowthMultiplier);
   const plantedAt = plot.plantedAt;
   const wallElapsedMs = Math.max(0, now - plantedAt);
-  const boostedElapsedMs = mergeYardMoodBuffPeriods(periods).reduce((total, period) => {
-    const overlapStart = Math.max(plantedAt, period.startedAt);
-    const overlapEnd = Math.min(now, period.expiresAt);
-    return total + Math.max(0, overlapEnd - overlapStart);
-  }, 0);
+  const boostedElapsedMs = isPaused
+    ? 0
+    : mergeYardMoodBuffPeriods(periods).reduce((total, period) => {
+        const overlapStart = Math.max(plantedAt, period.startedAt);
+        const overlapEnd = Math.min(now, period.expiresAt);
+        return total + Math.max(0, overlapEnd - overlapStart);
+      }, 0);
   const effectiveElapsedMs =
     wallElapsedMs * baseRate +
     boostedElapsedMs * baseRate * (PICNIC_GROWTH_RATE_MULTIPLIER - 1);
@@ -109,14 +124,17 @@ export function getCropGrowthState(
 
   return {
     effectiveElapsedMs,
-    remainingMs: getExpectedCropDurationMs(
-      remainingWorkMs,
-      now,
-      periods,
-      extraGrowthMultiplier
-    ),
+    remainingMs: isPaused
+      ? Math.max(0, plot.durationMs - Math.min(plot.durationMs, wallElapsedMs * Math.max(minRate, extraGrowthMultiplier)))
+      : getExpectedCropDurationMs(
+          remainingWorkMs,
+          now,
+          periods,
+          extraGrowthMultiplier,
+          options
+        ),
     progressPercent: Math.min(100, Math.round((effectiveElapsedMs / plot.durationMs) * 100)),
-    isReady: remainingWorkMs <= 0,
+    isReady: !isPaused && remainingWorkMs <= 0,
   };
 }
 

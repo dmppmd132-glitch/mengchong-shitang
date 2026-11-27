@@ -2,14 +2,13 @@ import {
   DAILY_CHATTER_LINES,
   HOLIDAY_RULES,
   PERSONALITY_DIALOGUES,
-  PERSONALITY_WEATHER_OVERRIDES,
   TIME_GREETINGS,
   URGENT_DIALOGUES,
-  WEATHER_DIALOGUES,
   WEATHER_META,
   buildMemoryDialogueText,
   selectResponsesForDialogue,
 } from '../data/dialogue';
+import { pickWeatherDialogueText } from '../data/seasons/dialogue';
 import {
   DialogueCategory,
   DialogueLine,
@@ -20,12 +19,21 @@ import {
   PersonalityId,
   PetMemoryEvent,
   PetMemoryEventType,
+  SeasonId,
   TimePeriodId,
   WeatherCondition,
   WeatherState,
 } from '../types';
 import { getActivePet, getPetDisplayPersonality, updateActivePet } from './pets';
 import { clampStat } from './storage';
+
+function detectLocalSeason(date: Date = new Date()): SeasonId {
+  const m = date.getMonth() + 1;
+  if (m >= 3 && m <= 5) return 'spring';
+  if (m >= 6 && m <= 8) return 'summer';
+  if (m >= 9 && m <= 11) return 'autumn';
+  return 'winter';
+}
 
 const MIN_PROACTIVE_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
 const MAX_PROACTIVE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -77,6 +85,12 @@ export function createInitialWeatherState(
     emoji: meta.emoji,
     source: 'fixed',
     updatedAt: Date.now(),
+    cityId: 'kaohsiung',
+    cityName: '高雄',
+    mode: 'simulated',
+    isOfflineFallback: false,
+    seasonId: detectLocalSeason(),
+    lastSyncedOnlineAt: null,
   };
 }
 
@@ -102,6 +116,8 @@ export function createInitialDialogueState(
     consecutiveCareDays: 1,
     lastCareDate: todayKey,
     announcedWeightMilestones: [],
+    lastWeatherDialogueDate: null,
+    lastWeatherDialogueCondition: null,
   };
 }
 
@@ -534,17 +550,15 @@ export function evaluateAndSelectDialogue(
     };
   }
 
-  // 6. Weather Dialogue (Priority 6): respects muteWeatherChat
+  // 6. Weather Dialogue (Priority 6): respects muteWeatherChat & max 1 weather dialogue per day
   if (
     !settings.muteWeatherChat &&
+    dialogue.lastWeatherDialogueDate !== todayKey &&
     !wasCategoryShownWithin(dialogue.history, 'weather', WEATHER_CATEGORY_GAP_MS, now)
   ) {
     const cond = dialogue.weather.condition;
-    const override = PERSONALITY_WEATHER_OVERRIDES[cond]?.[primaryPersonality];
-    const pool = override
-      ? [override, ...WEATHER_DIALOGUES[cond]]
-      : WEATHER_DIALOGUES[cond];
-    const text = pickFreshLine(pool, dialogue.history);
+    const seasonId = state.seasonSystem?.currentSeason ?? detectLocalSeason(nowDate);
+    const text = pickWeatherDialogueText(cond, seasonId, primaryPersonality, period);
     const line = makeDialogueLine({
       category: 'weather',
       text,
@@ -553,7 +567,12 @@ export function evaluateAndSelectDialogue(
       now,
       weatherCondition: cond,
     });
-    return pushBubbleToDialogue(dialogue, line, true, now);
+    const updated = pushBubbleToDialogue(dialogue, line, true, now);
+    return {
+      ...updated,
+      lastWeatherDialogueDate: todayKey,
+      lastWeatherDialogueCondition: cond,
+    };
   }
 
   // 7. Daily Chatter (Priority 7)
@@ -694,8 +713,18 @@ export function mergeDialogueRemoteState(
 
   return {
     ...remoteDialogue,
-    // Keep each player's personal notification preferences intact
+    // Keep each player's personal notification preferences and local city weather intact
     settings: localDialogue.settings,
+    weather:
+      localDialogue.weather.updatedAt >= remoteDialogue.weather.updatedAt
+        ? localDialogue.weather
+        : remoteDialogue.weather,
+    lastWeatherDialogueDate:
+      localDialogue.lastWeatherDialogueDate ?? remoteDialogue.lastWeatherDialogueDate ?? null,
+    lastWeatherDialogueCondition:
+      localDialogue.lastWeatherDialogueCondition ??
+      remoteDialogue.lastWeatherDialogueCondition ??
+      null,
     activeBubble: localDialogue.settings.muteAllProactive ? null : nextBubble,
     memoryEvents: mergedEvents,
     history: mergedHistory,

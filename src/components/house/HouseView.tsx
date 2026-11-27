@@ -26,6 +26,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
+import { getTitleDefinition } from '../../data/encyclopedia';
 import {
   FARM_DECORATIONS,
   FARM_PLOT_EXPANSION_COSTS,
@@ -49,6 +50,7 @@ import {
 } from '../../data/house';
 import { INGREDIENTS } from '../../data/kitchen';
 import { PHOTO_STICKERS } from '../../data/photoStudio';
+import { SEASON_ROOM_THEME_BY_ID } from '../../data/seasons';
 import { VISITOR_BY_ID, VISITOR_DECORS } from '../../data/visitors';
 import { PicnicSnackId, SYSTEM_COOKIE_ID } from '../../hooks/useYardActivities';
 import {
@@ -140,6 +142,7 @@ interface HouseViewProps {
   onOpenVisitorModal?: () => void;
   onOpenTownOrders?: () => void;
   onOpenTownMap?: () => void;
+  onOpenWeatherCenter?: () => void;
   onSharePhotoToBoard: (photo: RoomPhotoRecord, caption: string) => Promise<string | null>;
   onTogglePhotoLike: (photoId: string) => void;
   onAddPhotoComment: (photoId: string, content: string) => void;
@@ -172,6 +175,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
   onOpenVisitorModal,
   onOpenTownOrders,
   onOpenTownMap,
+  onOpenWeatherCenter,
   onSharePhotoToBoard,
   onTogglePhotoLike,
   onAddPhotoComment,
@@ -895,6 +899,9 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 )}
                 金庫 {house.treasuryCoins} 幣
                 {tab !== 'yard' && sharedRoom ? ' · 共養同步中' : ''}
+                {tab !== 'yard' && game.encyclopedia.activeTitle
+                  ? ` · ${getTitleDefinition(game.encyclopedia.activeTitle).emoji} ${getTitleDefinition(game.encyclopedia.activeTitle).name}`
+                  : ''}
               </p>
             </div>
           ) : (
@@ -1170,27 +1177,47 @@ export const HouseView: React.FC<HouseViewProps> = ({
             {/* Room Info + Live Pet Speech Header */}
             <div className="px-3 py-2 border-b border-[#EFE0D7] bg-[#FFF8F2] space-y-1.5">
               <div className="flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#7D635D]">
-                <span>
+                <span className="truncate">
                   壁紙：{wallDef.name} · 地板：{floorDef.name}
                   {totalRoomPets > 1 ? ` · 🐾 屋內 ${totalRoomPets} 隻萌寵` : ''}
                 </span>
-                <span className="tabular-nums">
-                  {house.roomLayout.placedItems.length} / 24 格
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {game.seasonSystem?.roomThemeOverride &&
+                    game.seasonSystem.roomThemeOverride !== 'none' &&
+                    SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride] && (
+                      <button
+                        type="button"
+                        onClick={onOpenWeatherCenter}
+                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-extrabold ${
+                          SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride].badgeClass
+                        }`}
+                      >
+                        {SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride].emoji}{' '}
+                        {SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride].name}
+                      </button>
+                    )}
+                  <span className="tabular-nums">
+                    {house.roomLayout.placedItems.length} / 24 格
+                  </span>
+                </div>
               </div>
               <div className="rounded-2xl bg-white border border-[#F1D5DF] px-3 py-1.5 text-xs font-extrabold text-[#4A3531] leading-snug">
                 💬 {petSpeech}
               </div>
             </div>
 
-            {/* 2D Horizontal Scene Canvas */}
             <div className="relative w-full h-[312px] sm:h-[336px] overflow-hidden select-none">
-              {/* TOP 35%: Pastel Striped Wall + Macaron Bunting + Bear Frame + Shelf + Curtained Window + Baseboard */}
               <div
                 className="relative h-[35%] w-full overflow-hidden"
-                style={{ background: wallDef.wallBgStyle }}
+                style={{
+                  background:
+                    game.seasonSystem?.roomThemeOverride &&
+                    game.seasonSystem.roomThemeOverride !== 'none' &&
+                    SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride]
+                      ? SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride].wallStyle
+                      : wallDef.wallBgStyle,
+                }}
               >
-                {/* Delicate Soft Vertical Stripe & Top Glow Overlay */}
                 <div
                   className="pointer-events-none absolute inset-0"
                   style={{
@@ -1438,10 +1465,16 @@ export const HouseView: React.FC<HouseViewProps> = ({
                 />
               </div>
 
-              {/* BOTTOM 65%: Warm Oak Floor + Soft Cocoa Wavy Wood Grain + Lace Rug & Props + Starter Cat Pot/Bunny Box */}
               <div
                 className="relative h-[65%] w-full overflow-hidden"
-                style={{ background: floorDef.floorBgStyle }}
+                style={{
+                  background:
+                    game.seasonSystem?.roomThemeOverride &&
+                    game.seasonSystem.roomThemeOverride !== 'none' &&
+                    SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride]
+                      ? SEASON_ROOM_THEME_BY_ID[game.seasonSystem.roomThemeOverride].floorStyle
+                      : floorDef.floorBgStyle,
+                }}
               >
                 {/* Oak Plank Seam Lines */}
                 <div
@@ -2374,6 +2407,9 @@ export const HouseView: React.FC<HouseViewProps> = ({
             onOpenTownOrders={onOpenTownOrders}
             townMap={game.townMap}
             onOpenTownMap={onOpenTownMap}
+            seasonSystem={game.seasonSystem}
+            weather={game.dialogue.weather}
+            onOpenWeatherCenter={onOpenWeatherCenter}
           />
 
           <div className="-mt-2 flex items-center justify-between gap-2 flex-wrap">

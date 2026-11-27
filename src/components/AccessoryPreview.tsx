@@ -637,6 +637,21 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="-12" cy="11" r="4" fill="#FFE066" stroke="#5A3E36" strokeWidth="2" />
         </g>
       )}
+      {accessoryId === 'collection_prism_crown' && (
+        <g transform="translate(32, 34)">
+          <path
+            d="M -21 10 L -24 -10 L -10 0 L 0 -18 L 10 0 L 24 -10 L 21 10 Z"
+            fill="#FFE066"
+            stroke="#5A3E36"
+            strokeWidth="2.6"
+            strokeLinejoin="round"
+          />
+          <rect x="-21" y="9" width="42" height="6" rx="3" fill="#FFAFD0" stroke="#5A3E36" strokeWidth="2.4" />
+          <polygon points="0,-10 5,-2 0,5 -5,-2" fill="#82E9FF" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="-13" cy="2" r="2.8" fill="#FF7EB6" stroke="#5A3E36" strokeWidth="1.5" />
+          <circle cx="13" cy="2" r="2.8" fill="#A78BFA" stroke="#5A3E36" strokeWidth="1.5" />
+        </g>
+      )}
     </svg>
   );
 };

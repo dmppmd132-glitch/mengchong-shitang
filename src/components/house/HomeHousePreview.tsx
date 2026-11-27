@@ -9,7 +9,8 @@ import {
   WALLPAPER_BY_ID,
   getZoneForCell,
 } from '../../data/house';
-import { Pet, PlacedRoomItem, SharedHouse } from '../../types';
+import { SEASON_ROOM_THEME_BY_ID } from '../../data/seasons';
+import { Pet, PlacedRoomItem, SeasonRoomThemeId, SharedHouse } from '../../types';
 import {
   HousePetCoordinates,
   HousePetInteractionTarget,
@@ -25,6 +26,7 @@ interface HomeHousePreviewProps {
   pet: Pet;
   companionPets?: Pet[];
   house: SharedHouse;
+  roomThemeOverride?: SeasonRoomThemeId;
   onOpenHouse: (tab?: HouseSubTab) => void;
 }
 
@@ -34,6 +36,7 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
   pet,
   companionPets = [],
   house,
+  roomThemeOverride = 'none',
   onOpenHouse,
 }) => {
   const entryCoords = useMemo(
@@ -153,6 +156,8 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
 
   const wallDef = WALLPAPER_BY_ID[house.roomLayout.wallpaperId] ?? WALLPAPER_BY_ID.cream_warm;
   const floorDef = FLOORING_BY_ID[house.roomLayout.flooringId] ?? FLOORING_BY_ID.oak_wood;
+  const seasonRoomTheme =
+    roomThemeOverride !== 'none' ? SEASON_ROOM_THEME_BY_ID[roomThemeOverride] ?? null : null;
 
   const hasClaimableMilestone = house.achievedMilestones.some(
     (id) => !house.claimedMilestones.includes(id)
@@ -284,11 +289,23 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
 
       {/* Interactive Cozy 2D Room Stage */}
       <div className="rounded-2xl border border-[#EAD4CB] overflow-hidden bg-[#FFF9F2]">
-        {/* Wallpaper + Pastel Bunting + Wooden Baseboard + Pet Reaction Bubble */}
         <div
           className="relative px-2.5 pt-3.5 pb-3 border-b-2 border-[#9C6F45] flex items-center justify-between gap-2 overflow-hidden"
-          style={{ background: wallDef.wallBgStyle }}
+          style={{ background: seasonRoomTheme ? seasonRoomTheme.wallStyle : wallDef.wallBgStyle }}
         >
+          {seasonRoomTheme && (
+            <>
+              <div
+                className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${seasonRoomTheme.accentOverlayClass}`}
+                aria-hidden="true"
+              />
+              <span
+                className={`relative z-10 px-1.5 py-0.5 rounded-lg border text-[10px] font-extrabold shrink-0 ${seasonRoomTheme.badgeClass}`}
+              >
+                {seasonRoomTheme.emoji} {seasonRoomTheme.name}
+              </span>
+            </>
+          )}
           {/* Delicate Top Macaron Bunting */}
           <svg
             viewBox="0 0 360 14"
@@ -352,10 +369,9 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
           />
         </div>
 
-        {/* 6x4 Cozy Floor + Wavy Cocoa Grain + Lace Rug & Props + CSS-animated Pet */}
         <div
           className="relative p-1.5 overflow-hidden"
-          style={{ background: floorDef.floorBgStyle }}
+          style={{ background: seasonRoomTheme ? seasonRoomTheme.floorStyle : floorDef.floorBgStyle }}
         >
           {/* Subtle Oak Plank Lines */}
           <div

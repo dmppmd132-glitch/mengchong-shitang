@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Bath,
   BookHeart,
+  BookOpen,
   FlipHorizontal2,
   Footprints,
   Gamepad2,
@@ -28,7 +29,10 @@ import { PET_ABILITIES } from '../data/pets';
 import { getPetSpeciesInfo } from '../data/species';
 import { getStickerById } from '../data/stickers';
 import { VISITOR_BY_ID } from '../data/visitors';
+import { SEASON_META } from '../data/seasons';
 import {
+  CollectionCategoryId,
+  CollectionProgress,
   DialogueLine,
   FeedingVisualEffect,
   FloatingFeedback,
@@ -41,6 +45,7 @@ import {
   PetTouchZone,
   PetViewDirection,
   PiggyActionState,
+  SeasonSystemState,
   SeasonalEvent,
   SharedHouse,
   SharedPetRoom,
@@ -50,13 +55,17 @@ import {
   VisitorVisit,
   WeatherState,
 } from '../types';
+import { CollectionReminderPayload } from '../utils/collection';
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
 import { getTimeOfDayMeta, getTimeOfDayPeriod } from '../utils/farmGrowth';
 import { getEventRemainingText } from '../utils/seasonalEvent';
+import { getSeasonEventRemainingText, getSeasonFromDate } from '../utils/seasons';
 import { PetDialogueBubble } from './dialogue/PetDialogueBubble';
 import { HomeHousePreview } from './house/HomeHousePreview';
 import { HouseSubTab } from './house/HouseView';
 import { PiggyCharacter } from './PiggyCharacter';
+import { SeasonWeatherAtmosphere } from './seasons/SeasonWeatherAtmosphere';
+import { SeasonWeatherBadge } from './seasons/SeasonWeatherBadge';
 
 interface HomeViewProps {
   pet: Pet;
@@ -119,6 +128,15 @@ interface HomeViewProps {
   onOpenSeasonalEvent?: () => void;
   townMap?: TownMapState;
   onOpenTownMap?: () => void;
+  collectionProgress?: CollectionProgress;
+  dailyCollectionReminder?: CollectionReminderPayload | null;
+  onOpenCollection?: (categoryId?: CollectionCategoryId) => void;
+  onDismissCollectionReminder?: () => void;
+  seasonSystem?: SeasonSystemState;
+  onOpenWeatherCenter?: () => void;
+  onOpenSeasonFestival?: () => void;
+  onDismissSeasonNotice?: () => void;
+  onDismissOfflineSummary?: () => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -196,7 +214,39 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenSeasonalEvent,
   townMap,
   onOpenTownMap,
+  collectionProgress,
+  dailyCollectionReminder = null,
+  onOpenCollection,
+  onDismissCollectionReminder,
+  seasonSystem,
+  onOpenWeatherCenter,
+  onOpenSeasonFestival,
+  onDismissSeasonNotice,
+  onDismissOfflineSummary,
 }) => {
+  const activeSeasonId = seasonSystem?.currentSeason ?? getSeasonFromDate();
+  const seasonMeta = SEASON_META[activeSeasonId];
+  const effectiveWeather: WeatherState = weather ?? {
+    condition: 'clear',
+    temperatureC: 25,
+    label: '晴天',
+    emoji: '☀️',
+    source: 'fixed',
+    updatedAt: 0,
+    cityId: 'kaohsiung',
+    cityName: '高雄',
+  };
+  const claimableWeatherTasksCount = (seasonSystem?.weatherTasks ?? []).filter(
+    (t) => t.completed && !t.claimed
+  ).length;
+  const sakuraClaimableCount =
+    (seasonSystem?.seasonEvent.status === 'active'
+      ? seasonSystem.seasonEvent.dailyTasks.filter((t) => t.completed && !t.claimed).length
+      : 0) +
+    (seasonSystem?.seasonEvent.coopTask?.completed &&
+    !seasonSystem.seasonEvent.coopTask.claimedByUserIds.includes(currentUserId || 'local')
+      ? 1
+      : 0);
   const [foodDrawerOpen, setFoodDrawerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FoodCategory>('meal');
   const [draggingFoodId, setDraggingFoodId] = useState<string | null>(null);
@@ -600,6 +650,56 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
       )}
 
+      <div className="space-y-2">
+        <SeasonWeatherBadge
+          seasonId={activeSeasonId}
+          weather={effectiveWeather}
+          pendingWeatherTasksCount={claimableWeatherTasksCount}
+          onClick={onOpenWeatherCenter}
+          className="w-full justify-between"
+        />
+
+        {seasonSystem?.seasonNoticePending && (
+          <div className="rounded-2xl bg-gradient-to-r from-[#FFEAF3] via-[#FFF6DC] to-[#E6F8EE] border-2 border-[#F4B4CA] px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-xs">
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold text-[#B83B64]">
+                {seasonMeta.emoji} 季節變化了！歡迎來到{seasonMeta.name}
+              </div>
+              <p className="text-[11px] font-bold text-[#6E544E] truncate mt-0.5">
+                {seasonMeta.tagline} · 已記錄進專屬回憶冊！
+              </p>
+            </div>
+            {onDismissSeasonNotice && (
+              <button
+                type="button"
+                onClick={onDismissSeasonNotice}
+                className="min-h-[38px] px-3 rounded-xl bg-[#FF7A9E] text-white text-[11px] font-extrabold shrink-0 active:scale-95 transition"
+              >
+                收下回憶卡
+              </button>
+            )}
+          </div>
+        )}
+
+        {seasonSystem?.offlineSummary && (
+          <div className="rounded-2xl bg-[#EEF5FC] border border-[#BFD8F2] px-3 py-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-bold text-[#2E5484] leading-snug">
+              📡 {seasonSystem.offlineSummary.summaryText}
+            </p>
+            {onDismissOfflineSummary && (
+              <button
+                type="button"
+                onClick={onDismissOfflineSummary}
+                aria-label="關閉離線天氣提示"
+                className="min-h-[32px] min-w-[32px] rounded-lg bg-white/80 text-[#456894] flex items-center justify-center shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <section
         ref={stageRef}
         onDragOver={(e) => {
@@ -616,6 +716,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
             : 'border-[#F5DFD7]'
         }`}
       >
+        <SeasonWeatherAtmosphere
+          seasonId={activeSeasonId}
+          weatherCondition={effectiveWeather.condition}
+          variant="stage"
+        />
+
         {activeBackground === 'default' && timeMeta.stageTintClass && (
           <div
             className={`pointer-events-none absolute inset-0 ${timeMeta.stageTintClass}`}
@@ -930,8 +1036,45 @@ export const HomeView: React.FC<HomeViewProps> = ({
           pet={pet}
           companionPets={companionPets}
           house={house}
+          roomThemeOverride={seasonSystem?.roomThemeOverride}
           onOpenHouse={onOpenHouse}
         />
+      )}
+
+      {seasonSystem?.seasonEvent && onOpenSeasonFestival && (
+        <button
+          type="button"
+          onClick={onOpenSeasonFestival}
+          className="w-full min-h-[56px] rounded-2xl bg-gradient-to-r from-[#FFEAF3] via-[#FFF6E5] to-[#E9F9F0] border-2 border-[#F4B4CD] px-3.5 py-2.5 flex items-center justify-between gap-2 text-left shadow-xs hover:brightness-[0.99] active:scale-[0.99] transition"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-white/90 border border-[#F5C6D6] flex items-center justify-center text-xl shrink-0">
+              {seasonSystem.seasonEvent.emoji}
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-extrabold text-[#B83B64]">
+                  季節慶典・{seasonSystem.seasonEvent.name}
+                </span>
+                {sakuraClaimableCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#3BA886] text-white text-[10px] font-extrabold tabular-nums">
+                    {sakuraClaimableCount} 待領
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#FF7A9E] text-white text-[10px] font-extrabold">
+                    {seasonSystem.seasonEvent.status === 'active' ? '14天限定' : '圖鑑回顧'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-bold text-[#7B4F5D] truncate tabular-nums">
+                {getSeasonEventRemainingText(seasonSystem.seasonEvent)} · 🌸 {seasonSystem.seasonEvent.ticketBalance} 櫻花券
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-xl bg-white border border-[#F2BDCE] text-[11px] font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            慶典 ›
+          </span>
+        </button>
       )}
 
       {seasonalEvent && onOpenSeasonalEvent && (
@@ -974,11 +1117,57 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       )}
 
+      {dailyCollectionReminder && onOpenCollection && (
+        <div
+          role="region"
+          aria-label="每日圖鑑收集提醒"
+          className="rounded-2xl bg-gradient-to-r from-[#FFF6DC] via-[#FFF9F2] to-[#E8F8F2] border-2 border-[#EED9B8] px-3.5 py-2.5 flex items-center justify-between gap-2"
+        >
+          <button
+            type="button"
+            onClick={() => onOpenCollection(dailyCollectionReminder.categoryId)}
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+          >
+            <span className="w-9 h-9 rounded-xl bg-white border border-[#EFE0D0] flex items-center justify-center text-xl shrink-0">
+              {dailyCollectionReminder.emoji}
+            </span>
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold text-[#5A3E36] truncate">
+                {dailyCollectionReminder.title}
+              </div>
+              <p className="text-[11px] font-bold text-[#7D635D] truncate mt-0.5">
+                {dailyCollectionReminder.message}
+              </p>
+            </div>
+          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => onOpenCollection(dailyCollectionReminder.categoryId)}
+              className="min-h-[36px] px-2.5 rounded-xl bg-white border border-[#E7D4C0] text-[11px] font-extrabold text-[#8A5610] whitespace-nowrap"
+            >
+              {dailyCollectionReminder.jumpTargetLabel} ›
+            </button>
+            {onDismissCollectionReminder && (
+              <button
+                type="button"
+                onClick={onDismissCollectionReminder}
+                aria-label="今日略過圖鑑提醒"
+                className="min-h-[36px] min-w-[36px] rounded-xl flex items-center justify-center text-[#8D746D] hover:bg-white/80"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {(sharedRoom && onOpenCoopGames) ||
       onOpenMinigame ||
       onOpenNoviceGrowth ||
       onOpenMessageBoard ||
       onOpenTownOrders ||
+      onOpenCollection ||
       onOpenMemories ? (
         <section className="grid grid-cols-2 gap-2.5" aria-label="快捷功能中心">
           {onOpenTownMap && (
@@ -1179,6 +1368,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   寫真集與本月回顧
                 </p>
               </div>
+            </button>
+          )}
+
+          {onOpenCollection && (
+            <button
+              type="button"
+              onClick={() => onOpenCollection()}
+              className="col-span-2 rounded-2xl bg-gradient-to-r from-[#FFF4DC] via-[#FFF9F4] to-[#E8F8F2] border-2 border-[#EED9C8] px-3.5 py-2.5 flex items-center justify-between gap-2.5 hover:brightness-[0.99] active:scale-[0.99] transition text-left min-h-[64px]"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white border border-[#EFE0D2] text-[#D64470] flex items-center justify-center shrink-0">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-extrabold text-[#4A3531] truncate">
+                    📖 萌寵圖鑑與收集冊
+                  </div>
+                  <p className="text-[11px] font-bold text-[#7D635D] truncate mt-0.5 tabular-nums">
+                    {collectionProgress
+                      ? `總收集 ${collectionProgress.totalCollected} / ${collectionProgress.totalCount}（${collectionProgress.totalPercent}%）${
+                          collectionProgress.nextMilestone
+                            ? ` · 下一目標 ${collectionProgress.nextMilestone.percent}%`
+                            : ' · 已全圖鑑達成'
+                        }`
+                      : '查看 10 大分類進度、套裝連鎖與稱號牆'}
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-[#EBD8CC] text-[11px] font-extrabold text-[#B83B64] shrink-0">
+                收集冊 ›
+              </span>
             </button>
           )}
         </section>

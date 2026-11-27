@@ -1,6 +1,8 @@
 import { INITIAL_UNLOCKED_ACCESSORIES } from '../data/accessories';
+import { COLLECTION_BADGES, COLLECTION_CHAIN_SETS } from '../data/collection';
 import { TITLE_DEFINITIONS } from '../data/encyclopedia';
 import { INITIAL_FOOD_INVENTORY } from '../data/foods';
+import { syncCollectionProgress } from './collection';
 import { getGrowthStage } from '../data/growth';
 import {
   FARM_DECORATION_BY_ID,
@@ -66,6 +68,8 @@ import {
   AccessorySlot,
   AccessoryTheme,
   ActiveTownLocationId,
+  CollectionBadgeId,
+  CollectionOfflineSummary,
   CoopBadgeId,
   CoopEventSession,
   CoopFarmOrderState,
@@ -128,6 +132,15 @@ import {
   PlacedRoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
+  SeasonEvent,
+  SeasonEventCoopTask,
+  SeasonEventId,
+  SeasonEventTask,
+  SeasonId,
+  SeasonOfflineSummary,
+  SeasonRoomThemeId,
+  SeasonSystemState,
+  SeasonYardThemeId,
   SeasonalEvent,
   StudioBadgeId,
   StudioScoreBreakdown,
@@ -163,6 +176,7 @@ import {
   WallpaperId,
   WeatherCondition,
   WeatherState,
+  WeatherTask,
   WeightLog,
 } from '../types';
 import {
@@ -246,6 +260,22 @@ import {
   getTownVisitorLevelForExp,
   syncTownMapState,
 } from './townMap';
+import {
+  DEFAULT_CITY_ID,
+  SAKURA_PICNIC_SHOP_ITEMS,
+  SEASON_ROOM_THEME_BY_ID,
+  SEASON_YARD_THEMES,
+  WEATHER_CITY_BY_ID,
+  buildDailyWeatherTasks,
+  buildSakuraDailyTasks,
+  createInitialSpringSakuraEvent,
+} from '../data/seasons';
+import {
+  addDaysToDateKey,
+  createInitialSeasonSystemState,
+  getSeasonFromDate,
+  syncSeasonSystemState,
+} from './seasons';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -352,6 +382,7 @@ export function createInitialGameState(): GameState {
     photoStudio: createInitialPhotoStudioState(),
     seasonalEvent: createInitialSeasonalEvent(),
     townMap: createInitialTownMapState(),
+    seasonSystem: createInitialSeasonSystemState(),
   };
 }
 
@@ -471,7 +502,13 @@ function asIngredientId(value: unknown): IngredientId | null {
     value === 'mint' ||
     value === 'sunflower' ||
     value === 'moon_wheat' ||
-    value === 'dream_cocoa'
+    value === 'dream_cocoa' ||
+    value === 'watermelon' ||
+    value === 'apple' ||
+    value === 'mushroom' ||
+    value === 'white_radish' ||
+    value === 'winter_greens' ||
+    value === 'snowberry'
   ) {
     return value;
   }
@@ -526,6 +563,9 @@ function parseFarmPlots(raw: unknown, unlockedFarmPlots = 4): CropPlot[] {
       durationMs,
       watered: saved.watered === true,
       isGolden: saved.isGolden === true,
+      windblown: saved.windblown === true,
+      autoWateredByRainDate:
+        typeof saved.autoWateredByRainDate === 'string' ? saved.autoWateredByRainDate : null,
     };
   });
 }
@@ -584,6 +624,7 @@ function parsePetMessages(raw: unknown): PetMessage[] {
       id,
       authorId: asString(item.authorId, 'local'),
       authorName: asString(item.authorName, '飼主'),
+      authorTitleId: asTitleId(item.authorTitleId),
       content,
       stickerId,
       createdAt: asNumber(item.createdAt, Date.now()),
@@ -758,6 +799,74 @@ function parseEncyclopedia(
       ).sort((a, b) => a - b)
     : [];
 
+  const accessoryWearCounts: Record<string, number> = {};
+  if (isRecord(raw.accessoryWearCounts)) {
+    for (const [accId, countVal] of Object.entries(raw.accessoryWearCounts)) {
+      if (typeof countVal === 'number' && Number.isFinite(countVal) && countVal > 0) {
+        accessoryWearCounts[accId] = Math.floor(countVal);
+      }
+    }
+  }
+
+  const claimedTotalMilestones = Array.isArray(raw.claimedTotalMilestones)
+    ? Array.from(
+        new Set(
+          raw.claimedTotalMilestones.filter(
+            (n): n is number =>
+              typeof n === 'number' && Number.isInteger(n) && n >= 10 && n <= 100
+          )
+        )
+      ).sort((a, b) => a - b)
+    : [];
+
+  const validCollectionBadgeIds = new Set(COLLECTION_BADGES.map((b) => b.id));
+  const unlockedCollectionBadges = Array.isArray(raw.unlockedCollectionBadges)
+    ? Array.from(
+        new Set(
+          raw.unlockedCollectionBadges.filter(
+            (b): b is CollectionBadgeId =>
+              typeof b === 'string' && validCollectionBadgeIds.has(b as CollectionBadgeId)
+          )
+        )
+      )
+    : [];
+
+  const validChainSetIds = new Set(COLLECTION_CHAIN_SETS.map((s) => s.id));
+  const unlockedChainSetIds = Array.isArray(raw.unlockedChainSetIds)
+    ? Array.from(
+        new Set(
+          raw.unlockedChainSetIds.filter(
+            (id): id is string => typeof id === 'string' && validChainSetIds.has(id)
+          )
+        )
+      )
+    : [];
+
+  let collectionOfflineSummary: CollectionOfflineSummary | null = null;
+  if (isRecord(raw.collectionOfflineSummary)) {
+    const rawSum = raw.collectionOfflineSummary;
+    const dateKey = typeof rawSum.dateKey === 'string' ? rawSum.dateKey : '';
+    if (dateKey) {
+      collectionOfflineSummary = {
+        dateKey,
+        totalCollected: Math.max(0, Math.floor(asNumber(rawSum.totalCollected, 0))),
+        totalCount: Math.max(0, Math.floor(asNumber(rawSum.totalCount, 0))),
+        totalPercent: Math.min(100, Math.max(0, Math.floor(asNumber(rawSum.totalPercent, 0)))),
+        newItemsCount: Math.max(0, Math.floor(asNumber(rawSum.newItemsCount, 0))),
+        unlockedMilestones: Array.isArray(rawSum.unlockedMilestones)
+          ? rawSum.unlockedMilestones.filter(
+              (n): n is number => typeof n === 'number' && Number.isInteger(n)
+            )
+          : [],
+        unlockedTitleIds: Array.isArray(rawSum.unlockedTitleIds)
+          ? rawSum.unlockedTitleIds
+              .map(asTitleId)
+              .filter((t): t is TitleId => t !== null)
+          : [],
+      };
+    }
+  }
+
   return {
     collectedFoodIds: mergedFoods,
     learnedRecipeIds,
@@ -766,6 +875,19 @@ function parseEncyclopedia(
     claimedAccessoryThemeSets,
     unlockedTitles,
     activeTitle,
+    accessoryWearCounts,
+    claimedTotalMilestones,
+    unlockedCollectionBadges,
+    unlockedChainSetIds,
+    collectionReminderEnabled:
+      typeof raw.collectionReminderEnabled === 'boolean' ? raw.collectionReminderEnabled : true,
+    lastCollectionReminderDate:
+      typeof raw.lastCollectionReminderDate === 'string' ? raw.lastCollectionReminderDate : null,
+    lastCollectionReminderDismissedDate:
+      typeof raw.lastCollectionReminderDismissedDate === 'string'
+        ? raw.lastCollectionReminderDismissedDate
+        : null,
+    collectionOfflineSummary,
   };
 }
 
@@ -1214,6 +1336,7 @@ function parseSharedHouse(raw: unknown): SharedHouse {
                 : undefined,
             challengeWeekKey:
               typeof p.challengeWeekKey === 'string' ? p.challengeWeekKey : undefined,
+            authorTitleId: asTitleId(p.authorTitleId),
             likes,
             comments,
           };
@@ -2827,6 +2950,13 @@ function parseDialogueState(raw: unknown): DialogueState {
   const rawWeather = isRecord(raw.weather) ? raw.weather : {};
   const weatherCond = asWeatherCondition(rawWeather.condition);
   const weatherFallback = createInitialWeatherState(weatherCond);
+  const weatherSeason =
+    rawWeather.seasonId === 'spring' ||
+    rawWeather.seasonId === 'summer' ||
+    rawWeather.seasonId === 'autumn' ||
+    rawWeather.seasonId === 'winter'
+      ? rawWeather.seasonId
+      : getSeasonFromDate();
   const weather: WeatherState = {
     condition: weatherCond,
     temperatureC: asNumber(rawWeather.temperatureC, weatherFallback.temperatureC),
@@ -2834,6 +2964,21 @@ function parseDialogueState(raw: unknown): DialogueState {
     emoji: asString(rawWeather.emoji, weatherFallback.emoji),
     source: rawWeather.source === 'api_ready' ? 'api_ready' : 'fixed',
     updatedAt: asNumber(rawWeather.updatedAt, weatherFallback.updatedAt),
+    cityId: typeof rawWeather.cityId === 'string' ? rawWeather.cityId : 'kaohsiung',
+    cityName: typeof rawWeather.cityName === 'string' ? rawWeather.cityName : '高雄',
+    nextRefreshAt:
+      typeof rawWeather.nextRefreshAt === 'number' && Number.isFinite(rawWeather.nextRefreshAt)
+        ? rawWeather.nextRefreshAt
+        : undefined,
+    lastSyncedOnlineAt:
+      typeof rawWeather.lastSyncedOnlineAt === 'number' &&
+      Number.isFinite(rawWeather.lastSyncedOnlineAt)
+        ? rawWeather.lastSyncedOnlineAt
+        : null,
+    isOfflineFallback:
+      typeof rawWeather.isOfflineFallback === 'boolean' ? rawWeather.isOfflineFallback : false,
+    seasonId: weatherSeason,
+    mode: rawWeather.mode === 'live' ? 'live' : 'simulated',
   };
 
   const memoryEvents: PetMemoryEvent[] = Array.isArray(raw.memoryEvents)
@@ -2943,9 +3088,206 @@ function parseDialogueState(raw: unknown): DialogueState {
       lastCareDate:
         typeof raw.lastCareDate === 'string' ? raw.lastCareDate : todayStr,
       announcedWeightMilestones,
+      lastWeatherDialogueDate:
+        typeof raw.lastWeatherDialogueDate === 'string' ? raw.lastWeatherDialogueDate : null,
+      lastWeatherDialogueCondition:
+        typeof raw.lastWeatherDialogueCondition === 'string'
+          ? asWeatherCondition(raw.lastWeatherDialogueCondition)
+          : null,
     },
     todayStr
   );
+}
+
+function asSeasonIdValue(value: unknown, fallback: SeasonId): SeasonId {
+  if (value === 'spring' || value === 'summer' || value === 'autumn' || value === 'winter') {
+    return value;
+  }
+  return fallback;
+}
+
+function asSeasonRoomThemeId(value: unknown): SeasonRoomThemeId {
+  if (value === 'none') return 'none';
+  if (typeof value === 'string' && value in SEASON_ROOM_THEME_BY_ID) {
+    return value as SeasonRoomThemeId;
+  }
+  return 'none';
+}
+
+function asSeasonYardThemeId(value: unknown): SeasonYardThemeId {
+  if (value === 'none') return 'none';
+  if (typeof value === 'string' && value in SEASON_YARD_THEMES) {
+    return value as SeasonYardThemeId;
+  }
+  return 'none';
+}
+
+function parseSeasonSystemState(raw: unknown): SeasonSystemState {
+  const defaults = createInitialSeasonSystemState();
+  if (!isRecord(raw)) return defaults;
+
+  const currentSeason = asSeasonIdValue(raw.currentSeason, defaults.currentSeason);
+  const lastKnownSeason = asSeasonIdValue(raw.lastKnownSeason, currentSeason);
+  const rawCityId = asString(raw.selectedCityId, DEFAULT_CITY_ID);
+  const selectedCityId = WEATHER_CITY_BY_ID[rawCityId] ? rawCityId : DEFAULT_CITY_ID;
+
+  const weatherTasksDate = asString(raw.weatherTasksDate, defaults.weatherTasksDate);
+  const weatherTasks: WeatherTask[] = Array.isArray(raw.weatherTasks)
+    ? raw.weatherTasks
+        .filter((t): t is Record<string, unknown> => isRecord(t))
+        .map((t) => {
+          const cond = asWeatherCondition(t.weatherCondition);
+          const kind = t.kind;
+          const validKind: WeatherTask['kind'] =
+            kind === 'walk' ||
+            kind === 'bath_or_sleep' ||
+            kind === 'snow_photo' ||
+            kind === 'cooling_food' ||
+            kind === 'minigame' ||
+            kind === 'soothe_pet' ||
+            kind === 'indoor_care'
+              ? kind
+              : 'indoor_care';
+          const target = Math.max(1, Math.floor(asNumber(t.target, 1)));
+          const progress = Math.min(target, Math.max(0, Math.floor(asNumber(t.progress, 0))));
+          return {
+            id: asString(t.id, `wt_${weatherTasksDate}_${validKind}`),
+            dateKey: asString(t.dateKey, weatherTasksDate),
+            weatherCondition: cond,
+            kind: validKind,
+            title: asString(t.title, '今日天氣小任務'),
+            description: asString(t.description, ''),
+            emoji: asString(t.emoji, '🌤️'),
+            progress,
+            target,
+            completed: typeof t.completed === 'boolean' ? t.completed : progress >= target,
+            claimed: t.claimed === true,
+            rewardCoins: Math.max(0, Math.floor(asNumber(t.rewardCoins, 40))),
+            rewardStudioMaterials:
+              typeof t.rewardStudioMaterials === 'number'
+                ? Math.max(0, Math.floor(t.rewardStudioMaterials))
+                : undefined,
+            rewardFilterShards:
+              typeof t.rewardFilterShards === 'number'
+                ? Math.max(0, Math.floor(t.rewardFilterShards))
+                : undefined,
+            rewardSpeedTickets:
+              typeof t.rewardSpeedTickets === 'number'
+                ? Math.max(0, Math.floor(t.rewardSpeedTickets))
+                : undefined,
+            rewardSummary: asString(t.rewardSummary, '+40 金幣'),
+          };
+        })
+    : buildDailyWeatherTasks(weatherTasksDate, 'clear');
+
+  const rawEv = isRecord(raw.seasonEvent) ? raw.seasonEvent : null;
+  let seasonEvent: SeasonEvent = defaults.seasonEvent;
+  if (rawEv) {
+    const startDate = asString(rawEv.startDate, defaults.seasonEvent.startDate);
+    const endDate = asString(rawEv.endDate, addDaysToDateKey(startDate, 13));
+    const baseEv = createInitialSpringSakuraEvent(startDate, endDate);
+    const dailyDate = asString(rawEv.dailyDate, defaults.seasonEvent.dailyDate);
+
+    const templateTasks = buildSakuraDailyTasks();
+    const rawTasksArr = Array.isArray(rawEv.dailyTasks) ? rawEv.dailyTasks : [];
+    const dailyTasks: SeasonEventTask[] = templateTasks.map((tpl) => {
+      const savedTask = rawTasksArr.find((x) => isRecord(x) && x.id === tpl.id);
+      if (!isRecord(savedTask)) return tpl;
+      const progress = Math.min(tpl.target, Math.max(0, Math.floor(asNumber(savedTask.progress, 0))));
+      return {
+        ...tpl,
+        progress,
+        completed: typeof savedTask.completed === 'boolean' ? savedTask.completed : progress >= tpl.target,
+        claimed: savedTask.claimed === true,
+      };
+    });
+
+    const rawCoop = isRecord(rawEv.coopTask) ? rawEv.coopTask : null;
+    const baseCoop = baseEv.coopTask!;
+    const coopTask: SeasonEventCoopTask | null = rawCoop
+      ? {
+          id: asString(rawCoop.id, `sakura_coop_${dailyDate}`),
+          dateKey: asString(rawCoop.dateKey, dailyDate),
+          title: baseCoop.title,
+          description: baseCoop.description,
+          picnicFoodCount: Math.min(
+            baseCoop.picnicFoodTarget,
+            Math.max(0, Math.floor(asNumber(rawCoop.picnicFoodCount, 0)))
+          ),
+          picnicFoodTarget: baseCoop.picnicFoodTarget,
+          photoCount: Math.min(
+            baseCoop.photoTarget,
+            Math.max(0, Math.floor(asNumber(rawCoop.photoCount, 0)))
+          ),
+          photoTarget: baseCoop.photoTarget,
+          contributorUserIds: Array.isArray(rawCoop.contributorUserIds)
+            ? rawCoop.contributorUserIds.filter((id): id is string => typeof id === 'string')
+            : [],
+          completed: rawCoop.completed === true,
+          claimedByUserIds: Array.isArray(rawCoop.claimedByUserIds)
+            ? rawCoop.claimedByUserIds.filter((id): id is string => typeof id === 'string')
+            : [],
+          rewardTickets: baseCoop.rewardTickets,
+          rewardCoins: baseCoop.rewardCoins,
+        }
+      : baseCoop;
+
+    const validShopIds = new Set(SAKURA_PICNIC_SHOP_ITEMS.map((i) => i.id));
+    const purchasedShopItemIds = Array.isArray(rawEv.purchasedShopItemIds)
+      ? Array.from(
+          new Set(
+            rawEv.purchasedShopItemIds.filter(
+              (id): id is string => typeof id === 'string' && validShopIds.has(id)
+            )
+          )
+        )
+      : [];
+
+    const evId: SeasonEventId = 'spring_sakura_picnic';
+    const evStatus: SeasonEvent['status'] =
+      rawEv.status === 'ended' ? 'ended' : rawEv.status === 'reserved' ? 'reserved' : 'active';
+
+    seasonEvent = {
+      ...baseEv,
+      eventId: evId,
+      status: evStatus,
+      ticketBalance: Math.max(0, Math.floor(asNumber(rawEv.ticketBalance, baseEv.ticketBalance))),
+      ticketTotalEarned: Math.max(
+        0,
+        Math.floor(asNumber(rawEv.ticketTotalEarned, baseEv.ticketTotalEarned))
+      ),
+      dailyDate,
+      dailyTasks,
+      purchasedShopItemIds,
+      coopTask,
+    };
+  }
+
+  let offlineSummary: SeasonOfflineSummary | null = null;
+  if (isRecord(raw.offlineSummary)) {
+    offlineSummary = {
+      dateKey: asString(raw.offlineSummary.dateKey, defaults.weatherTasksDate),
+      seasonId: asSeasonIdValue(raw.offlineSummary.seasonId, currentSeason),
+      weatherCondition: asWeatherCondition(raw.offlineSummary.weatherCondition),
+      weatherLabel: asString(raw.offlineSummary.weatherLabel, '晴天'),
+      cityName: asString(raw.offlineSummary.cityName, '高雄'),
+      isOffline: raw.offlineSummary.isOffline === true,
+      summaryText: asString(raw.offlineSummary.summaryText, ''),
+    };
+  }
+
+  return {
+    currentSeason,
+    lastKnownSeason,
+    seasonNoticePending: raw.seasonNoticePending === true,
+    selectedCityId,
+    roomThemeOverride: asSeasonRoomThemeId(raw.roomThemeOverride),
+    yardThemeOverride: asSeasonYardThemeId(raw.yardThemeOverride),
+    weatherTasksDate,
+    weatherTasks,
+    seasonEvent,
+    offlineSummary,
+  };
 }
 
 function asPetUnlockRuleType(value: unknown): PetUnlockRuleType {
@@ -3129,6 +3471,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     photoStudio: createInitialPhotoStudioState(),
     seasonalEvent: createInitialSeasonalEvent(),
     townMap: createInitialTownMapState(),
+    seasonSystem: createInitialSeasonSystemState(),
   };
 }
 
@@ -3492,6 +3835,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     photoStudio: parsePhotoStudioState(parsed.photoStudio),
     seasonalEvent: parseSeasonalEvent(parsed.seasonalEvent),
     townMap: parseTownMapState(parsed.townMap),
+    seasonSystem: parseSeasonSystemState(parsed.seasonSystem),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -3513,6 +3857,8 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   hydrated = syncTownMapState(hydrated);
   hydrated = syncPhotoStudioState(hydrated).nextState;
   hydrated = syncSeasonalEventState(hydrated);
+  hydrated = syncSeasonSystemState(hydrated);
+  hydrated = syncCollectionProgress(hydrated, false).nextState;
   return hydrated;
 }
 

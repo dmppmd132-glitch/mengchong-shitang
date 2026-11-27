@@ -484,6 +484,22 @@ export const FurnitureGraphic: React.FC<FurnitureGraphicProps> = ({
           </g>
         );
 
+      case 'collection_display_shelf':
+        return (
+          <g>
+            <rect x="13" y="11" width="38" height="42" rx="6" fill="#E8B888" stroke={COCOA} strokeWidth="2.4" />
+            <rect x="17" y="15" width="30" height="33" rx="3" fill="#FFF9F0" stroke={COCOA} strokeWidth="1.8" />
+            <line x1="17" y1="26" x2="47" y2="26" stroke={COCOA} strokeWidth="2" />
+            <line x1="17" y1="37" x2="47" y2="37" stroke={COCOA} strokeWidth="2" />
+            <path d="M23,24 L25,18 H29 L31,24 Z" fill="#FFD166" stroke={COCOA} strokeWidth="1.4" />
+            <circle cx="40" cy="21" r="3" fill="#FF8EB0" stroke={COCOA} strokeWidth="1.4" />
+            <rect x="21" y="29" width="7" height="6" rx="2" fill="#8CD9B0" stroke={COCOA} strokeWidth="1.4" />
+            <circle cx="38" cy="32" r="3.2" fill="#82E9FF" stroke={COCOA} strokeWidth="1.4" />
+            <circle cx="25" cy="43" r="3" fill="#FFE066" stroke={COCOA} strokeWidth="1.4" />
+            <rect x="34" y="40" width="9" height="6" rx="2" fill="#C9BDF2" stroke={COCOA} strokeWidth="1.4" />
+          </g>
+        );
+
       default: {
         const item = ROOM_ITEM_BY_ID[itemId];
         return (

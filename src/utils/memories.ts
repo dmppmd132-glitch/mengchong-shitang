@@ -697,6 +697,7 @@ export function saveScenePhoto(
     stickers: params.stickers.slice(0, 6),
     weightAtCapture: activePet.weight,
     duoPet: params.duoPet,
+    authorTitleId: state.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };

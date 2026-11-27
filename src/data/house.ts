@@ -615,6 +615,20 @@ export const ROOM_ITEMS: RoomItem[] = [
     petReactionText: '推著香噴噴的小花車繞房間一圈，花瓣都飄起來了！',
     petAction: 'walking',
   },
+  {
+    id: 'collection_display_shelf',
+    name: '萌寵珍藏展示櫃',
+    category: 'snackRack',
+    zone: 'decor',
+    tier: 'advanced',
+    price: 0,
+    sellPrice: 180,
+    themeId: null,
+    emoji: '🏆',
+    description: '總收集圖鑑 90% 里程碑限定！溫潤原木三層玻璃展示櫃，擺滿你與寶貝的珍貴獎盃與紀念品。',
+    petReactionText: '站在閃亮亮的珍藏展示櫃前數著每一份回憶，超有成就感！',
+    petAction: 'petted',
+  },
   ...TOYS.map(toyToRoomItem),
 ];
 

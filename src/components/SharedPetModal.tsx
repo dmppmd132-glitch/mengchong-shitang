@@ -11,7 +11,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { CloudSyncStatus, CloudUser, SharedPetRoom } from '../types';
+import { getTitleDefinition } from '../data/encyclopedia';
+import { CloudSyncStatus, CloudUser, SharedPetRoom, TitleId } from '../types';
 
 interface SharedPetModalProps {
   open: boolean;
@@ -29,6 +30,7 @@ interface SharedPetModalProps {
   onLeaveSharedRoom: () => Promise<string | null>;
   onRefreshSharedRoom: () => Promise<string | null>;
   onOpenCoopGames?: () => void;
+  activeTitle?: TitleId | null;
 }
 
 function formatUpdatedTime(isoStr: string | null): string {
@@ -59,6 +61,7 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
   onLeaveSharedRoom,
   onRefreshSharedRoom,
   onOpenCoopGames,
+  activeTitle = null,
 }) => {
   const [inviteInput, setInviteInput] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -241,11 +244,16 @@ export const SharedPetModal: React.FC<SharedPetModalProps> = ({
           <div className="space-y-3.5">
             <div className="rounded-2xl bg-gradient-to-br from-[#FFEAF0] to-[#FFF6DA] border border-[#F4C4D3] p-4 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>正在共養：{localPetName}</span>
+                <span className="text-xs font-extrabold text-[#B83B64] inline-flex items-center gap-1 min-w-0 truncate">
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    正在共養：{localPetName}
+                    {activeTitle
+                      ? ` · ${getTitleDefinition(activeTitle).emoji} ${getTitleDefinition(activeTitle).name}`
+                      : ''}
+                  </span>
                 </span>
-                <span className="text-[11px] font-bold text-[#7D635D]">
+                <span className="text-[11px] font-bold text-[#7D635D] shrink-0">
                   {syncStatus === 'syncing' ? '同步中…' : '即時同步開啟'}
                 </span>
               </div>

@@ -46,6 +46,7 @@ import {
   ThemeSetId,
   TownOrder,
   VisitorTreatId,
+  EncyclopediaState,
 } from '../types';
 import { syncAllAccessoryProgress } from './accessories';
 import { mergeDialogueRemoteState } from './dialogue';
@@ -64,6 +65,7 @@ import {
   mergeCoopTownSession,
   syncTownMapState,
 } from './townMap';
+import { syncCollectionProgress } from './collection';
 
 export function getCoopDateKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -98,6 +100,12 @@ export function createZeroWarehouse(): Record<IngredientId, number> {
     sunflower: 0,
     moon_wheat: 0,
     dream_cocoa: 0,
+    watermelon: 0,
+    apple: 0,
+    mushroom: 0,
+    white_radish: 0,
+    winter_greens: 0,
+    snowberry: 0,
   };
 }
 
@@ -1502,7 +1510,90 @@ export function mergeCoopRemoteState(
   }
   const mergedFeedLogs = Array.from(feedLogMap.values());
 
-  return syncTownMapState(syncSeasonalEventState({
+  const mergedWearCounts: Record<string, number> = {
+    ...(remoteState.encyclopedia.accessoryWearCounts ?? {}),
+  };
+  for (const [accId, count] of Object.entries(
+    localState.encyclopedia.accessoryWearCounts ?? {}
+  )) {
+    mergedWearCounts[accId] = Math.max(mergedWearCounts[accId] ?? 0, count);
+  }
+
+  const mergedEncyclopedia: EncyclopediaState = {
+    collectedFoodIds: Array.from(
+      new Set([
+        ...localState.encyclopedia.collectedFoodIds,
+        ...remoteState.encyclopedia.collectedFoodIds,
+      ])
+    ),
+    learnedRecipeIds: Array.from(
+      new Set([
+        ...(localState.encyclopedia.learnedRecipeIds ?? []),
+        ...(remoteState.encyclopedia.learnedRecipeIds ?? []),
+      ])
+    ),
+    claimedRecipeMilestones: Array.from(
+      new Set([
+        ...(localState.encyclopedia.claimedRecipeMilestones ?? []),
+        ...(remoteState.encyclopedia.claimedRecipeMilestones ?? []),
+      ])
+    ).sort((a, b) => a - b),
+    claimedAccessoryMilestones: Array.from(
+      new Set([
+        ...localState.encyclopedia.claimedAccessoryMilestones,
+        ...remoteState.encyclopedia.claimedAccessoryMilestones,
+      ])
+    ).sort((a, b) => a - b),
+    claimedAccessoryThemeSets: Array.from(
+      new Set([
+        ...(localState.encyclopedia.claimedAccessoryThemeSets ?? []),
+        ...(remoteState.encyclopedia.claimedAccessoryThemeSets ?? []),
+      ])
+    ),
+    unlockedTitles: Array.from(
+      new Set([
+        ...localState.encyclopedia.unlockedTitles,
+        ...remoteState.encyclopedia.unlockedTitles,
+      ])
+    ),
+    activeTitle:
+      localState.encyclopedia.activeTitle ?? remoteState.encyclopedia.activeTitle ?? null,
+    accessoryWearCounts: mergedWearCounts,
+    claimedTotalMilestones: Array.from(
+      new Set([
+        ...(localState.encyclopedia.claimedTotalMilestones ?? []),
+        ...(remoteState.encyclopedia.claimedTotalMilestones ?? []),
+      ])
+    ).sort((a, b) => a - b),
+    unlockedCollectionBadges: Array.from(
+      new Set([
+        ...(localState.encyclopedia.unlockedCollectionBadges ?? []),
+        ...(remoteState.encyclopedia.unlockedCollectionBadges ?? []),
+      ])
+    ),
+    unlockedChainSetIds: Array.from(
+      new Set([
+        ...(localState.encyclopedia.unlockedChainSetIds ?? []),
+        ...(remoteState.encyclopedia.unlockedChainSetIds ?? []),
+      ])
+    ),
+    collectionReminderEnabled:
+      localState.encyclopedia.collectionReminderEnabled ?? true,
+    lastCollectionReminderDate:
+      localState.encyclopedia.lastCollectionReminderDate ??
+      remoteState.encyclopedia.lastCollectionReminderDate ??
+      null,
+    lastCollectionReminderDismissedDate:
+      localState.encyclopedia.lastCollectionReminderDismissedDate ??
+      remoteState.encyclopedia.lastCollectionReminderDismissedDate ??
+      null,
+    collectionOfflineSummary:
+      localState.encyclopedia.collectionOfflineSummary ??
+      remoteState.encyclopedia.collectionOfflineSummary ??
+      null,
+  };
+
+  const mergedDraft = syncTownMapState(syncSeasonalEventState({
     ...remoteState,
     pets: mergedPets,
     activePetId: nextActivePetId,
@@ -1510,6 +1601,7 @@ export function mergeCoopRemoteState(
       nextActivePet?.personality ?? localState.personality ?? remoteState.personality,
     weightLogs: mergedWeightLogs,
     feedLogs: mergedFeedLogs,
+    encyclopedia: mergedEncyclopedia,
     familyDailyTasks: localState.familyDailyTasks ?? remoteState.familyDailyTasks,
     familyDailyTasksDate:
       localState.familyDailyTasksDate ?? remoteState.familyDailyTasksDate,
@@ -1593,5 +1685,55 @@ export function mergeCoopRemoteState(
       remoteState.photoStudio
     ),
     seasonalEvent: localState.seasonalEvent ?? remoteState.seasonalEvent,
+    seasonSystem:
+      localState.seasonSystem && remoteState.seasonSystem
+        ? {
+            ...localState.seasonSystem,
+            seasonEvent: {
+              ...localState.seasonSystem.seasonEvent,
+              purchasedShopItemIds: Array.from(
+                new Set([
+                  ...localState.seasonSystem.seasonEvent.purchasedShopItemIds,
+                  ...remoteState.seasonSystem.seasonEvent.purchasedShopItemIds,
+                ])
+              ),
+              coopTask:
+                localState.seasonSystem.seasonEvent.coopTask &&
+                remoteState.seasonSystem.seasonEvent.coopTask &&
+                localState.seasonSystem.seasonEvent.coopTask.id ===
+                  remoteState.seasonSystem.seasonEvent.coopTask.id
+                  ? {
+                      ...localState.seasonSystem.seasonEvent.coopTask,
+                      picnicFoodCount: Math.max(
+                        localState.seasonSystem.seasonEvent.coopTask.picnicFoodCount,
+                        remoteState.seasonSystem.seasonEvent.coopTask.picnicFoodCount
+                      ),
+                      photoCount: Math.max(
+                        localState.seasonSystem.seasonEvent.coopTask.photoCount,
+                        remoteState.seasonSystem.seasonEvent.coopTask.photoCount
+                      ),
+                      contributorUserIds: Array.from(
+                        new Set([
+                          ...localState.seasonSystem.seasonEvent.coopTask.contributorUserIds,
+                          ...remoteState.seasonSystem.seasonEvent.coopTask.contributorUserIds,
+                        ])
+                      ),
+                      completed:
+                        localState.seasonSystem.seasonEvent.coopTask.completed ||
+                        remoteState.seasonSystem.seasonEvent.coopTask.completed,
+                      claimedByUserIds: Array.from(
+                        new Set([
+                          ...localState.seasonSystem.seasonEvent.coopTask.claimedByUserIds,
+                          ...remoteState.seasonSystem.seasonEvent.coopTask.claimedByUserIds,
+                        ])
+                      ),
+                    }
+                  : localState.seasonSystem.seasonEvent.coopTask ??
+                    remoteState.seasonSystem.seasonEvent.coopTask,
+            },
+          }
+        : localState.seasonSystem ?? remoteState.seasonSystem,
   }));
+
+  return syncCollectionProgress(mergedDraft, true).nextState;
 }

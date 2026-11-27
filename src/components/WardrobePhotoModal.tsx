@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { ACCESSORY_THEME_BY_ID } from '../data/accessories';
+import { getTitleDefinition } from '../data/encyclopedia';
 import {
   PHOTO_BACKGROUNDS,
   PHOTO_BACKGROUND_BY_ID,
@@ -37,6 +38,18 @@ import {
   TOWN_VISITOR_BY_ID,
 } from '../data/town';
 import { VISITOR_BY_ID, VISITORS } from '../data/visitors';
+import { getPetDisplayPersonality } from '../utils/pets';
+import {
+  createInitialPhotoStudioState,
+  evaluateWeeklyOutfitScore,
+  getLocalWeekKey,
+  getOrCreateWeeklyDuoChallenge,
+  getWeekTimeRemainingText,
+  getWeeklyChallengeTitleSuggestion,
+  getWeeklyOutfitChallengeTheme,
+  getWeeklyStudioShopRotation,
+} from '../utils/photoStudio';
+import { SEASON_META, SEASON_PHOTO_CONTENT } from '../data/seasons';
 import {
   ActiveTownLocationId,
   GameState,
@@ -50,23 +63,17 @@ import {
   PhotoScene,
   PhotoStickerId,
   RoomPhotoRecord,
+  SeasonSystemState,
   SharedPetRoom,
   TownVisitorId,
   VisitorId,
+  WeatherState,
 } from '../types';
 import { DuoPhotoPetInfo } from '../types/house';
-import { getPetDisplayPersonality } from '../utils/pets';
-import {
-  createInitialPhotoStudioState,
-  evaluateWeeklyOutfitScore,
-  getLocalWeekKey,
-  getOrCreateWeeklyDuoChallenge,
-  getWeekTimeRemainingText,
-  getWeeklyChallengeTitleSuggestion,
-  getWeeklyOutfitChallengeTheme,
-  getWeeklyStudioShopRotation,
-} from '../utils/photoStudio';
+import { getSeasonFromDate } from '../utils/seasons';
 import { PiggyCharacter } from './PiggyCharacter';
+import { SeasonWeatherAtmosphere } from './seasons/SeasonWeatherAtmosphere';
+import { SeasonWeatherBadge } from './seasons/SeasonWeatherBadge';
 import { StudioBackgroundArt } from './studio/StudioBackgroundArt';
 import { StudioCatalogSection } from './studio/StudioCatalogSection';
 import { TownVisitorSprite } from './town/TownArtwork';
@@ -138,6 +145,9 @@ interface WardrobePhotoModalProps {
   }) => RoomPhotoRecord | null;
   onClaimDuoChallengeReward?: () => void;
   onOpenSharedPet?: () => void;
+  seasonSystem?: SeasonSystemState;
+  weather?: WeatherState;
+  onOpenWeatherCenter?: () => void;
 }
 
 const SHOOT_STEPS: Array<{ id: ShootStep; label: string; emoji: string }> = [
@@ -178,7 +188,24 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
   onSubmitDuoChallenge,
   onClaimDuoChallengeReward,
   onOpenSharedPet,
+  seasonSystem,
+  weather,
+  onOpenWeatherCenter,
 }) => {
+  const effectiveSeasonSystem = seasonSystem ?? game?.seasonSystem;
+  const activeSeasonId = effectiveSeasonSystem?.currentSeason ?? getSeasonFromDate();
+  const activeWeather: WeatherState = weather ??
+    game?.dialogue.weather ?? {
+      condition: 'clear',
+      temperatureC: 25,
+      label: '晴天',
+      emoji: '☀️',
+      source: 'fixed',
+      updatedAt: 0,
+      cityId: 'kaohsiung',
+      cityName: '高雄',
+    };
+  const seasonPhotoRec = SEASON_PHOTO_CONTENT[activeSeasonId];
   const [studioTab, setStudioTab] = useState<StudioTab>(initialTab);
   const [shootStep, setShootStep] = useState<ShootStep>('pose');
   const [scene, setScene] = useState<PhotoScene>(initialScene);
@@ -654,6 +681,14 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         >
           <StudioBackgroundArt backgroundId={backgroundId} filterId={filterId} />
 
+          {backgroundId !== 'pink_room' && backgroundId !== 'kitchen' && (
+            <SeasonWeatherAtmosphere
+              seasonId={activeSeasonId}
+              weatherCondition={activeWeather.condition}
+              variant="studio"
+            />
+          )}
+
           {/* Selected Stickers Overlay */}
           {stickers.map((sid) => {
             const st = PHOTO_STICKER_BY_ID[sid];
@@ -757,6 +792,17 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
             </span>
             <span>·</span>
             <span>{pet.weight.toFixed(1)} kg</span>
+            {game?.encyclopedia.activeTitle && (() => {
+              const tDef = getTitleDefinition(game.encyclopedia.activeTitle);
+              return (
+                <>
+                  <span>·</span>
+                  <span>
+                    {tDef.emoji} {tDef.name}
+                  </span>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -800,14 +846,23 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="關閉攝影棚"
-            className="min-h-[44px] min-w-[44px] rounded-2xl bg-white/85 text-[#5A3E36] flex items-center justify-center hover:bg-white transition shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <SeasonWeatherBadge
+              seasonId={activeSeasonId}
+              weather={activeWeather}
+              compact
+              onClick={onOpenWeatherCenter}
+              className="!min-h-[34px] !px-2 !text-[10px]"
+            />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="關閉攝影棚"
+              className="min-h-[44px] min-w-[44px] rounded-2xl bg-white/85 text-[#5A3E36] flex items-center justify-center hover:bg-white transition shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
         {/* Top 5 Studio Mode Tabs */}
@@ -1122,11 +1177,17 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                       {activeBg.label}
                     </span>
                   </div>
+                  {activeWeather.condition === 'snow' && (
+                    <div className="rounded-xl bg-[#E9F5FF] border border-[#B4DCFA] px-2.5 py-1.5 text-[10.5px] font-extrabold text-[#1D5B8C]">
+                      ❄️ 下雪限定驚喜：現在拍下照片即可自動解鎖「雪中小屋／純白雪景濾鏡／雪花相框」！
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {PHOTO_BACKGROUNDS.map((bg) => {
                       const unlocked = ownedBgSet.has(bg.id);
                       const selected = backgroundId === bg.id;
                       const inShop = weeklyRotation.backgrounds.includes(bg.id);
+                      const isSeasonRecommended = seasonPhotoRec.backgroundIds.includes(bg.id);
                       return (
                         <button
                           key={bg.id}
@@ -1154,8 +1215,13 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                             {unlocked ? bg.emoji : '🔒'}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className="text-xs font-extrabold truncate">
-                              {bg.label}
+                            <div className="text-xs font-extrabold truncate flex items-center gap-1">
+                              <span className="truncate">{bg.label}</span>
+                              {isSeasonRecommended && (
+                                <span className="px-1 py-0.2 rounded bg-[#FFEAF3] text-[#B83B64] text-[9px] shrink-0">
+                                  {SEASON_META[activeSeasonId].shortName}季
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] font-bold opacity-85 truncate">
                               {unlocked
@@ -1192,6 +1258,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                       const unlocked = ownedFilterSet.has(fl.id);
                       const selected = filterId === fl.id;
                       const inShop = weeklyRotation.filters.includes(fl.id);
+                      const isSeasonRecommended = seasonPhotoRec.filterIds.includes(fl.id);
                       return (
                         <button
                           key={fl.id}
@@ -1213,11 +1280,16 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                               : 'bg-[#FFFDF8] border-[#EFE0D7] text-[#5A3E36]'
                           }`}
                         >
-                          <span className="text-xs font-extrabold flex items-center gap-1.5">
+                          <span className="text-xs font-extrabold flex items-center gap-1.5 min-w-0">
                             <span>{unlocked ? fl.emoji : '🔒'}</span>
-                            <span>{fl.label}</span>
+                            <span className="truncate">{fl.label}</span>
+                            {isSeasonRecommended && (
+                              <span className="px-1 py-0.2 rounded bg-[#FFEAF3] text-[#B83B64] text-[9px] shrink-0">
+                                {SEASON_META[activeSeasonId].shortName}季
+                              </span>
+                            )}
                           </span>
-                          <span className="text-[10px] font-bold tabular-nums">
+                          <span className="text-[10px] font-bold tabular-nums shrink-0">
                             {unlocked
                               ? fl.source === 'free'
                                 ? '免費'
@@ -1233,7 +1305,6 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                 </section>
               )}
 
-              {/* Step 4: Frames */}
               {shootStep === 'frame' && (
                 <section className="space-y-2">
                   <div className="flex items-center justify-between px-0.5">
@@ -1249,6 +1320,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                       const unlocked = ownedFrameSet.has(fr.id);
                       const selected = frameId === fr.id;
                       const inShop = weeklyRotation.frames.includes(fr.id);
+                      const isSeasonRecommended = seasonPhotoRec.frameIds.includes(fr.id);
                       return (
                         <button
                           key={fr.id}
@@ -1278,6 +1350,11 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                             )}
                             <span className="truncate">{fr.label}</span>
                           </div>
+                          {isSeasonRecommended && (
+                            <span className="text-[8.5px] font-extrabold text-[#B83B64]">
+                              {SEASON_META[activeSeasonId].emoji} 當季推薦
+                            </span>
+                          )}
                           {!unlocked && (
                             <span className="text-[9px] font-bold text-[#9D5B12]">
                               {inShop

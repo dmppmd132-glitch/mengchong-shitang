@@ -33,7 +33,8 @@ export type PhotoPose =
   | 'star_eyes'
   | 'crown_star'
   | 'anniversary_cheer'
-  | 'strawberry_sweetheart';
+  | 'strawberry_sweetheart'
+  | 'collection_twirl';
 
 export type PhotoBackground =
   | 'pink_room'
@@ -56,7 +57,14 @@ export type PhotoBackground =
   | 'waterfront_bridge'
   | 'market_night'
   | 'wooden_stalls'
-  | 'dream_lodge_bg';
+  | 'dream_lodge_bg'
+  | 'rainbow_trail_bg'
+  | 'spring_picnic'
+  | 'summer_festival'
+  | 'maple_path'
+  | 'harvest_farm'
+  | 'snow_cabin'
+  | 'christmas_market';
 
 export type PhotoFilter =
   | 'none'
@@ -77,7 +85,16 @@ export type PhotoFilter =
   | 'forest_filter'
   | 'lake_aqua'
   | 'lakeside_breeze'
-  | 'market_warm_sun';
+  | 'market_warm_sun'
+  | 'collection_rainbow'
+  | 'sakura_pink'
+  | 'morning_dawn'
+  | 'ocean_blue'
+  | 'sunny_orange'
+  | 'maple_red'
+  | 'warm_gold'
+  | 'snow_white'
+  | 'hearth_orange';
 
 export type PhotoFrame =
   | 'none'
@@ -96,7 +113,16 @@ export type PhotoFrame =
   | 'waterdrop_frame'
   | 'duck_frame'
   | 'market_sign_frame'
-  | 'wood_frame';
+  | 'wood_frame'
+  | 'collection_prism_frame'
+  | 'petal_frame'
+  | 'butterfly_frame'
+  | 'shell_frame'
+  | 'popsicle_frame'
+  | 'maple_frame'
+  | 'pumpkin_frame'
+  | 'snowflake_frame'
+  | 'gingerbread_frame';
 
 export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town';
 
@@ -440,6 +466,7 @@ export interface PetMessage {
   id: string;
   authorId: string;
   authorName: string;
+  authorTitleId?: TitleId | null;
   content: string;
   stickerId: PetStickerId | null;
   createdAt: number;
@@ -456,7 +483,13 @@ export type IngredientId =
   | 'mint'
   | 'sunflower'
   | 'moon_wheat'
-  | 'dream_cocoa';
+  | 'dream_cocoa'
+  | 'watermelon'
+  | 'apple'
+  | 'mushroom'
+  | 'white_radish'
+  | 'winter_greens'
+  | 'snowberry';
 
 export interface IngredientInfo {
   id: IngredientId;
@@ -476,6 +509,8 @@ export interface CropPlot {
   durationMs: number;
   watered?: boolean;
   isGolden?: boolean;
+  windblown?: boolean;
+  autoWateredByRainDate?: string | null;
 }
 
 export interface YardMoodBuffPeriod {
@@ -539,7 +574,16 @@ export type TitleId =
   | 'yard_host_master'
   | 'acorn_forest_ranger'
   | 'lakeside_angler'
-  | 'town_market_vip';
+  | 'town_market_vip'
+  | 'pet_collector'
+  | 'house_designer'
+  | 'town_farmer'
+  | 'town_host_title'
+  | 'memory_collector'
+  | 'collection_master'
+  | 'sakura_picnic_host'
+  | 'four_seasons_keeper'
+  | 'weather_watcher';
 
 export type PersonalityId =
   | 'greedy'
@@ -955,7 +999,11 @@ export type TownVisitorId =
   | 'cat_visitor'
   | 'dog_visitor'
   | 'hamster_visitor'
-  | 'fox';
+  | 'fox'
+  | 'sakura_sprite'
+  | 'firefly'
+  | 'snow_fox'
+  | 'arctic_bunny';
 
 export type TownVisitorRarity = 'common' | 'rare';
 
@@ -1369,6 +1417,8 @@ export type DialogueCategory =
   | 'daily'
   | 'coop';
 
+export type SeasonId = 'spring' | 'summer' | 'autumn' | 'winter';
+
 export type WeatherCondition =
   | 'clear'
   | 'cloudy'
@@ -1378,6 +1428,15 @@ export type WeatherCondition =
   | 'hot'
   | 'windy';
 
+export interface WeatherCityOption {
+  id: string;
+  name: string;
+  region: string;
+  lat: number;
+  lon: number;
+  climateBias: 'warm' | 'mild' | 'cool' | 'snowy';
+}
+
 export interface WeatherState {
   condition: WeatherCondition;
   temperatureC: number;
@@ -1385,6 +1444,13 @@ export interface WeatherState {
   emoji: string;
   source: 'fixed' | 'api_ready';
   updatedAt: number;
+  cityId?: string;
+  cityName?: string;
+  nextRefreshAt?: number;
+  lastSyncedOnlineAt?: number | null;
+  isOfflineFallback?: boolean;
+  seasonId?: SeasonId;
+  mode?: 'simulated' | 'live';
 }
 
 export type TimePeriodId =
@@ -1484,6 +1550,8 @@ export interface DialogueState {
   consecutiveCareDays: number;
   lastCareDate: string | null;
   announcedWeightMilestones: number[];
+  lastWeatherDialogueDate?: string | null;
+  lastWeatherDialogueCondition?: WeatherCondition | null;
 }
 
 export type StageBackgroundId =
@@ -1523,6 +1591,14 @@ export interface EncyclopediaState {
   claimedAccessoryThemeSets: AccessoryTheme[];
   unlockedTitles: TitleId[];
   activeTitle: TitleId | null;
+  accessoryWearCounts?: Record<string, number>;
+  claimedTotalMilestones?: number[];
+  unlockedCollectionBadges?: CollectionBadgeId[];
+  unlockedChainSetIds?: string[];
+  collectionReminderEnabled?: boolean;
+  lastCollectionReminderDate?: string | null;
+  lastCollectionReminderDismissedDate?: string | null;
+  collectionOfflineSummary?: CollectionOfflineSummary | null;
 }
 
 export type FeedingVisualEffect = 'none' | 'hearts' | 'favoriteJump' | 'stuffed';
@@ -1744,6 +1820,7 @@ export interface GameState {
   seasonalEvent?: SeasonalEvent;
   filterShards?: number;
   townMap?: TownMapState;
+  seasonSystem?: SeasonSystemState;
 }
 
 export interface FloatingFeedback {
@@ -1775,3 +1852,326 @@ export interface SharedPetRoom {
   lastActorEmail: string | null;
   updatedAt: string;
 }
+
+export type CollectionCategoryId =
+  | 'pets'
+  | 'foods'
+  | 'accessories'
+  | 'sets'
+  | 'room'
+  | 'farm'
+  | 'visitors'
+  | 'town'
+  | 'studio'
+  | 'memories';
+
+export type CollectionFilterId =
+  | 'all'
+  | 'owned'
+  | 'unowned'
+  | 'purchasable'
+  | 'event'
+  | 'coop'
+  | 'craftable'
+  | 'expiring';
+
+export type CollectionJumpTarget =
+  | 'home'
+  | 'canteen'
+  | 'wardrobe'
+  | 'house'
+  | 'town'
+  | 'studio'
+  | 'memories'
+  | 'pets'
+  | 'events';
+
+export type CollectionRarity = 'common' | 'rare' | 'epic' | 'event' | 'coop';
+
+export type CollectionPreviewKind =
+  | 'pet'
+  | 'food'
+  | 'accessory'
+  | 'furniture'
+  | 'crop'
+  | 'visitor'
+  | 'studio_bg'
+  | 'studio_filter'
+  | 'studio_frame'
+  | 'emoji';
+
+export interface CollectionItem {
+  id: string;
+  categoryId: CollectionCategoryId;
+  name: string;
+  emoji: string;
+  description: string;
+  owned: boolean;
+  rarity: CollectionRarity;
+  obtainMethod: string;
+  mysteryHint?: string;
+  filters: CollectionFilterId[];
+  price?: number;
+  wearCount?: number;
+  affinityLevel?: number;
+  coopProgressText?: string;
+  eventRemainingText?: string;
+  isExpiring?: boolean;
+  isMysteryVisitor?: boolean;
+  jumpTarget: CollectionJumpTarget;
+  jumpLabel: string;
+  previewKind: CollectionPreviewKind;
+  previewId: string;
+  subtitle?: string;
+  tagText?: string;
+}
+
+export interface CollectionCategoryProgress {
+  id: CollectionCategoryId;
+  label: string;
+  emoji: string;
+  description: string;
+  collected: number;
+  total: number;
+  percent: number;
+}
+
+export interface CollectionMilestone {
+  percent: number;
+  title: string;
+  rewardSummary: string;
+  rewardCoins: number;
+  rewardFilterShards?: number;
+  rewardStudioBgId?: PhotoBackground;
+  rewardStudioFilterId?: PhotoFilter;
+  rewardStudioFrameId?: PhotoFrame;
+  rewardStudioPoseId?: PhotoPose;
+  rewardAccessoryId?: string;
+  rewardFurnitureId?: string;
+  rewardTitleId?: TitleId;
+}
+
+export interface CollectionChainSet {
+  id: string;
+  name: string;
+  emoji: string;
+  tier: 'active' | 'chain';
+  sourceThemeId?: AccessoryTheme;
+  unlockRequirementText: string;
+  rewardTitleId?: TitleId;
+  rewardTitleName: string;
+  description: string;
+  pieceIds: string[];
+  pieceNames: string[];
+}
+
+export type CollectionBadgeId =
+  | 'badge_collection_10'
+  | 'badge_collection_50'
+  | 'badge_collection_100'
+  | 'badge_pets_master'
+  | 'badge_foods_master'
+  | 'badge_fashion_master'
+  | 'badge_sets_3'
+  | 'badge_house_master'
+  | 'badge_town_explorer'
+  | 'badge_studio_director';
+
+export interface CollectionBadge {
+  id: CollectionBadgeId;
+  name: string;
+  emoji: string;
+  description: string;
+  unlockCondition: string;
+  categoryId?: CollectionCategoryId;
+}
+
+export interface CollectionOfflineSummary {
+  dateKey: string;
+  totalCollected: number;
+  totalCount: number;
+  totalPercent: number;
+  newItemsCount: number;
+  unlockedMilestones: number[];
+  unlockedTitleIds: TitleId[];
+}
+
+export interface CollectionProgress {
+  totalCollected: number;
+  totalCount: number;
+  totalPercent: number;
+  categories: CollectionCategoryProgress[];
+  nextMilestone: CollectionMilestone | null;
+  itemsToNextMilestone: number;
+}
+
+export interface SeasonCrop {
+  id: IngredientId;
+  name: string;
+  emoji: string;
+  primarySeason: SeasonId;
+  coldHardy?: boolean;
+  weatherBonusTags: string[];
+  description: string;
+}
+
+export interface SeasonVisitor {
+  visitorId: TownVisitorId;
+  name: string;
+  speciesLabel: string;
+  emoji: string;
+  seasons: SeasonId[];
+  rarity: TownVisitorRarity;
+  preferredWeather: WeatherCondition[];
+  description: string;
+  bonusTags: string[];
+}
+
+export interface SeasonPhotoContent {
+  seasonId: SeasonId;
+  label: string;
+  backgroundIds: PhotoBackground[];
+  filterIds: PhotoFilter[];
+  frameIds: PhotoFrame[];
+  unlockHint: string;
+}
+
+export type WeatherTaskKind =
+  | 'walk'
+  | 'bath_or_sleep'
+  | 'snow_photo'
+  | 'cooling_food'
+  | 'minigame'
+  | 'soothe_pet'
+  | 'indoor_care';
+
+export interface WeatherTask {
+  id: string;
+  dateKey: string;
+  weatherCondition: WeatherCondition;
+  kind: WeatherTaskKind;
+  title: string;
+  description: string;
+  emoji: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardCoins: number;
+  rewardStudioMaterials?: number;
+  rewardFilterShards?: number;
+  rewardSpeedTickets?: number;
+  rewardSummary: string;
+}
+
+export type SeasonEventId =
+  | 'spring_sakura_picnic'
+  | 'summer_beach_fest'
+  | 'autumn_harvest_fest'
+  | 'winter_warm_fest';
+
+export type SeasonEventTaskKind =
+  | 'plant_or_harvest'
+  | 'cook_seasonal'
+  | 'take_photo'
+  | 'host_visitor'
+  | 'coop_picnic';
+
+export interface SeasonEventTask {
+  id: string;
+  kind: SeasonEventTaskKind;
+  title: string;
+  description: string;
+  emoji: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardTickets: number;
+  rewardCoins: number;
+}
+
+export interface SeasonEventShopItem {
+  id: string;
+  eventId: SeasonEventId;
+  name: string;
+  emoji: string;
+  description: string;
+  category: 'accessory' | 'background' | 'filter' | 'frame' | 'title';
+  targetId: string;
+  ticketPrice: number;
+}
+
+export interface SeasonEventCoopTask {
+  id: string;
+  dateKey: string;
+  title: string;
+  description: string;
+  picnicFoodCount: number;
+  picnicFoodTarget: number;
+  photoCount: number;
+  photoTarget: number;
+  contributorUserIds: string[];
+  completed: boolean;
+  claimedByUserIds: string[];
+  rewardTickets: number;
+  rewardCoins: number;
+}
+
+export interface SeasonEvent {
+  eventId: SeasonEventId;
+  seasonId: SeasonId;
+  name: string;
+  emoji: string;
+  description: string;
+  durationDays: number;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'reserved' | 'ended';
+  currencyName: string;
+  currencyEmoji: string;
+  ticketBalance: number;
+  ticketTotalEarned: number;
+  dailyDate: string;
+  dailyTasks: SeasonEventTask[];
+  purchasedShopItemIds: string[];
+  coopTask: SeasonEventCoopTask | null;
+  carryoverItemIds: string[];
+}
+
+export type SeasonRoomThemeId =
+  | 'none'
+  | 'sakura_sweet'
+  | 'spring_picnic'
+  | 'beach_vacation'
+  | 'ice_cream_cottage'
+  | 'maple_study'
+  | 'harvest_cottage'
+  | 'snow_cottage'
+  | 'christmas_bedroom';
+
+export type SeasonYardThemeId = 'none' | 'spring' | 'summer' | 'autumn' | 'winter';
+
+export interface SeasonOfflineSummary {
+  dateKey: string;
+  seasonId: SeasonId;
+  weatherCondition: WeatherCondition;
+  weatherLabel: string;
+  cityName: string;
+  isOffline: boolean;
+  summaryText: string;
+}
+
+export interface SeasonSystemState {
+  currentSeason: SeasonId;
+  lastKnownSeason: SeasonId;
+  seasonNoticePending: boolean;
+  selectedCityId: string;
+  roomThemeOverride: SeasonRoomThemeId;
+  yardThemeOverride: SeasonYardThemeId;
+  weatherTasksDate: string;
+  weatherTasks: WeatherTask[];
+  seasonEvent: SeasonEvent;
+  offlineSummary: SeasonOfflineSummary | null;
+}
+

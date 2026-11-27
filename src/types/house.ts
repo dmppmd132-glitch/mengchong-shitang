@@ -9,6 +9,7 @@ import type {
   PhotoScene,
   PhotoStickerId,
   PiggyActionState,
+  TitleId,
   TownLocationId,
   TownVisitorId,
   VisitorId,
@@ -206,6 +207,7 @@ export interface RoomPhotoRecord {
   challengeWeekKey?: string;
   likes?: string[];
   comments?: PhotoComment[];
+  authorTitleId?: TitleId | null;
 }
 
 export interface TreasuryContribution {

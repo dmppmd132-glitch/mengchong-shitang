@@ -759,6 +759,7 @@ export function submitWeeklyOutfitChallenge(
     weightAtCapture: activePet.weight,
     challengeScore: breakdown.totalScore,
     challengeWeekKey: weekKey,
+    authorTitleId: syncedState.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };
@@ -974,6 +975,7 @@ export function saveDuoStudioPhoto(
       ...params.partnerPet,
       equipped: { ...params.partnerPet.equipped },
     },
+    authorTitleId: synced.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };
@@ -1141,6 +1143,7 @@ export function submitCoopDuoChallengeEntry(
         weightAtCapture: second.weightAtCapture,
       },
       challengeWeekKey: weekKey,
+      authorTitleId: syncedState.encyclopedia.activeTitle ?? null,
       likes: [],
       comments: [],
     };

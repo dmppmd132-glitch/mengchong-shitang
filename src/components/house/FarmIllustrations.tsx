@@ -75,6 +75,14 @@ export const CropIllustration: React.FC<CropIllustrationProps> = ({
         ? '#FFA85C'
         : cropId === 'corn'
         ? '#F9DC6D'
+        : cropId === 'watermelon'
+        ? '#FF7B8E'
+        : cropId === 'apple'
+        ? '#FF6B6B'
+        : cropId === 'mushroom'
+        ? '#E6B89C'
+        : cropId === 'white_radish' || cropId === 'snowberry'
+        ? '#F4F9FF'
         : '#9DF0BD';
 
     return (
@@ -587,6 +595,72 @@ export const CropIllustration: React.FC<CropIllustrationProps> = ({
           />
           {/* Tiny Star Accent */}
           <circle cx="49" cy="29" r="2" fill="#FFE680" stroke={COCOA} strokeWidth="1" />
+        </svg>
+      );
+
+    case 'watermelon':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M32 15C35 10 41 9 43 13" stroke="#4D9464" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="32" cy="35" r="20" fill="#4EB86E" stroke={COCOA} strokeWidth="2.4" />
+          <path d="M23 17C20 26 20 44 23 53M32 15V55M41 17C44 26 44 44 41 53" stroke="#2D7845" strokeWidth="2.4" strokeLinecap="round" />
+          <ellipse cx="22" cy="25" rx="3" ry="5" transform="rotate(-18 22 25)" fill="#A9F0BE" opacity="0.7" />
+        </svg>
+      );
+
+    case 'apple':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M32 18V10" stroke={COCOA} strokeWidth="2.6" strokeLinecap="round" />
+          <path d="M33 14C39 9 47 10 47 16C42 19 36 18 33 14Z" fill="#77CF88" stroke={COCOA} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M32 20C23 16 14 23 15 36C16 48 24 55 30 53C31 52.5 33 52.5 34 53C40 55 48 48 49 36C50 23 41 16 32 20Z" fill="#FF5E6C" stroke={COCOA} strokeWidth="2.4" strokeLinejoin="round" />
+          <ellipse cx="23" cy="29" rx="2.8" ry="5.5" transform="rotate(-14 23 29)" fill="#FFB3BC" opacity="0.8" />
+        </svg>
+      );
+
+    case 'mushroom':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M24 36H40L42 54C42 56 22 56 22 54L24 36Z" fill="#FFF3DC" stroke={COCOA} strokeWidth="2.3" strokeLinejoin="round" />
+          <path d="M11 37C11 19 22 12 32 12C42 12 53 19 53 37C42 39 22 39 11 37Z" fill="#E87A54" stroke={COCOA} strokeWidth="2.4" strokeLinejoin="round" />
+          <circle cx="24" cy="24" r="3.8" fill="#FFF5DF" />
+          <circle cx="39" cy="22" r="3.2" fill="#FFF5DF" />
+          <circle cx="33" cy="31" r="2.8" fill="#FFF5DF" />
+        </svg>
+      );
+
+    case 'white_radish':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M32 21C25 14 20 9 18 13C19 17 25 21 32 21Z" fill="#7CD490" stroke={COCOA} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M32 21C32 11 32 6 35 6C38 7 35 15 32 21Z" fill="#63BC75" stroke={COCOA} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M32 21C39 14 45 10 47 14C46 18 39 21 32 21Z" fill="#8AE09D" stroke={COCOA} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M22 25C22 19 42 19 42 25C42 38 35 53 32 56C29 53 22 38 22 25Z" fill="#FAFBFD" stroke={COCOA} strokeWidth="2.4" strokeLinejoin="round" />
+          <path d="M27 29V42" stroke="#DCE6F2" strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+      );
+
+    case 'winter_greens':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M20 50C14 38 14 20 24 14C30 18 31 32 28 50Z" fill="#77D48C" stroke={COCOA} strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M44 50C50 38 50 20 40 14C34 18 33 32 36 50Z" fill="#5DBA72" stroke={COCOA} strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M24 52C22 36 25 14 32 10C39 14 42 36 40 52Z" fill="#92E6A4" stroke={COCOA} strokeWidth="2.3" strokeLinejoin="round" />
+          <path d="M27 52H37" stroke="#F4FAF0" strokeWidth="4" strokeLinecap="round" />
+        </svg>
+      );
+
+    case 'snowberry':
+      return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
+          <path d="M31 21C22 14 14 14 13 20C17 25 23 25 31 21Z" fill="#7BC9B8" stroke={COCOA} strokeWidth="2.1" strokeLinejoin="round" />
+          <path d="M33 21C42 14 50 14 51 20C47 25 41 25 33 21Z" fill="#63B4A3" stroke={COCOA} strokeWidth="2.1" strokeLinejoin="round" />
+          <circle cx="32" cy="28" r="10.5" fill="#EBF6FF" stroke={COCOA} strokeWidth="2.2" />
+          <circle cx="22" cy="40" r="11.5" fill="#D4EAFF" stroke={COCOA} strokeWidth="2.3" />
+          <circle cx="42" cy="40" r="11.5" fill="#F4FAFF" stroke={COCOA} strokeWidth="2.3" />
+          <circle cx="28" cy="26" r="2" fill="#FFFFFF" />
+          <circle cx="19" cy="38" r="2.2" fill="#FFFFFF" />
+          <circle cx="39" cy="38" r="2.2" fill="#FFFFFF" />
         </svg>
       );
   }

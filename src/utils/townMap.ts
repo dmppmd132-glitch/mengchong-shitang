@@ -41,6 +41,7 @@ import {
 import { getPhotoStudioState } from './photoStudio';
 import { recordMemoryEntry } from './memories';
 import { syncAllAccessoryProgress } from './accessories';
+import { getSeasonalWeatherVisitorModifiers } from './seasons';
 
 export interface TownActionResult {
   nextState: GameState;
@@ -413,14 +414,26 @@ function pickWeightedTownVisitor(
   const townMap = state.townMap ?? createInitialTownMapState();
   const locDef = TOWN_LOCATION_BY_ID[locationId];
   const rarePercent = getTownRareVisitorRatePercent(state, locationId);
-  const rollRare = Math.random() * 100 < rarePercent && locDef.rareVisitorIds.length > 0;
+  const seasonMods = getSeasonalWeatherVisitorModifiers(state);
+  const isStorm = state.dialogue.weather.condition === 'storm';
+  const effectiveRarePercent = isStorm ? Math.max(5, Math.round(rarePercent * 0.7)) : rarePercent;
+  const rollRare = Math.random() * 100 < effectiveRarePercent && locDef.rareVisitorIds.length > 0;
 
-  const pool = rollRare ? locDef.rareVisitorIds : locDef.commonVisitorIds;
+  const basePool = rollRare ? [...locDef.rareVisitorIds] : [...locDef.commonVisitorIds];
+  for (const seasonVid of seasonMods.seasonActiveVisitorIds) {
+    const def = TOWN_VISITOR_BY_ID[seasonVid];
+    if (!def || !def.homeLocationIds.includes(locationId)) continue;
+    const matchesTier = rollRare ? def.rarity === 'rare' : def.rarity === 'common';
+    if (matchesTier && !basePool.includes(seasonVid)) {
+      basePool.push(seasonVid);
+    }
+  }
+
   const activeIds = new Set(
     townMap.locations[locationId].activeVisitors.map((v) => v.visitorId)
   );
-  const candidates = pool.filter((id) => !activeIds.has(id));
-  const finalPool = candidates.length > 0 ? candidates : pool;
+  const candidates = basePool.filter((id) => !activeIds.has(id));
+  const finalPool = candidates.length > 0 ? candidates : basePool;
 
   const built = townMap.visitorHut.builtFacilities;
   const weighted = finalPool.map((vid) => {
@@ -431,6 +444,8 @@ function pickWeightedTownVisitor(
     if (vid === 'duck' && built.includes('mini_pond')) w *= 1.45;
     if (vid === 'butterfly' && built.includes('flower_bush')) w *= 1.6;
     if (vid === 'butterfly' && state.house.activeFarmDecor.flowerbedId) w *= 1.2;
+    const swMult = seasonMods.townMultiplier[vid] ?? 1;
+    w *= swMult;
     return { vid, w };
   });
 

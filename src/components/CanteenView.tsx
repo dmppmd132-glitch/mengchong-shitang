@@ -21,6 +21,12 @@ import {
   FARM_UPGRADES,
 } from '../data/house';
 import { INGREDIENT_IDS, INGREDIENTS, KITCHEN_RECIPES } from '../data/kitchen';
+import {
+  COOLING_FOOD_IDS,
+  SEASON_CROP_BY_ID,
+  WARMING_FOOD_IDS,
+  WEATHER_EFFECT_PROFILES,
+} from '../data/seasons';
 import { getPetSpeciesInfo } from '../data/species';
 import {
   CropPlot,
@@ -32,7 +38,9 @@ import {
   KitchenRecipe,
   Pet,
   PiggyActionState,
+  SeasonSystemState,
   SharedHouse,
+  WeatherState,
   YardMoodBuffPeriod,
 } from '../types';
 import {
@@ -52,8 +60,11 @@ import {
   getTimeOfDayPeriod,
   getWaterBoostMs,
 } from '../utils/farmGrowth';
+import { evaluateCropConditions, getSeasonFromDate } from '../utils/seasons';
 import { PiggyCharacter } from './PiggyCharacter';
 import { YardMoodBuffBadge } from './house/YardMoodBuffBadge';
+import { SeasonWeatherAtmosphere } from './seasons/SeasonWeatherAtmosphere';
+import { SeasonWeatherBadge } from './seasons/SeasonWeatherBadge';
 import {
   BottomLeftGardenToolsSvg,
   CropIllustration,
@@ -111,6 +122,10 @@ interface CanteenViewProps {
   onUseSpeedTicket?: (plotId: number) => void;
   onOpenTownOrders?: () => void;
   pendingOrderCount?: number;
+  seasonSystem?: SeasonSystemState;
+  weather?: WeatherState;
+  onStabilizeWindblownPlot?: (plotId: number) => void;
+  onOpenWeatherCenter?: () => void;
 }
 
 export type CanteenSection = 'shop' | 'farm' | 'kitchen';
@@ -173,6 +188,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   onUseSpeedTicket,
   onOpenTownOrders,
   pendingOrderCount = 0,
+  seasonSystem,
+  weather,
+  onStabilizeWindblownPlot,
+  onOpenWeatherCenter,
 }) => {
   const [section, setSection] = useState<CanteenSection>(initialSection);
   const [filter, setFilter] = useState<CategoryFilter>('all');
@@ -183,6 +202,37 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const [signNameDraft, setSignNameDraft] = useState<string>(house.houseName);
   const [now, setNow] = useState<number>(() => Date.now());
   const cropGrowthRateMultiplier = pet.species === 'rabbit' ? 1.1 : 1;
+  const activeSeasonId = seasonSystem?.currentSeason ?? getSeasonFromDate(new Date(now));
+  const activeWeather: WeatherState = weather ?? {
+    condition: 'clear',
+    temperatureC: 25,
+    label: '晴天',
+    emoji: '☀️',
+    source: 'fixed',
+    updatedAt: 0,
+    cityId: 'kaohsiung',
+    cityName: '高雄',
+  };
+  const weatherProfile = WEATHER_EFFECT_PROFILES[activeWeather.condition];
+  const greenhouseLevel = house.farmUpgrades.greenhouseLevel ?? 0;
+  const getPlotGrowth = (plot: CropPlot) => {
+    const evalRes = evaluateCropConditions({
+      cropId: plot.cropId,
+      watered: plot.watered,
+      windblown: plot.windblown,
+      seasonId: activeSeasonId,
+      weatherCondition: activeWeather.condition,
+      greenhouseLevel,
+    });
+    const growth = getCropGrowthState(
+      plot,
+      now,
+      yardMoodBuffPeriods,
+      cropGrowthRateMultiplier * evalRes.rateMultiplier,
+      { isPaused: evalRes.isPaused, minRate: 0.4 }
+    );
+    return { evalRes, growth };
+  };
   const [harvestBursts, setHarvestBursts] = useState<
     Array<{ id: number; plotId: number; text: string; emoji: string; isGolden?: boolean }>
   >([]);
@@ -320,10 +370,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const handleWaterAllPlots = () => {
     if (!onWaterAllCrops) return;
     const targets = farmPlots.filter(
-      (p) =>
-        p.cropId !== null &&
-        !p.watered &&
-        !getCropGrowthState(p, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
+      (p) => p.cropId !== null && !p.watered && !getPlotGrowth(p).growth.isReady
     );
     if (targets.length === 0) return;
     onWaterAllCrops();
@@ -354,9 +401,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const handleHarvestAllPlots = () => {
     if (!onHarvestAllCrops) return;
     const readyTargets = farmPlots.filter(
-      (p) =>
-        p.cropId !== null &&
-        getCropGrowthState(p, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
+      (p) => p.cropId !== null && getPlotGrowth(p).growth.isReady
     );
     if (readyTargets.length === 0) return;
 
@@ -374,7 +419,11 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
       const cur = simQty[p.cropId] ?? 0;
       if (cur >= storageCap) continue;
       const crop = INGREDIENTS[p.cropId];
-      const effYield = getEffectiveHarvestYield(crop.harvestYield, house);
+      const evalRes = getPlotGrowth(p).evalRes;
+      const effYield = Math.max(
+        1,
+        getEffectiveHarvestYield(crop.harvestYield, house) + evalRes.yieldDelta
+      );
       simQty[p.cropId] = Math.min(storageCap, cur + effYield);
       const isGolden = Boolean(p.isGolden);
       burstsToAdd.push({
@@ -424,14 +473,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
   const selectedSeedInfo = INGREDIENTS[selectedSeed];
   const canPlantAtLeastOne =
     (freeSeeds[selectedSeed] ?? 0) > 0 || coins >= selectedSeedInfo.seedCost;
-  const readyCropsCount = farmPlots.filter(
-    (plot) => getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
-  ).length;
+  const readyCropsCount = farmPlots.filter((plot) => getPlotGrowth(plot).growth.isReady).length;
   const waterableCropsCount = farmPlots.filter(
-    (plot) =>
-      plot.cropId !== null &&
-      !plot.watered &&
-      !getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier).isReady
+    (plot) => plot.cropId !== null && !plot.watered && !getPlotGrowth(plot).growth.isReady
   ).length;
 
   const nextExpandPlotNumber = house.unlockedFarmPlots < 8 ? house.unlockedFarmPlots + 1 : null;
@@ -598,6 +642,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 const isFavorite = speciesInfo.favoriteFoodIds.includes(food.id);
                 const isOvernightSpecial = overnightFoodIds.has(food.id);
                 const isUncollected = collectedFoodIds.length > 0 && !collectedFoodSet.has(food.id);
+                const isCoolingHotPick =
+                  activeWeather.condition === 'hot' && COOLING_FOOD_IDS.includes(food.id);
+                const isWarmingSnowPick =
+                  activeWeather.condition === 'snow' && WARMING_FOOD_IDS.includes(food.id);
 
                 return (
                   <article
@@ -619,11 +667,21 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                             {FOOD_CATEGORY_LABELS[food.category]} · 庫存 {count}
                           </span>
                         </div>
-                        {(isFavorite || isOvernightSpecial || isUncollected) && (
+                        {(isFavorite || isOvernightSpecial || isUncollected || isCoolingHotPick || isWarmingSnowPick) && (
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                             {isFavorite && (
                               <span className="text-[11px] font-extrabold text-[#D64470]">
                                 ♥ {speciesInfo.shortName}最愛料理
+                              </span>
+                            )}
+                            {isCoolingHotPick && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#E0F7FF] text-[#175B8A] text-[10px] font-extrabold">
+                                ❄️ 炎熱消暑推薦
+                              </span>
+                            )}
+                            {isWarmingSnowPick && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#FFEAD6] text-[#9A4212] text-[10px] font-extrabold">
+                                🍲 雪天暖胃推薦
                               </span>
                             )}
                             {isOvernightSpecial && (
@@ -697,14 +755,17 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
 
       {section === 'farm' && (
         <div className="space-y-4">
-          {/* Outdoor Storybook Meadow Scene Matching Reference Design */}
           <div className="relative rounded-[28px] border-[3px] border-[#6B5344] bg-[#C6E189] shadow-[0_6px_0_#9AB865] overflow-hidden">
-            {/* Upper Pastel Sky, Flanking Leafy Trees, Rolling Hills & Right Red Barn Backdrop */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-[350px] z-0">
               <PastoralHorizonBackdrop timeOfDay={activeTimeOfDay} />
             </div>
 
-            {/* Glass Greenhouse Subtle Roof Sparkle if Upgraded */}
+            <SeasonWeatherAtmosphere
+              seasonId={activeSeasonId}
+              weatherCondition={activeWeather.condition}
+              variant="farm"
+            />
+
             {house.farmUpgrades.greenhouseLevel > 0 && (
               <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-14 z-10 border-b border-white/75"
@@ -792,37 +853,42 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 </div>
               </div>
 
-              {(house.farmUpgrades.sprinklerLevel > 0 ||
-                house.farmUpgrades.greenhouseLevel > 0 ||
-                house.activeFarmDecor.flowerbedId !== null ||
-                house.activeFarmDecor.fenceId !== null) && (
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-extrabold text-[#4E3629]">
-                  {house.farmUpgrades.sprinklerLevel > 0 && (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#E9F7FF]/95 border border-[#6B5344]/60 text-[#1E678A]">
-                      💧 灑水器運轉中 (-30%時間)
-                    </span>
-                  )}
-                  {house.farmUpgrades.greenhouseLevel > 0 && (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#EAFBF1]/95 border border-[#6B5344]/60 text-[#1F6B54]">
-                      🏡 玻璃溫室 (+1收成)
-                    </span>
-                  )}
-                  {house.activeFarmDecor.flowerbedId && (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#FFF4DC]/95 border border-[#6B5344]/60 text-[#8A5A12]">
-                      {house.activeFarmDecor.flowerbedId === 'lavender_flowerbed'
-                        ? '🪻 薰衣草花圃'
-                        : '🌼 雛菊花圃'}
-                    </span>
-                  )}
-                  {house.activeFarmDecor.fenceId && (
-                    <span className="px-2 py-0.5 rounded-lg bg-[#FFF9EE]/95 border border-[#6B5344]/60 text-[#6B5344]">
-                      {house.activeFarmDecor.fenceId === 'white_picket_fence'
-                        ? '🤍 奶油白柵欄'
-                        : '🪵 暖木圍欄'}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-extrabold text-[#4E3629]">
+                <SeasonWeatherBadge
+                  seasonId={activeSeasonId}
+                  weather={activeWeather}
+                  compact
+                  onClick={onOpenWeatherCenter}
+                  className="!min-h-[30px] !px-2 !py-0.5 !text-[10px]"
+                />
+                <span className="px-2 py-0.5 rounded-lg bg-[#FFFDF8]/92 border border-[#6B5344]/40 text-[#5A3E36]">
+                  {weatherProfile.emoji} {weatherProfile.farmEffect}
+                </span>
+                {house.farmUpgrades.sprinklerLevel > 0 && (
+                  <span className="px-2 py-0.5 rounded-lg bg-[#E9F7FF]/95 border border-[#6B5344]/60 text-[#1E678A]">
+                    💧 灑水器運轉中 (-30%時間)
+                  </span>
+                )}
+                {house.farmUpgrades.greenhouseLevel > 0 && (
+                  <span className="px-2 py-0.5 rounded-lg bg-[#EAFBF1]/95 border border-[#6B5344]/60 text-[#1F6B54]">
+                    🏡 玻璃溫室 (+1收成)
+                  </span>
+                )}
+                {house.activeFarmDecor.flowerbedId && (
+                  <span className="px-2 py-0.5 rounded-lg bg-[#FFF4DC]/95 border border-[#6B5344]/60 text-[#8A5A12]">
+                    {house.activeFarmDecor.flowerbedId === 'lavender_flowerbed'
+                      ? '🪻 薰衣草花圃'
+                      : '🌼 雛菊花圃'}
+                  </span>
+                )}
+                {house.activeFarmDecor.fenceId && (
+                  <span className="px-2 py-0.5 rounded-lg bg-[#FFF9EE]/95 border border-[#6B5344]/60 text-[#6B5344]">
+                    {house.activeFarmDecor.fenceId === 'white_picket_fence'
+                      ? '🤍 奶油白柵欄'
+                      : '🪵 暖木圍欄'}
+                  </span>
+                )}
+              </div>
 
               {editingSignName && (
                 <form
@@ -894,6 +960,17 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       const info = INGREDIENTS[id];
                       const active = selectedSeed === id;
                       const freeCount = freeSeeds[id] ?? 0;
+                      const seedSeasonCrop = SEASON_CROP_BY_ID[id];
+                      const isSeedInSeason = seedSeasonCrop?.primarySeason === activeSeasonId;
+                      const isSeedColdHardy = Boolean(seedSeasonCrop?.coldHardy);
+                      const seedEval = evaluateCropConditions({
+                        cropId: id,
+                        watered: false,
+                        windblown: false,
+                        seasonId: activeSeasonId,
+                        weatherCondition: activeWeather.condition,
+                        greenhouseLevel,
+                      });
                       const effectiveSec = Math.max(
                         1,
                         Math.round(
@@ -901,11 +978,14 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                             getEffectiveGrowDurationMs(info.growSeconds, house),
                             now,
                             yardMoodBuffPeriods,
-                            cropGrowthRateMultiplier
+                            cropGrowthRateMultiplier * seedEval.rateMultiplier,
+                            { isPaused: seedEval.isPaused, minRate: 0.4 }
                           ) / 1000
                         )
                       );
-                      const durationLabel = formatCropDurationLabel(effectiveSec);
+                      const durationLabel = seedEval.isPaused
+                        ? '暫停'
+                        : formatCropDurationLabel(effectiveSec);
                       return (
                         <button
                           key={id}
@@ -919,7 +999,6 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                               : 'bg-gradient-to-b from-[#F8E9D0] to-[#EED5B1] border-[2px] border-[#6B5344] shadow-[0_3px_0_#C9A982] text-[#4E3629] hover:brightness-[1.02]'
                           }`}
                         >
-                          {/* Inner Dashed Border for Active Seed Matching Artwork */}
                           {active && (
                             <span
                               className="pointer-events-none absolute inset-[3px] rounded-[10px] border-[1.5px] border-dashed border-[#5DB392]"
@@ -927,13 +1006,18 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                             />
                           )}
 
-                          {/* Overnight Moon Badge */}
                           {info.isOvernight && (
                             <span
                               className="absolute top-1 left-1 z-10 rounded-md bg-[#6B488C]/90 px-1 py-[1px] text-[9px] font-extrabold text-[#FFF8D6] leading-tight pointer-events-none"
                               aria-label="過夜長作物"
                             >
                               🌙過夜
+                            </span>
+                          )}
+
+                          {(isSeedInSeason || isSeedColdHardy) && !info.isOvernight && (
+                            <span className="absolute top-1 left-1 z-10 rounded-md bg-white/90 px-1 py-[1px] text-[8.5px] font-extrabold text-[#1F6B54] leading-tight pointer-events-none">
+                              {isSeedColdHardy ? '❄️耐寒' : '✨當季'}
                             </span>
                           )}
 
@@ -1066,15 +1150,22 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                 <div className="grid grid-cols-2 gap-x-3.5 gap-y-8">
                   {farmPlots.map((plot) => {
                     const crop = plot.cropId ? INGREDIENTS[plot.cropId] : null;
-                    const growth = getCropGrowthState(plot, now, yardMoodBuffPeriods, cropGrowthRateMultiplier);
-                    const remainingLabel = crop ? formatRemainingTime(growth.remainingMs) : '';
+                    const { evalRes, growth } = getPlotGrowth(plot);
+                    const remainingLabel = crop
+                      ? evalRes.isPaused
+                        ? '暫停中'
+                        : formatRemainingTime(growth.remainingMs)
+                      : '';
                     const isReady = crop !== null && growth.isReady;
                     const progressPct = crop ? growth.progressPercent : 0;
                     const seedInfo = INGREDIENTS[selectedSeed];
                     const selectedFreeCount = freeSeeds[selectedSeed] ?? 0;
                     const canPlant = selectedFreeCount > 0 || coins >= seedInfo.seedCost;
                     const effectiveYield = crop
-                      ? getEffectiveHarvestYield(crop.harvestYield, house)
+                      ? Math.max(
+                          1,
+                          getEffectiveHarvestYield(crop.harvestYield, house) + evalRes.yieldDelta
+                        )
                       : 2;
                     const isGoldenMature = isReady && Boolean(plot.isGolden);
                     const waterPour = waterPourPlotIds[plot.id];
@@ -1144,7 +1235,7 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                           {/* Sprinkler / Already Watered Subtle Indicator */}
                           {crop && !isReady && plot.watered && (
                             <span className="absolute right-3 top-2.5 text-[10px] font-extrabold text-[#1F5A78] z-10 pointer-events-none">
-                              💧已澆水
+                              {plot.autoWateredByRainDate ? '🌧️雨天自動澆水' : '💧已澆水'}
                             </span>
                           )}
                           {(!crop || !plot.watered) &&
@@ -1207,7 +1298,9 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                               ) : (
                                 <div className="w-full max-w-[118px] space-y-1 mt-0.5">
                                   <p className="text-[10px] font-extrabold text-[#462E20] tabular-nums">
-                                    剩餘 {remainingLabel}
+                                    {evalRes.isPaused
+                                      ? '⏸️ 天氣暫停生長'
+                                      : `剩餘 ${remainingLabel}`}
                                   </p>
                                   <div className="w-full h-2 rounded-full bg-[#FFF6E6] border-[1.5px] border-[#6B5344] overflow-hidden">
                                     <div
@@ -1215,6 +1308,23 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                                       style={{ width: `${progressPct}%` }}
                                     />
                                   </div>
+                                  {evalRes.isPaused && evalRes.pauseReason && (
+                                    <p className="text-[9px] font-extrabold text-[#245998] leading-tight">
+                                      {evalRes.pauseReason}
+                                    </p>
+                                  )}
+                                  {plot.windblown && onStabilizeWindblownPlot && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onStabilizeWindblownPlot(plot.id);
+                                      }}
+                                      className="w-full min-h-[30px] rounded-xl bg-[#DFF6EE] border border-[#3BA886] text-[#1F6B54] text-[10px] font-extrabold inline-flex items-center justify-center gap-0.5 active:scale-95 transition"
+                                    >
+                                      <span>🍃 固定作物 (+8🪙)</span>
+                                    </button>
+                                  )}
                                   {farmSpeedTickets > 0 && onUseSpeedTicket && (
                                     <button
                                       type="button"
@@ -1535,6 +1645,10 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
             const isFavorite = speciesInfo.favoriteFoodIds.includes(recipe.outputFoodId);
             const isRecipeLearned = learnedRecipeIds.includes(recipe.id);
             const currentFoodCount = inventory[recipe.outputFoodId] ?? 0;
+            const isCoolingDish =
+              activeWeather.condition === 'hot' && COOLING_FOOD_IDS.includes(recipe.outputFoodId);
+            const isWarmingDish =
+              activeWeather.condition === 'snow' && WARMING_FOOD_IDS.includes(recipe.outputFoodId);
 
             return (
               <article
@@ -1565,6 +1679,16 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
                       {isFavorite && (
                         <span className="text-[11px] font-extrabold text-[#D64470]">
                           ♥ {speciesInfo.shortName}最愛料理
+                        </span>
+                      )}
+                      {isCoolingDish && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#E0F7FF] text-[#175B8A] text-[10px] font-extrabold">
+                          ❄️ 炎熱消暑推薦
+                        </span>
+                      )}
+                      {isWarmingDish && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-[#FFEAD6] text-[#9A4212] text-[10px] font-extrabold">
+                          🍲 雪天暖胃推薦
                         </span>
                       )}
                       <span

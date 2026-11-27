@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckSquare, Cloud, Coins, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenSection, CanteenView } from './components/CanteenView';
+import { CollectionCelebrationModal } from './components/collection/CollectionCelebrationModal';
 import { CoopHubModal } from './components/coop/CoopHubModal';
 import { DialogueHistoryModal } from './components/dialogue/DialogueHistoryModal';
 import { EncyclopediaSection } from './components/EncyclopediaView';
@@ -27,6 +28,8 @@ import { PWAInstallButton } from './components/PWAInstallButton';
 import { PWAUpdateBanner } from './components/PWAUpdateBanner';
 import { QuestsView } from './components/QuestsView';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
+import { SeasonEventModal } from './components/seasons/SeasonEventModal';
+import { WeatherCenterModal } from './components/seasons/WeatherCenterModal';
 import { SharedPetModal } from './components/SharedPetModal';
 import { TownOrderBoardModal } from './components/visitors/TownOrderBoardModal';
 import { VisitorModal } from './components/visitors/VisitorModal';
@@ -57,6 +60,11 @@ import {
   pickRandomNonRepeating,
 } from './data/species';
 import { getStickerById } from './data/stickers';
+import {
+  COOLING_FOOD_IDS,
+  SEASON_META,
+  WEATHER_AUTO_REFRESH_MS,
+} from './data/seasons';
 import { VISITOR_BY_ID } from './data/visitors';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
@@ -85,6 +93,9 @@ import {
   CloudSavePayload,
   CloudSyncStatus,
   CloudUser,
+  CollectionCategoryId,
+  CollectionItem,
+  CollectionJumpTarget,
   DialogueLine,
   DialogueSettings,
   DuoPhotoPetInfo,
@@ -117,6 +128,8 @@ import {
   PhotoStickerId,
   PiggyActionState,
   RoomPhotoRecord,
+  SeasonRoomThemeId,
+  SeasonYardThemeId,
   SharedPetRoom,
   StageBackgroundId,
   TabKey,
@@ -161,6 +174,15 @@ import {
   syncAllAccessoryProgress,
   togglePhotoLike,
 } from './utils/accessories';
+import {
+  CollectionCelebrationEvent,
+  computeCollectionProgress,
+  dismissDailyCollectionReminder,
+  getDailyCollectionReminder,
+  recordAccessoryWear,
+  setCollectionReminderEnabled,
+  syncCollectionProgress,
+} from './utils/collection';
 import { syncEncyclopediaRewards } from './utils/encyclopedia';
 import { resolveFeedingOutcome } from './utils/feeding';
 import {
@@ -307,6 +329,31 @@ import {
   syncVisitorSystem,
   useFarmSpeedTicket,
 } from './utils/visitors';
+import {
+  advanceSakuraCoopStep,
+  advanceSakuraEventTask,
+  advanceWeatherTaskProgress,
+  applyRainAutoWaterToPlots,
+  buySakuraShopItem,
+  claimSakuraCoopReward,
+  claimSakuraEventTask,
+  claimWeatherTask,
+  createInitialSeasonSystemState,
+  dismissSeasonNotice,
+  dismissSeasonOfflineSummary,
+  evaluateCropConditions,
+  evaluateCropSeasonAndWeather,
+  fetchAndApplyWeather,
+  getSeasonFromDate,
+  maybeTriggerWindblownPlot,
+  mergeSeasonSystemRemoteState,
+  selectWeatherCity,
+  stabilizeWindblownPlot,
+  switchSeasonRoomTheme,
+  switchSeasonYardTheme,
+  syncSeasonSystemState,
+  unlockWinterSnowPhotoBonus,
+} from './utils/seasons';
 
 export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
@@ -349,6 +396,9 @@ export default function App() {
   const [townMapInitialTab, setTownMapInitialTab] = useState<TownMapTab>('map');
   const [townMapFocusLocationId, setTownMapFocusLocationId] =
     useState<ActiveTownLocationId | null>(null);
+  const [weatherCenterOpen, setWeatherCenterOpen] = useState<boolean>(false);
+  const [seasonFestivalOpen, setSeasonFestivalOpen] = useState<boolean>(false);
+  const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
@@ -363,6 +413,9 @@ export default function App() {
     useState<TownVisitorId | null>(null);
   const [shareCardPayload, setShareCardPayload] = useState<ShareCardPayload | null>(null);
   const [selectedMemoryEntry, setSelectedMemoryEntry] = useState<MemoryEntry | null>(null);
+  const [collectionCelebrations, setCollectionCelebrations] = useState<
+    CollectionCelebrationEvent[]
+  >([]);
   const [wardrobeReactionText, setWardrobeReactionText] = useState<string | null>(null);
   const [pendingCloudSave, setPendingCloudSave] = useState<CloudSavePayload | null>(null);
   const [sharedRoom, setSharedRoom] = useState<SharedPetRoom | null>(null);
@@ -448,6 +501,35 @@ export default function App() {
   useEffect(() => {
     saveGameState(game);
   }, [game]);
+
+  useEffect(() => {
+    if (!activePet.hatched) return;
+    const syncRes = syncCollectionProgress(game, Boolean(sharedRoom));
+    if (syncRes.nextState !== game) {
+      setGame(syncRes.nextState);
+    }
+    if (syncRes.celebrations.length > 0) {
+      soundFX.levelUp(game.soundEnabled);
+      setCollectionCelebrations((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        const fresh = syncRes.celebrations.filter((c) => !seen.has(c.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
+    }
+  }, [activePet.hatched, game, sharedRoom]);
+
+  const collectionProgress = useMemo(
+    () => computeCollectionProgress(game, Boolean(sharedRoom)),
+    [game, sharedRoom]
+  );
+
+  const dailyCollectionReminder = useMemo(
+    () =>
+      activePet.hatched
+        ? getDailyCollectionReminder(game, Boolean(sharedRoom))
+        : null,
+    [activePet.hatched, game, sharedRoom]
+  );
 
   useEffect(() => {
     try {
@@ -675,7 +757,14 @@ export default function App() {
         lastSharedUpdatedAtRef.current = remoteRoom.updatedAt;
         setLastSyncedAt(remoteRoom.updatedAt);
         setSyncStatus('synced');
-        const mergedState = mergeCoopRemoteState(gameRef.current, remoteState, cloudUser.id);
+        const mergedCoopState = mergeCoopRemoteState(gameRef.current, remoteState, cloudUser.id);
+        const mergedState: GameState = {
+          ...mergedCoopState,
+          seasonSystem: mergeSeasonSystemRemoteState(
+            mergedCoopState.seasonSystem,
+            remoteState.seasonSystem
+          ),
+        };
         const mergedActive = getActivePet(mergedState);
         const partnerFedNow = remoteState.feedLogs.length > gameRef.current.feedLogs.length;
         const withPartnerFeedMem = partnerFedNow
@@ -745,7 +834,14 @@ export default function App() {
           const prevPartnerEventIds = new Set(
             gameRef.current.coop.offlineEvents.map((ev) => ev.id)
           );
-          const mergedState = mergeCoopRemoteState(gameRef.current, res.state, cloudUser.id);
+          const mergedCoopState = mergeCoopRemoteState(gameRef.current, res.state, cloudUser.id);
+          const mergedState: GameState = {
+            ...mergedCoopState,
+            seasonSystem: mergeSeasonSystemRemoteState(
+              mergedCoopState.seasonSystem,
+              res.state.seasonSystem
+            ),
+          };
           const newPartnerCoopEv = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
             (ev) =>
               (ev.gameType === 'event_coop' ||
@@ -1118,6 +1214,10 @@ export default function App() {
         draft = syncSeasonalEventState(draft, new Date(now));
         draft = syncTownMapState(draft, new Date(now));
         draft = syncCoopTownExploration(draft, hasShared, new Date(now));
+        draft = syncSeasonSystemState(draft, now);
+        if (draft.dialogue.weather.condition === 'windy') {
+          draft = maybeTriggerWindblownPlot(draft, now);
+        }
         const nextDialogue = evaluateAndSelectDialogue(draft, currentUserId);
         return {
           ...draft,
@@ -1133,6 +1233,70 @@ export default function App() {
       window.clearInterval(timer);
     };
   }, [activePet.hatched, currentUserId, sharedRoom?.id]);
+
+  const applyWeatherRefresh = useCallback(
+    async (opts?: { cityId?: string; force?: boolean }) => {
+      setWeatherLoading(true);
+      try {
+        const fetched = await fetchAndApplyWeather(gameRef.current, opts);
+        if (fetched === gameRef.current) return;
+        setGame((prev) => {
+          const baseSys = prev.seasonSystem ?? createInitialSeasonSystemState();
+          const fetchedWeather = fetched.dialogue.weather;
+          const fetchedSys = fetched.seasonSystem ?? baseSys;
+          const keepExistingTasks =
+            baseSys.weatherTasksDate === fetchedSys.weatherTasksDate &&
+            baseSys.weatherTasks[0]?.weatherCondition === fetchedWeather.condition;
+          let updated: GameState = {
+            ...prev,
+            dialogue: {
+              ...prev.dialogue,
+              weather: fetchedWeather,
+            },
+            seasonSystem: {
+              ...baseSys,
+              currentSeason: fetchedSys.currentSeason,
+              lastKnownSeason: fetchedSys.lastKnownSeason,
+              selectedCityId: fetchedSys.selectedCityId,
+              weatherTasksDate: fetchedSys.weatherTasksDate,
+              weatherTasks: keepExistingTasks ? baseSys.weatherTasks : fetchedSys.weatherTasks,
+              offlineSummary: fetchedSys.offlineSummary,
+            },
+          };
+          if (fetchedWeather.condition === 'rain') {
+            updated = applyRainAutoWaterToPlots(updated);
+          } else if (fetchedWeather.condition === 'windy') {
+            updated = maybeTriggerWindblownPlot(updated);
+          } else if (fetchedWeather.condition === 'snow') {
+            updated = unlockWinterSnowPhotoBonus(updated).nextState;
+          }
+          return updated;
+        });
+      } finally {
+        setWeatherLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!activePet.hatched) return;
+    const bootTimer = window.setTimeout(() => {
+      void applyWeatherRefresh({ force: false });
+    }, 650);
+    const timer = window.setInterval(() => {
+      void applyWeatherRefresh({ force: false });
+    }, WEATHER_AUTO_REFRESH_MS);
+    const onOnline = () => {
+      void applyWeatherRefresh({ force: true });
+    };
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.clearTimeout(bootTimer);
+      window.clearInterval(timer);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [activePet.hatched, applyWeatherRefresh]);
 
   // 新訪客到達時發出提醒
   useEffect(() => {
@@ -1346,7 +1510,7 @@ export default function App() {
     soundFX.petVoice(game.soundEnabled, activePet.species);
     setTemporaryAction('petted', 1100, nextExpression);
     pushFeedback(
-      isStormWeather ? `${nextFeedback.text} (雷雨安慰加成)` : nextFeedback.text,
+      isStormWeather ? `${nextFeedback.text} (+3🪙 雷雨安撫加成)` : nextFeedback.text,
       nextFeedback.emoji
     );
     setSpeech(nextSpeech);
@@ -1358,8 +1522,11 @@ export default function App() {
         prev.familyDailyTasks,
         prev.familyDailyTasksDate
       );
-      const stormMoodBonus = prev.dialogue.weather.condition === 'storm' ? 2 : 0;
-      const stormIntimacyBonus = prev.dialogue.weather.condition === 'storm' ? 1 : 0;
+      const isStorm = prev.dialogue.weather.condition === 'storm';
+      const isCloudy = prev.dialogue.weather.condition === 'cloudy';
+      const stormMoodBonus = isStorm ? 2 : 0;
+      const stormIntimacyBonus = isStorm ? 1 : 0;
+      const stormCoinBonus = isStorm ? 3 : 0;
       const gainInfo = computeGrowthGain(5, prevActive);
       const nextGrowth = prevActive.growth + gainInfo.total;
       const dev = applyPersonalityDevelopment(
@@ -1384,8 +1551,9 @@ export default function App() {
         level: getGrowthStage(nextGrowth, pet.species).level,
         personality: dev.nextPersonality,
       }));
-      const draftState: GameState = {
+      let draftState: GameState = {
         ...updatedPetState,
+        coins: updatedPetState.coins + stormCoinBonus,
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'pet_3', 1),
@@ -1401,6 +1569,11 @@ export default function App() {
           petCount: prev.noviceGrowth.petCount + 1,
         },
       };
+      if (isStorm) {
+        draftState = advanceWeatherTaskProgress(draftState, 'soothe_pet', 1);
+      } else if (isCloudy) {
+        draftState = advanceWeatherTaskProgress(draftState, 'indoor_care', 1);
+      }
       return recordMonthlyActivity(draftState, {
         interactionLabel: '撫摸互動',
         growthDelta: gainInfo.total,
@@ -1465,15 +1638,20 @@ export default function App() {
       }, 1450);
     }, 480);
 
+    const isHotCoolingFood =
+      game.dialogue.weather.condition === 'hot' && COOLING_FOOD_IDS.includes(food.id);
     const now = new Date();
     const dateStr = formatLocalDate(now);
     const timeStr = formatLocalTime(now);
     const effectiveFavorite = outcome.isFavorite;
-    const bonusMood = effectiveFavorite ? 6 : 0;
+    const bonusMood = (effectiveFavorite ? 6 : 0) + (isHotCoolingFood ? 5 : 0);
     const bonusGrowth = effectiveFavorite ? 4 : 0;
     const bonusIntimacy = effectiveFavorite ? 1 : 0;
     const isDessertOrFastFood =
       food.category === 'snack' || food.category === 'fastFood';
+    if (isHotCoolingFood) {
+      pushFeedback('炎熱吃清涼食物！心情額外 +5', '❄️');
+    }
 
     setGame((prev) => {
       const prevActive = getActivePet(prev);
@@ -1703,18 +1881,36 @@ export default function App() {
 
       nextMem = syncPhotoStudioState(nextMem).nextState;
       nextMem = applyEventOnFeedStrawberry(nextMem, food.id);
+      if (nextMem.dialogue.weather.condition === 'hot' && COOLING_FOOD_IDS.includes(food.id)) {
+        nextMem = advanceWeatherTaskProgress(nextMem, 'cooling_food', 1);
+      } else if (nextMem.dialogue.weather.condition === 'cloudy') {
+        nextMem = advanceWeatherTaskProgress(nextMem, 'indoor_care', 1);
+      }
+      if (
+        food.category === 'meal' ||
+        food.category === 'snack' ||
+        COOLING_FOOD_IDS.includes(food.id)
+      ) {
+        nextMem = advanceSakuraCoopStep(nextMem, 'food', currentUserId);
+      }
       return nextMem;
     });
   };
 
   const handleSleep = () => {
+    const isRainWeather = game.dialogue.weather.condition === 'rain';
     soundFX.pop(game.soundEnabled);
     setTemporaryAction('sleeping', 2400);
-    setSpeech('晚安… 睡飽飽更有精神！');
-    pushFeedback('精力恢復中', '💤');
+    setSpeech(
+      isRainWeather
+        ? '聽著窗外細雨睡覺好香甜！雨天休息獎勵 +3 金幣、心情 +3'
+        : '晚安… 睡飽飽更有精神！'
+    );
+    pushFeedback(isRainWeather ? '雨天好眠 +3 金幣 · 心情 +3' : '精力恢復中', isRainWeather ? '🌧️' : '💤');
 
     setGame((prev) => {
       const prevActive = getActivePet(prev);
+      const isRain = prev.dialogue.weather.condition === 'rain';
       const gainInfo = computeGrowthGain(4, prevActive);
       const nextGrowth = prevActive.growth + gainInfo.total;
       const dev = applyPersonalityDevelopment(
@@ -1727,27 +1923,39 @@ export default function App() {
       });
       const updated = updateActivePet(prev, (pet) => ({
         ...pet,
-        energy: clampStat(pet.energy + 28, 0, 100),
+        energy: clampStat(pet.energy + 28 + (isRain ? 5 : 0), 0, 100),
+        mood: clampStat(pet.mood + (isRain ? 3 : 0), 0, 100),
         growth: nextGrowth,
         level: getGrowthStage(nextGrowth, pet.species).level,
         personality: dev.nextPersonality,
       }));
-      return {
+      let nextState: GameState = {
         ...updated,
+        coins: updated.coins + (isRain ? 3 : 0),
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
       };
+      if (isRain) {
+        nextState = advanceWeatherTaskProgress(nextState, 'bath_or_sleep', 1);
+      }
+      return nextState;
     });
   };
 
   const handleBath = () => {
+    const isRainWeather = game.dialogue.weather.condition === 'rain';
     soundFX.bubble(game.soundEnabled);
     setTemporaryAction('bathing', 2200, 'shy');
-    setSpeech('洗澎澎囉～全身香噴噴！');
-    pushFeedback('香噴噴！', '🫧');
+    setSpeech(
+      isRainWeather
+        ? '雨天洗暖呼呼泡泡浴最舒服了！雨天照護獎勵 +3 金幣、心情額外 +4'
+        : '洗澎澎囉～全身香噴噴！'
+    );
+    pushFeedback(isRainWeather ? '雨天泡泡浴 +3 金幣 · 心情加成' : '香噴噴！', isRainWeather ? '🌧️' : '🫧');
 
     setGame((prev) => {
       const prevActive = getActivePet(prev);
+      const isRain = prev.dialogue.weather.condition === 'rain';
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
       const gainInfo = computeGrowthGain(6, prevActive);
       const nextGrowth = prevActive.growth + gainInfo.total;
@@ -1762,39 +1970,47 @@ export default function App() {
       const updated = updateActivePet(prev, (pet) => ({
         ...pet,
         cleanliness: clampStat(pet.cleanliness + 35, 0, 100),
-        mood: clampStat(pet.mood + 6, 0, 100),
+        mood: clampStat(pet.mood + 6 + (isRain ? 4 : 0), 0, 100),
         growth: nextGrowth,
         level: getGrowthStage(nextGrowth, pet.species).level,
         personality: dev.nextPersonality,
       }));
-      return {
+      let nextState: GameState = {
         ...updated,
+        coins: updated.coins + (isRain ? 3 : 0),
         personality: dev.nextPersonality,
         dialogue: nextDialogue,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'clean_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
       };
+      if (isRain) {
+        nextState = advanceWeatherTaskProgress(nextState, 'bath_or_sleep', 1);
+      }
+      return nextState;
     });
   };
 
   const handleWalk = () => {
     const isSunny = game.dialogue.weather.condition === 'clear';
     const isDogBonus = activePet.species === 'dog';
-    const walkCoins = Math.round(5 * activeAbility.walkBonusMultiplier);
+    const baseWalkCoins = Math.round(5 * activeAbility.walkBonusMultiplier);
+    const walkCoins = isSunny
+      ? Math.max(baseWalkCoins + 1, Math.round(baseWalkCoins * 1.1))
+      : baseWalkCoins;
     soundFX.heart(game.soundEnabled);
     setTemporaryAction('walking', 1800, 'wink');
     setSpeech(
       isDogBonus
         ? `汪！${activePet.name}發揮散步尋寶天賦，散步獎勵額外 +10%（+${walkCoins} 金幣）！`
         : isSunny
-        ? '大晴天出來散步曬太陽，心情好到飛起來！'
+        ? `大晴天出來散步曬太陽！晴天散步獎勵 +10%（+${walkCoins} 金幣）`
         : '出來散步吹吹風，身體好輕鬆！'
     );
     pushFeedback(
       isDogBonus
         ? `散步尋寶 +${walkCoins} 金幣（+10% 加成）`
         : isSunny
-        ? `晴天散步 +${walkCoins} 金幣 · +3 心情`
+        ? `晴天散步 +10% · +${walkCoins} 金幣 · +3 心情`
         : `散步開心 +${walkCoins} 金幣`,
       isDogBonus ? '🐶' : isSunny ? '☀️' : '🌿'
     );
@@ -1809,17 +2025,21 @@ export default function App() {
       const gainInfo = computeGrowthGain(8, prevActive);
       const nextGrowth = prevActive.growth + gainInfo.total;
       const newWeight = clampWeight(prevActive.weight - 0.1);
-      const sunnyMoodBonus = prev.dialogue.weather.condition === 'clear' ? 3 : 0;
-      const sunnyIntimacyBonus = prev.dialogue.weather.condition === 'clear' ? 1 : 0;
+      const sunny = prev.dialogue.weather.condition === 'clear';
+      const sunnyMoodBonus = sunny ? 3 : 0;
+      const sunnyIntimacyBonus = sunny ? 1 : 0;
       const baseIntimacy = 1 + sunnyIntimacyBonus;
       const intimacyGain =
         ability.walkBonusMultiplier > 1
           ? Math.max(baseIntimacy + 1, Math.round(baseIntimacy * ability.walkBonusMultiplier))
           : baseIntimacy;
-      const rewardCoins = Math.round(5 * ability.walkBonusMultiplier);
+      const baseCoins = Math.round(5 * ability.walkBonusMultiplier);
+      const rewardCoins = sunny
+        ? Math.max(baseCoins + 1, Math.round(baseCoins * 1.1))
+        : baseCoins;
       const nextDialogue = appendMemoryEvent(prev.dialogue, {
         type: 'walked',
-        detail: prev.dialogue.weather.condition === 'clear' ? '晴天外出散步' : '外出散步',
+        detail: sunny ? '晴天外出散步' : '外出散步',
       });
       const updated = updateActivePet(prev, (pet) => ({
         ...pet,
@@ -1833,7 +2053,7 @@ export default function App() {
         level: getGrowthStage(nextGrowth, pet.species).level,
         intimacy: pet.intimacy + intimacyGain,
       }));
-      return {
+      let nextState: GameState = {
         ...updated,
         coins: updated.coins + rewardCoins,
         dialogue: nextDialogue,
@@ -1848,6 +2068,10 @@ export default function App() {
           walkCount: prev.noviceGrowth.walkCount + 1,
         },
       };
+      if (sunny) {
+        nextState = advanceWeatherTaskProgress(nextState, 'walk', 1);
+      }
+      return nextState;
     });
   };
 
@@ -1875,11 +2099,20 @@ export default function App() {
     soundFX.pop(game.soundEnabled);
     const plantedAt = Date.now();
     const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
+    const seedEval = evaluateCropConditions({
+      cropId: ingredientId,
+      watered: false,
+      windblown: false,
+      seasonId: game.seasonSystem?.currentSeason ?? getSeasonFromDate(new Date(plantedAt)),
+      weatherCondition: game.dialogue.weather.condition ?? 'clear',
+      greenhouseLevel: game.house.farmUpgrades.greenhouseLevel ?? 0,
+    });
     const expectedDurationMs = getExpectedCropDurationMs(
       durationMs,
       plantedAt,
       game.yardMoodBuffPeriods ?? [],
-      activeAbility.cropGrowthRateMultiplier
+      activeAbility.cropGrowthRateMultiplier * seedEval.rateMultiplier,
+      { isPaused: seedEval.isPaused, minRate: 0.4 }
     );
     const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
     const isGolden = Math.random() < 0.1;
@@ -1892,12 +2125,21 @@ export default function App() {
     }
 
     setGame((prev) => {
-      const planted: GameState = {
+      let planted: GameState = {
         ...prev,
         coins: hasFreeSeed ? prev.coins : prev.coins - info.seedCost,
         farmPlots: prev.farmPlots.map((p) =>
           p.id === plotId
-            ? { ...p, cropId: ingredientId, plantedAt, durationMs, watered: false, isGolden }
+            ? {
+                ...p,
+                cropId: ingredientId,
+                plantedAt,
+                durationMs,
+                watered: false,
+                isGolden,
+                windblown: false,
+                autoWateredByRainDate: undefined,
+              }
             : p
         ),
         noviceGrowth: {
@@ -1906,11 +2148,15 @@ export default function App() {
             prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? 1 : 0),
         },
       };
+      if (planted.dialogue.weather.condition === 'rain') {
+        planted = applyRainAutoWaterToPlots(planted);
+      }
+      planted = advanceSakuraEventTask(planted, 'plant_or_harvest', 1);
       return ingredientId === 'strawberry'
         ? applyEventOnPlantStrawberry(planted)
         : planted;
     });
-    const durationText = formatCropDurationLabel(effectiveSec);
+    const durationText = seedEval.isPaused ? '（天候暫停中）' : formatCropDurationLabel(effectiveSec);
     setSpeech(
       hasFreeSeed
         ? `用免費種子種下${info.name}囉，再等 ${durationText}就可以收成了！`
@@ -1954,11 +2200,20 @@ export default function App() {
     triggerHaptic(16);
     const plantedAt = Date.now();
     const durationMs = getEffectiveGrowDurationMs(info.growSeconds, game.house);
+    const seedEval = evaluateCropConditions({
+      cropId: ingredientId,
+      watered: false,
+      windblown: false,
+      seasonId: game.seasonSystem?.currentSeason ?? getSeasonFromDate(new Date(plantedAt)),
+      weatherCondition: game.dialogue.weather.condition ?? 'clear',
+      greenhouseLevel: game.house.farmUpgrades.greenhouseLevel ?? 0,
+    });
     const expectedDurationMs = getExpectedCropDurationMs(
       durationMs,
       plantedAt,
       game.yardMoodBuffPeriods ?? [],
-      activeAbility.cropGrowthRateMultiplier
+      activeAbility.cropGrowthRateMultiplier * seedEval.rateMultiplier,
+      { isPaused: seedEval.isPaused, minRate: 0.4 }
     );
     const effectiveSec = Math.max(1, Math.round(expectedDurationMs / 1000));
 
@@ -1970,7 +2225,7 @@ export default function App() {
     }
 
     setGame((prev) => {
-      const plantedAll: GameState = {
+      let plantedAll: GameState = {
         ...prev,
         coins: Math.max(0, prev.coins - coinsUsed),
         farmPlots: prev.farmPlots.map((p) =>
@@ -1982,6 +2237,8 @@ export default function App() {
                 durationMs,
                 watered: false,
                 isGolden: plantedPlotIds.get(p.id),
+                windblown: false,
+                autoWateredByRainDate: undefined,
               }
             : p
         ),
@@ -1991,12 +2248,16 @@ export default function App() {
             prev.noviceGrowth.plantedCarrotCount + (ingredientId === 'carrot' ? plantedCount : 0),
         },
       };
+      if (plantedAll.dialogue.weather.condition === 'rain') {
+        plantedAll = applyRainAutoWaterToPlots(plantedAll);
+      }
+      plantedAll = advanceSakuraEventTask(plantedAll, 'plant_or_harvest', plantedCount);
       return ingredientId === 'strawberry'
         ? applyEventOnPlantStrawberry(plantedAll)
         : plantedAll;
     });
 
-    const durationText = formatCropDurationLabel(effectiveSec);
+    const durationText = seedEval.isPaused ? '（天候暫停中）' : formatCropDurationLabel(effectiveSec);
     pushFeedback(`一鍵種下 ${plantedCount} 塊${info.name}`, info.emoji);
     setSpeech(
       `一口氣種下 ${plantedCount} 塊${info.name}囉，再等 ${durationText}就能一起大豐收！`
@@ -2042,12 +2303,14 @@ export default function App() {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
     if (targetPlot.watered) return;
+    const waterPlotEval = evaluateCropSeasonAndWeather(game, targetPlot);
     if (
       getCropGrowthState(
         targetPlot,
         Date.now(),
         game.yardMoodBuffPeriods ?? [],
-        activeAbility.cropGrowthRateMultiplier
+        activeAbility.cropGrowthRateMultiplier * waterPlotEval.rateMultiplier,
+        { isPaused: waterPlotEval.isPaused, minRate: 0.4 }
       ).isReady
     ) {
       return;
@@ -2076,12 +2339,14 @@ export default function App() {
   const handleHarvestCrop = (plotId: number) => {
     const targetPlot = game.farmPlots.find((p) => p.id === plotId);
     if (!targetPlot || !targetPlot.cropId || targetPlot.plantedAt === null) return;
+    const harvestPlotEval = evaluateCropSeasonAndWeather(game, targetPlot);
     if (
       !getCropGrowthState(
         targetPlot,
         Date.now(),
         game.yardMoodBuffPeriods ?? [],
-        activeAbility.cropGrowthRateMultiplier
+        activeAbility.cropGrowthRateMultiplier * harvestPlotEval.rateMultiplier,
+        { isPaused: harvestPlotEval.isPaused, minRate: 0.4 }
       ).isReady
     ) {
       return;
@@ -2099,7 +2364,10 @@ export default function App() {
       return;
     }
 
-    const baseYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+    const baseYield = Math.max(
+      1,
+      getEffectiveHarvestYield(cropInfo.harvestYield, game.house) + harvestPlotEval.yieldDelta
+    );
     const extraRollChance =
       activeAbility.pigHarvestBonusChance + activeAbility.hamsterIngredientBonusChance;
     const extraPetBonus = extraRollChance > 0 && Math.random() < extraRollChance ? 1 : 0;
@@ -2128,7 +2396,16 @@ export default function App() {
         },
         farmPlots: prev.farmPlots.map((p) =>
           p.id === plotId
-            ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
+            ? {
+                ...p,
+                cropId: null,
+                plantedAt: null,
+                durationMs: 0,
+                watered: false,
+                isGolden: false,
+                windblown: false,
+                autoWateredByRainDate: undefined,
+              }
             : p
         ),
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'harvest_1', 1),
@@ -2147,6 +2424,7 @@ export default function App() {
         emoji: cropInfo.emoji,
         weight: currentActive.weight,
       });
+      withMem = advanceSakuraEventTask(withMem, 'plant_or_harvest', 1);
       if (harvestedId === 'strawberry') {
         withMem = applyEventOnHarvestStrawberry(withMem, {
           actorUserId: currentUserId,
@@ -2180,13 +2458,17 @@ export default function App() {
   const handleWaterAllCrops = () => {
     const nowTs = Date.now();
     const buffs = game.yardMoodBuffPeriods ?? [];
-    const targetPlots = game.farmPlots.filter(
-      (p) =>
-        p.cropId !== null &&
-        p.plantedAt !== null &&
-        !p.watered &&
-        !getCropGrowthState(p, nowTs, buffs, activeAbility.cropGrowthRateMultiplier).isReady
-    );
+    const targetPlots = game.farmPlots.filter((p) => {
+      if (p.cropId === null || p.plantedAt === null || p.watered) return false;
+      const ev = evaluateCropSeasonAndWeather(game, p);
+      return !getCropGrowthState(
+        p,
+        nowTs,
+        buffs,
+        activeAbility.cropGrowthRateMultiplier * ev.rateMultiplier,
+        { isPaused: ev.isPaused, minRate: 0.4 }
+      ).isReady;
+    });
     const targetIds = new Set(targetPlots.map((p) => p.id));
     if (targetIds.size === 0) return;
 
@@ -2223,12 +2505,17 @@ export default function App() {
     const nowTs = Date.now();
     const buffs = game.yardMoodBuffPeriods ?? [];
     const storageCap = getIngredientStorageCap(game.house);
-    const readyPlots = game.farmPlots.filter(
-      (p) =>
-        p.cropId !== null &&
-        p.plantedAt !== null &&
-        getCropGrowthState(p, nowTs, buffs, activeAbility.cropGrowthRateMultiplier).isReady
-    );
+    const readyPlots = game.farmPlots.filter((p) => {
+      if (p.cropId === null || p.plantedAt === null) return false;
+      const ev = evaluateCropSeasonAndWeather(game, p);
+      return getCropGrowthState(
+        p,
+        nowTs,
+        buffs,
+        activeAbility.cropGrowthRateMultiplier * ev.rateMultiplier,
+        { isPaused: ev.isPaused, minRate: 0.4 }
+      ).isReady;
+    });
     if (readyPlots.length === 0) return;
 
     const simIngredients: Record<IngredientId, number> = { ...game.ingredients };
@@ -2253,7 +2540,11 @@ export default function App() {
         skippedFullCount += 1;
         continue;
       }
-      const baseYield = getEffectiveHarvestYield(cropInfo.harvestYield, game.house);
+      const ev = evaluateCropSeasonAndWeather(game, plot);
+      const baseYield = Math.max(
+        1,
+        getEffectiveHarvestYield(cropInfo.harvestYield, game.house) + ev.yieldDelta
+      );
       const extraBonus = extraRollChance > 0 && Math.random() < extraRollChance ? 1 : 0;
       const totalYield = baseYield + extraBonus;
       const nextQty = Math.min(storageCap, curQty + totalYield);
@@ -2314,7 +2605,16 @@ export default function App() {
         ingredients: nextIngredients,
         farmPlots: prev.farmPlots.map((p) =>
           harvestedIds.has(p.id)
-            ? { ...p, cropId: null, plantedAt: null, durationMs: 0, watered: false, isGolden: false }
+            ? {
+                ...p,
+                cropId: null,
+                plantedAt: null,
+                durationMs: 0,
+                watered: false,
+                isGolden: false,
+                windblown: false,
+                autoWateredByRainDate: undefined,
+              }
             : p
         ),
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'harvest_1', 1),
@@ -2333,6 +2633,7 @@ export default function App() {
         emoji: firstHarvestedCropEmoji,
         weight: currentActive.weight,
       });
+      withMem = advanceSakuraEventTask(withMem, 'plant_or_harvest', harvestedCount);
       const strawberryPlotCount = prev.farmPlots.filter(
         (p) => harvestedIds.has(p.id) && p.cropId === 'strawberry'
       ).length;
@@ -2538,6 +2839,8 @@ export default function App() {
         emoji: recipe.emoji,
         weight: currentActive.weight,
       });
+      withMem = advanceSakuraEventTask(withMem, 'cook_seasonal', 1);
+      withMem = advanceSakuraCoopStep(withMem, 'food', currentUserId);
       if (isStrawberryRecipe(recipe)) {
         withMem = applyEventOnCookStrawberry(withMem, {
           recipe,
@@ -2577,10 +2880,19 @@ export default function App() {
   const handleFinishMinigame = (result: MinigameResult): MinigameSettlementSummary => {
     const preview = settleMinigameOutcome(game, result);
     const cfg = MINIGAME_BY_ID[result.gameId];
+    const isWindyWeather = game.dialogue.weather.condition === 'windy';
+    const windyBonusCoins = isWindyWeather
+      ? Math.max(1, Math.round(preview.reward.coins * 0.15))
+      : 0;
 
     setGame((prev) => {
       const synced = syncDailyTasks(prev.dailyTasks, prev.dailyTasksDate);
-      const settled = settleMinigameOutcome(prev, result).nextState;
+      const settledOutcome = settleMinigameOutcome(prev, result);
+      const settled = settledOutcome.nextState;
+      const isWindy = prev.dialogue.weather.condition === 'windy';
+      const extraWindyCoins = isWindy
+        ? Math.max(1, Math.round(settledOutcome.reward.coins * 0.15))
+        : 0;
       let nextPersonality = applyPersonalityDevelopment(
         settled.personality,
         'minigame'
@@ -2596,17 +2908,25 @@ export default function App() {
           detail: '泥巴澡小遊戲',
         });
       }
-      const drafted = {
+      let drafted: GameState = {
         ...settled,
+        coins: settled.coins + extraWindyCoins,
         dailyTasks: incrementTaskProgress(synced.dailyTasks, 'minigame_1', 1),
         dailyTasksDate: synced.dailyTasksDate,
         personality: nextPersonality,
         dialogue: nextDialogue,
       };
+      if (isWindy) {
+        drafted = advanceWeatherTaskProgress(drafted, 'minigame', 1);
+      }
       return applyEventOnMinigamePlayed(syncPhotoStudioState(drafted).nextState);
     });
 
-    pushFeedback(`獲得 +${preview.reward.coins} 金幣`, '🪙');
+    const totalCoins = preview.reward.coins + windyBonusCoins;
+    pushFeedback(`獲得 +${totalCoins} 金幣`, '🪙');
+    if (windyBonusCoins > 0) {
+      pushFeedback(`大風小遊戲 +15% 加成 (+${windyBonusCoins} 金幣)`, '🍃');
+    }
     if (preview.reward.ingredientReward) {
       const ingInfo = INGREDIENTS[preview.reward.ingredientReward.id];
       pushFeedback(
@@ -2615,12 +2935,15 @@ export default function App() {
       );
     }
     setSpeech(
-      `玩「${cfg.name}」拿了 ${result.score} 分，賺到 ${preview.reward.coins} 金幣好開心！`
+      `玩「${cfg.name}」拿了 ${result.score} 分，賺到 ${totalCoins} 金幣好開心！`
     );
 
     return {
       result,
-      reward: preview.reward,
+      reward: {
+        ...preview.reward,
+        coins: totalCoins,
+      },
       isNewHighScore: preview.isNewHighScore,
       newlyUnlockedBadges: preview.newlyUnlockedBadges,
     };
@@ -2680,6 +3003,7 @@ export default function App() {
         dailyTasksDate: synced.dailyTasksDate,
       };
       if (next) {
+        updated = recordAccessoryWear(updated, item.id);
         updated = recordMonthlyActivity(updated, {
           interactionLabel: '穿搭換裝',
           accessoryId: item.id,
@@ -3310,6 +3634,7 @@ export default function App() {
         stickerId,
         targetPetId,
         targetPetName,
+        authorTitleId: game.encyclopedia.activeTitle ?? null,
       });
       if (res.error || !res.message) {
         return res.error ?? '傳送失敗，請稍後再試。';
@@ -3363,6 +3688,7 @@ export default function App() {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       authorId: cloudUser?.id ?? 'local',
       authorName: authorLabel,
+      authorTitleId: game.encyclopedia.activeTitle ?? null,
       content: cleanText,
       stickerId,
       createdAt: Date.now(),
@@ -4016,6 +4342,69 @@ export default function App() {
     setWardrobePhotoOpen(true);
   };
 
+  const handleOpenShareCard = (payload: ShareCardPayload) => {
+    setShareCardPayload({
+      ...payload,
+      activeTitleId: payload.activeTitleId ?? game.encyclopedia.activeTitle ?? null,
+    });
+  };
+
+  const handleOpenCollection = (categoryId?: CollectionCategoryId) => {
+    setJournalInitialSection('encyclopedia');
+    setJournalEncyclopediaSection(categoryId ?? 'pets');
+    setActiveTab('journal');
+  };
+
+  const handleToggleCollectionReminder = () => {
+    setGame((prev) =>
+      setCollectionReminderEnabled(
+        prev,
+        prev.encyclopedia.collectionReminderEnabled === false
+      )
+    );
+  };
+
+  const handleDismissCollectionReminder = () => {
+    setGame((prev) => dismissDailyCollectionReminder(prev));
+  };
+
+  const handleCollectionJump = (
+    target: CollectionJumpTarget,
+    item: CollectionItem
+  ) => {
+    if (target === 'pets') {
+      setActiveTab('pets');
+    } else if (target === 'canteen') {
+      setCanteenInitialSection(
+        item.previewKind === 'crop'
+          ? 'farm'
+          : item.filters.includes('craftable') && !item.price
+          ? 'kitchen'
+          : 'shop'
+      );
+      setActiveTab('canteen');
+    } else if (target === 'wardrobe') {
+      setActiveTab('wardrobe');
+    } else if (target === 'house') {
+      setHouseInitialTab(item.categoryId === 'farm' ? 'yard' : 'room');
+      setActiveTab('house');
+    } else if (target === 'town') {
+      handleOpenTownMap('map');
+    } else if (target === 'studio') {
+      handleOpenScenePhoto(
+        'wardrobe',
+        item.filters.includes('craftable') ? 'catalog' : 'shoot'
+      );
+    } else if (target === 'memories') {
+      setJournalInitialSection('memories');
+      setActiveTab('journal');
+    } else if (target === 'events') {
+      setEventModalOpen(true);
+    } else {
+      setActiveTab('home');
+    }
+  };
+
   const handleOpenVisitorStudio = (visitorId?: VisitorId) => {
     const targetId =
       visitorId ?? gameRef.current.visitorState?.activeVisit?.visitorId ?? 'bird';
@@ -4287,6 +4676,11 @@ export default function App() {
         if (coopRes.notice) pushFeedback(coopRes.notice, '💞');
       }
     }
+    finalState = advanceWeatherTaskProgress(finalState, 'snow_photo', 1);
+    finalState = advanceSakuraEventTask(finalState, 'take_photo', 1);
+    finalState = advanceSakuraCoopStep(finalState, 'photo', currentUserId);
+    const snowBonus = unlockWinterSnowPhotoBonus(finalState);
+    finalState = snowBonus.nextState;
     setGame(finalState);
     pushFeedback(
       params.duoPet
@@ -4298,6 +4692,9 @@ export default function App() {
         : '已儲存寫真到照片牆！',
       '📸'
     );
+    for (const label of snowBonus.newlyUnlockedLabels) {
+      pushFeedback(`❄️ 下雪限定解鎖「${label}」！`, '❄️');
+    }
     if (evtRes.ticketsEarned > 0) {
       pushFeedback(`草莓主題寫真 +${evtRes.ticketsEarned} 草莓券`, '🍓');
     }
@@ -4305,6 +4702,118 @@ export default function App() {
       pushFeedback(`完成攝影訂單「${orderTitle}」！可領取攝影材料囉`, '📋');
     }
     return photo;
+  };
+
+  const handleStabilizeWindblownPlot = (plotId: number) => {
+    const res = stabilizeWindblownPlot(gameRef.current, plotId);
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🍃');
+        setSpeech(res.notice);
+      }
+    } else if (res.error) {
+      pushFeedback(res.error, '⚠️');
+    }
+  };
+
+  const handleSelectWeatherCity = (cityId: string) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => selectWeatherCity(prev, cityId));
+    void applyWeatherRefresh({ cityId, force: true });
+  };
+
+  const handleRefreshWeather = () => {
+    soundFX.pop(game.soundEnabled);
+    void applyWeatherRefresh({ force: true });
+  };
+
+  const handleClaimWeatherTask = (taskId: string) => {
+    const res = claimWeatherTask(gameRef.current, taskId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🌤️');
+        setSpeech(res.notice);
+      }
+    } else if (res.error) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error, '⚠️');
+    }
+    return res;
+  };
+
+  const handleSwitchSeasonRoomTheme = (themeId: SeasonRoomThemeId) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => switchSeasonRoomTheme(prev, themeId));
+    pushFeedback(themeId === 'none' ? '已恢復原本房間風格' : '已切換季節房間主題！', '🏠');
+  };
+
+  const handleSwitchSeasonYardTheme = (themeId: SeasonYardThemeId) => {
+    soundFX.pop(game.soundEnabled);
+    setGame((prev) => switchSeasonYardTheme(prev, themeId));
+    pushFeedback(themeId === 'none' ? '已恢復原本庭院風格' : '已切換季節庭院主題！', '🌿');
+  };
+
+  const handleDismissSeasonNotice = () => {
+    soundFX.heart(game.soundEnabled);
+    setGame((prev) => dismissSeasonNotice(prev));
+    const meta = SEASON_META[gameRef.current.seasonSystem?.currentSeason ?? getSeasonFromDate()];
+    pushFeedback(`已收藏「${meta.name}」季節回憶卡！`, meta.emoji);
+  };
+
+  const handleDismissOfflineSummary = () => {
+    setGame((prev) => dismissSeasonOfflineSummary(prev));
+  };
+
+  const handleClaimSakuraDailyTask = (taskId: string) => {
+    const res = claimSakuraEventTask(gameRef.current, taskId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🌸');
+        setSpeech(res.notice);
+      }
+    } else if (res.error) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error, '⚠️');
+    }
+    return res;
+  };
+
+  const handleBuySakuraShopItem = (shopItemId: string) => {
+    const res = buySakuraShopItem(gameRef.current, shopItemId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '🎁');
+        setSpeech(res.notice);
+      }
+    } else if (res.error) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error, '⚠️');
+    }
+    return res;
+  };
+
+  const handleClaimSakuraCoopReward = () => {
+    const res = claimSakuraCoopReward(gameRef.current, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      if (res.notice) {
+        pushFeedback(res.notice, '💞');
+        setSpeech(res.notice);
+      }
+    } else if (res.error) {
+      soundFX.miss(game.soundEnabled);
+      pushFeedback(res.error, '⚠️');
+    }
+    return res;
   };
 
   const handleBuyStudioPose = (poseId: PhotoPose) => {
@@ -4714,16 +5223,17 @@ export default function App() {
     getPhotoStudioState(game)
   );
   const [farmClockNow, setFarmClockNow] = useState<number>(() => Date.now());
-  const hasGrowingUnreadyCrops = game.farmPlots.some(
-    (p) =>
-      p.cropId !== null &&
-      !getCropGrowthState(
-        p,
-        farmClockNow,
-        game.yardMoodBuffPeriods ?? [],
-        activeAbility.cropGrowthRateMultiplier
-      ).isReady
-  );
+  const hasGrowingUnreadyCrops = game.farmPlots.some((p) => {
+    if (p.cropId === null) return false;
+    const ev = evaluateCropSeasonAndWeather(game, p);
+    return !getCropGrowthState(
+      p,
+      farmClockNow,
+      game.yardMoodBuffPeriods ?? [],
+      activeAbility.cropGrowthRateMultiplier * ev.rateMultiplier,
+      { isPaused: ev.isPaused, minRate: 0.4 }
+    ).isReady;
+  });
 
   useEffect(() => {
     if (!hasGrowingUnreadyCrops) return;
@@ -4742,7 +5252,14 @@ export default function App() {
       const growthMult = getActivePetAbilityBonus(gameRef.current).cropGrowthRateMultiplier;
       for (const plot of gameRef.current.farmPlots) {
         if (!plot.cropId || plot.plantedAt === null) continue;
-        const growth = getCropGrowthState(plot, nowTs, buffs, growthMult);
+        const ev = evaluateCropSeasonAndWeather(gameRef.current, plot);
+        const growth = getCropGrowthState(
+          plot,
+          nowTs,
+          buffs,
+          growthMult * ev.rateMultiplier,
+          { isPaused: ev.isPaused, minRate: 0.4 }
+        );
         if (!growth.isReady) continue;
         const notifyKey = `${plot.id}:${plot.plantedAt}`;
         if (notifiedReadyPlotsRef.current.has(notifyKey)) continue;
@@ -4769,27 +5286,28 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [activePet.hatched, hasGrowingUnreadyCrops, cropNotifyEnabled]);
 
-  const readyCropsCount = game.farmPlots.filter(
-    (p) =>
-      p.cropId !== null &&
-      getCropGrowthState(
-        p,
-        farmClockNow,
-        game.yardMoodBuffPeriods ?? [],
-        activeAbility.cropGrowthRateMultiplier
-      ).isReady
-  ).length;
-  const overnightReadyCount = game.farmPlots.filter(
-    (p) =>
-      p.cropId !== null &&
-      Boolean(INGREDIENTS[p.cropId]?.isOvernight) &&
-      getCropGrowthState(
-        p,
-        farmClockNow,
-        game.yardMoodBuffPeriods ?? [],
-        activeAbility.cropGrowthRateMultiplier
-      ).isReady
-  ).length;
+  const readyCropsCount = game.farmPlots.filter((p) => {
+    if (p.cropId === null) return false;
+    const ev = evaluateCropSeasonAndWeather(game, p);
+    return getCropGrowthState(
+      p,
+      farmClockNow,
+      game.yardMoodBuffPeriods ?? [],
+      activeAbility.cropGrowthRateMultiplier * ev.rateMultiplier,
+      { isPaused: ev.isPaused, minRate: 0.4 }
+    ).isReady;
+  }).length;
+  const overnightReadyCount = game.farmPlots.filter((p) => {
+    if (p.cropId === null || !INGREDIENTS[p.cropId]?.isOvernight) return false;
+    const ev = evaluateCropSeasonAndWeather(game, p);
+    return getCropGrowthState(
+      p,
+      farmClockNow,
+      game.yardMoodBuffPeriods ?? [],
+      activeAbility.cropGrowthRateMultiplier * ev.rateMultiplier,
+      { isPaused: ev.isPaused, minRate: 0.4 }
+    ).isReady;
+  }).length;
 
   const claimableHouseCount = game.house.achievedMilestones.filter(
     (id) => !game.house.claimedMilestones.includes(id)
@@ -4995,6 +5513,15 @@ export default function App() {
                   onOpenSeasonalEvent={() => setEventModalOpen(true)}
                   townMap={game.townMap}
                   onOpenTownMap={() => handleOpenTownMap('map')}
+                  collectionProgress={collectionProgress}
+                  dailyCollectionReminder={dailyCollectionReminder}
+                  onOpenCollection={handleOpenCollection}
+                  onDismissCollectionReminder={handleDismissCollectionReminder}
+                  seasonSystem={game.seasonSystem}
+                  onOpenWeatherCenter={() => setWeatherCenterOpen(true)}
+                  onOpenSeasonFestival={() => setSeasonFestivalOpen(true)}
+                  onDismissSeasonNotice={handleDismissSeasonNotice}
+                  onDismissOfflineSummary={handleDismissOfflineSummary}
                 />
               )}
 
@@ -5054,6 +5581,10 @@ export default function App() {
                   onUseSpeedTicket={handleUseFarmSpeedTicket}
                   onOpenTownOrders={() => setTownOrderModalOpen(true)}
                   pendingOrderCount={pendingOrderCount}
+                  seasonSystem={game.seasonSystem}
+                  weather={game.dialogue.weather}
+                  onStabilizeWindblownPlot={handleStabilizeWindblownPlot}
+                  onOpenWeatherCenter={() => setWeatherCenterOpen(true)}
                 />
               )}
 
@@ -5096,7 +5627,7 @@ export default function App() {
                   onOpenCoopGames={() => setCoopModalOpen(true)}
                   onOpenHouseEncyclopedia={() => {
                     setJournalInitialSection('encyclopedia');
-                    setJournalEncyclopediaSection('house');
+                    setJournalEncyclopediaSection('room');
                     setActiveTab('journal');
                   }}
                   onGoToFarm={() => {
@@ -5106,10 +5637,11 @@ export default function App() {
                   onOpenVisitorModal={handleOpenVisitorModal}
                   onOpenTownOrders={() => setTownOrderModalOpen(true)}
                   onOpenTownMap={() => handleOpenTownMap('map')}
+                  onOpenWeatherCenter={() => setWeatherCenterOpen(true)}
                   onSharePhotoToBoard={handleSharePhotoToBoard}
                   onTogglePhotoLike={handleTogglePhotoLike}
                   onAddPhotoComment={handleAddPhotoComment}
-                  onOpenShareCard={(payload) => setShareCardPayload(payload)}
+                  onOpenShareCard={handleOpenShareCard}
                 />
               )}
 
@@ -5149,7 +5681,7 @@ export default function App() {
                   messages={activeMessages}
                   onOpenMemoryDetail={(m) => setSelectedMemoryEntry(m)}
                   onToggleFavoriteMemory={handleToggleFavoriteMemory}
-                  onOpenShareCard={(payload) => setShareCardPayload(payload)}
+                  onOpenShareCard={handleOpenShareCard}
                   onSaveMonthlyRecap={handleSaveMonthlyRecap}
                   onShareRecapToBoard={handleShareRecapToBoard}
                   onShareTextToBoard={handleShareCoopCardToBoard}
@@ -5164,6 +5696,8 @@ export default function App() {
                   onOpenTownMap={(locId) =>
                     handleOpenTownMap(locId ? 'location' : 'map', locId ?? null)
                   }
+                  onJumpToCollectionTarget={handleCollectionJump}
+                  onToggleCollectionReminder={handleToggleCollectionReminder}
                 />
               )}
 
@@ -5198,7 +5732,7 @@ export default function App() {
                 }
                 if (tab === 'journal') {
                   setJournalInitialSection('journal');
-                  setJournalEncyclopediaSection('foods');
+                  setJournalEncyclopediaSection('pets');
                 }
                 setActiveTab(tab);
               }}
@@ -5284,6 +5818,7 @@ export default function App() {
           onLeaveSharedRoom={handleLeaveSharedRoom}
           onRefreshSharedRoom={handleRefreshSharedRoom}
           onOpenCoopGames={() => setCoopModalOpen(true)}
+          activeTitle={game.encyclopedia.activeTitle}
         />
 
         <MessageBoardModal
@@ -5301,6 +5836,7 @@ export default function App() {
           onDeleteMessage={handleDeleteMessage}
           onTogglePhotoLike={handleTogglePhotoLike}
           onAddPhotoComment={handleAddPhotoComment}
+          activeTitle={game.encyclopedia.activeTitle}
         />
 
         <MinigameHubModal
@@ -5355,6 +5891,9 @@ export default function App() {
             setWardrobePhotoOpen(false);
             setSharedModalOpen(true);
           }}
+          seasonSystem={game.seasonSystem}
+          weather={game.dialogue.weather}
+          onOpenWeatherCenter={() => setWeatherCenterOpen(true)}
         />
 
         <DialogueHistoryModal
@@ -5387,7 +5926,7 @@ export default function App() {
           onToggleFavorite={handleToggleFavoriteMemory}
           onTogglePhotoLike={handleTogglePhotoLike}
           onAddPhotoComment={handleAddPhotoComment}
-          onOpenShareCard={(payload) => setShareCardPayload(payload)}
+          onOpenShareCard={handleOpenShareCard}
           onShareMemoryToBoard={handleShareMemoryToBoard}
         />
 
@@ -5511,6 +6050,43 @@ export default function App() {
           onBuyShopItem={handleTownBuyShopItem}
           onClaimCoopTownReward={handleTownClaimCoopReward}
           onOpenSharedPet={() => setSharedModalOpen(true)}
+        />
+
+        <CollectionCelebrationModal
+          event={collectionCelebrations[0] ?? null}
+          onClose={() => setCollectionCelebrations((prev) => prev.slice(1))}
+        />
+
+        <WeatherCenterModal
+          open={weatherCenterOpen}
+          onClose={() => setWeatherCenterOpen(false)}
+          game={game}
+          weatherLoading={weatherLoading}
+          onSelectCity={handleSelectWeatherCity}
+          onRefreshWeather={handleRefreshWeather}
+          onDismissOfflineSummary={handleDismissOfflineSummary}
+          onClaimWeatherTask={handleClaimWeatherTask}
+          onSwitchRoomTheme={handleSwitchSeasonRoomTheme}
+          onSwitchYardTheme={handleSwitchSeasonYardTheme}
+          onOpenSeasonEvent={() => {
+            setWeatherCenterOpen(false);
+            setSeasonFestivalOpen(true);
+          }}
+        />
+
+        <SeasonEventModal
+          open={seasonFestivalOpen}
+          onClose={() => setSeasonFestivalOpen(false)}
+          game={game}
+          sharedRoom={sharedRoom}
+          currentUserId={currentUserId}
+          onClaimDailyTask={handleClaimSakuraDailyTask}
+          onBuyShopItem={handleBuySakuraShopItem}
+          onClaimCoopReward={handleClaimSakuraCoopReward}
+          onOpenSharedPet={() => {
+            setSeasonFestivalOpen(false);
+            setSharedModalOpen(true);
+          }}
         />
       </div>
     </div>

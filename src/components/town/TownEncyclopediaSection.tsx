@@ -150,6 +150,30 @@ export const TownEncyclopediaSection: React.FC<TownEncyclopediaSectionProps> = (
             </article>
           );
         })}
+        {(() => {
+          const plaza = TOWN_LOCATION_BY_ID.festival_plaza;
+          if (!plaza) return null;
+          return (
+            <article className="rounded-3xl bg-[#FAF4EE] border-2 border-dashed border-[#DFCBBF] p-3.5 flex items-center gap-3">
+              <div className="w-16 h-14 rounded-2xl bg-gradient-to-br from-[#FFEAF3] via-[#FFF6DC] to-[#EAF8F2] border border-[#E7CFC8] flex items-center justify-center text-3xl shrink-0">
+                <span aria-hidden="true">{plaza.emoji}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-extrabold text-[#5A3E36] truncate">
+                    {plaza.name}
+                  </span>
+                  <span className="text-[11px] font-extrabold text-[#B83B64] shrink-0">
+                    預留地點
+                  </span>
+                </div>
+                <p className="text-[11px] font-bold text-[#7D635D] mt-0.5 leading-snug">
+                  {plaza.subtitle} · {plaza.unlockConditionLabel}
+                </p>
+              </div>
+            </article>
+          );
+        })()}
       </div>
     </section>
   );

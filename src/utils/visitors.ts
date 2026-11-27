@@ -41,6 +41,7 @@ import { syncHouseProgress } from './house';
 import { maybeGrantCatPhotoMemoryCard, recordMemoryEntry } from './memories';
 import { getActivePet } from './pets';
 import { getPhotoStudioState } from './photoStudio';
+import { getSeasonalWeatherVisitorModifiers } from './seasons';
 
 function formatLocalDate(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -116,12 +117,16 @@ export function getNextAffinityThreshold(level: number): number | null {
   return VISITOR_AFFINITY_THRESHOLDS[level] ?? null;
 }
 
-export function getRandomSpawnIntervalMs(picnicBuffActive: boolean): number {
+export function getRandomSpawnIntervalMs(
+  picnicBuffActive: boolean,
+  weatherIntervalMultiplier = 1
+): number {
   const base =
     MIN_SPAWN_DELAY_MS +
     Math.random() * (MAX_SPAWN_DELAY_MS - MIN_SPAWN_DELAY_MS);
-  // 野餐好心情 Buff 提高訪客出現機率 10% -> 縮短間隔約 10%
-  return Math.round(picnicBuffActive ? base * 0.9 : base);
+  // 野餐好心情 Buff 提高訪客出現機率 10% -> 縮短間隔約 10%；雷雨天略微降低訪客出現頻率
+  const buffAdjusted = picnicBuffActive ? base * 0.9 : base;
+  return Math.round(buffAdjusted * Math.max(0.75, weatherIntervalMultiplier));
 }
 
 export function createInitialVisitorState(now: number = Date.now()): VisitorSystemState {
@@ -203,6 +208,7 @@ export function evaluateYardSynergy(
       reasonsByVisitor[visitor.id].push('好感度 Lv.4+ 熟面孔');
     }
 
+    const seasonWeatherMods = getSeasonalWeatherVisitorModifiers(state, now);
     let finalWeight = visitor.baseWeight + bonus;
     if (picnicBuffActive) {
       finalWeight = Math.round(finalWeight * 1.1);
@@ -210,6 +216,10 @@ export function evaluateYardSynergy(
     if (duckBonusActive) {
       finalWeight = Math.round(finalWeight * 1.1);
       reasonsByVisitor[visitor.id].push('小鴨迎賓 +10%');
+    }
+    const weatherMult = seasonWeatherMods.yardMultiplier[visitor.id] ?? 1;
+    if (weatherMult !== 1) {
+      finalWeight = Math.round(finalWeight * weatherMult);
     }
     weights[visitor.id] = finalWeight;
   }
@@ -287,12 +297,15 @@ export function syncVisitorSystem(
   }
 
   const duckBoost = getActivePet(state).species === 'duck';
+  const weatherSpawnMult = getSeasonalWeatherVisitorModifiers(state, now).spawnIntervalMultiplier;
 
   // Expire finished visit cleanly
   if (activeVisit && now >= activeVisit.departAt) {
     activeVisit = null;
     arrivalNoticeUnread = false;
-    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost);
+    nextSpawnAt =
+      now +
+      getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost, weatherSpawnMult);
   }
 
   // Cycle visitor behavior in the yard every ~35s for lively motion
@@ -314,7 +327,9 @@ export function syncVisitorSystem(
     dailyVisitCount += 1;
     arrivalNoticeUnread = true;
     justArrivedVisitorId = pickedId;
-    nextSpawnAt = now + getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost);
+    nextSpawnAt =
+      now +
+      getRandomSpawnIntervalMs(synergy.picnicBuffActive || duckBoost, weatherSpawnMult);
     affinities = {
       ...affinities,
       [pickedId]: {
@@ -816,6 +831,7 @@ export function captureVisitorPhoto(
     frameId: params.frameId ?? (params.isCoopPhoto ? 'coop_heart' : 'polaroid'),
     stickers: params.stickers ?? ['star'],
     weightAtCapture: activePet.weight,
+    authorTitleId: state.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };

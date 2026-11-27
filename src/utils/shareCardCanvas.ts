@@ -7,10 +7,11 @@ import {
   PHOTO_SCENE_BY_ID,
   PHOTO_STICKER_BY_ID,
 } from '../data/photoStudio';
+import { getTitleDefinition } from '../data/encyclopedia';
 import { getPetSpeciesInfo } from '../data/species';
 import { TOWN_VISITOR_BY_ID } from '../data/town';
 import { VISITOR_BY_ID } from '../data/visitors';
-import { PetSpecies, RoomPhotoRecord } from '../types';
+import { PetSpecies, RoomPhotoRecord, TitleId } from '../types';
 
 export interface ShareCardPayload {
   petName: string;
@@ -24,6 +25,7 @@ export interface ShareCardPayload {
   level?: number;
   photo?: RoomPhotoRecord | null;
   accessoryId?: string;
+  activeTitleId?: TitleId | null;
 }
 
 function drawRoundedRect(
@@ -293,6 +295,10 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   } else if (bgId === 'kitchen' || filterId === 'kitchen' || filterId === 'cream' || filterId === 'vintage') {
     stageGrad.addColorStop(0, '#FFE4BC');
     stageGrad.addColorStop(1, '#FCE7DA');
+  } else if (bgId === 'rainbow_trail_bg' || filterId === 'collection_rainbow') {
+    stageGrad.addColorStop(0, '#FFD4EC');
+    stageGrad.addColorStop(0.5, '#FFF5D0');
+    stageGrad.addColorStop(1, '#C8F4EE');
   } else if (bgId === 'strawberry_season_field' || bgId === 'strawberry_field') {
     stageGrad.addColorStop(0, '#FFD4E5');
     stageGrad.addColorStop(0.55, '#FFF5E8');
@@ -424,8 +430,11 @@ export function renderShareCardDataUrl(payload: ShareCardPayload): string {
   const petNamesLabel = photo?.duoPet
     ? `${payload.petName} & ${photo.duoPet.petName}`
     : `${payload.petName}（${speciesInfo.shortName}）`;
+  const resolvedTitleId = photo?.authorTitleId ?? payload.activeTitleId ?? null;
+  const titleBadgeMeta = resolvedTitleId ? getTitleDefinition(resolvedTitleId) : null;
   const metaParts = [
     petNamesLabel,
+    titleBadgeMeta ? `${titleBadgeMeta.emoji} ${titleBadgeMeta.name}` : null,
     payload.level ? `Lv.${payload.level}` : null,
     typeof weightVal === 'number' ? `體重 ${weightVal.toFixed(1)} kg` : null,
   ].filter((x): x is string => Boolean(x));

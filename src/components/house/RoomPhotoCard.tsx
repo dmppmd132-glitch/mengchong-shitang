@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, MessageCircle, Send, Sparkles } from 'lucide-react';
+import { getTitleDefinition } from '../../data/encyclopedia';
 import {
   FLOORING_BY_ID,
   ROOM_GRID_COLS,
@@ -382,6 +383,17 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
               </span>
             </>
           )}
+          {photo.authorTitleId && (() => {
+            const titleDef = getTitleDefinition(photo.authorTitleId);
+            return (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-[#9D5B12] font-extrabold">
+                  {titleDef.emoji} {titleDef.name}
+                </span>
+              </>
+            );
+          })()}
         </div>
 
         {photo.caption && (

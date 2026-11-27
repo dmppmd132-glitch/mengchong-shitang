@@ -30,6 +30,7 @@ import {
   VISITOR_HUT_LEVELS,
 } from '../../data/town';
 import { VISITOR_TREATS } from '../../data/visitors';
+import { SEASON_META, getSeasonalVisitorsForSeason } from '../../data/seasons';
 import {
   ActiveTownLocationId,
   GameState,
@@ -39,6 +40,7 @@ import {
   VisitorOffering,
 } from '../../types';
 import { getPhotoStudioState } from '../../utils/photoStudio';
+import { getSeasonFromDate } from '../../utils/seasons';
 import {
   createInitialTownMapState,
   getLocationDailyVisitorMax,
@@ -49,6 +51,7 @@ import {
   isTownShopItemOwned,
 } from '../../utils/townMap';
 import { FurnitureGraphic } from '../house/FurnitureGraphic';
+import { SeasonWeatherBadge } from '../seasons/SeasonWeatherBadge';
 import { LakeFishingMiniGame } from './LakeFishingMiniGame';
 import {
   TownLocationThumbnail,
@@ -348,9 +351,43 @@ export const TownMapModal: React.FC<TownMapModalProps> = ({
               </div>
             )}
 
-            {/* TAB 1: TOWN MAP (4 active locations) */}
             {activeTab === 'map' && (
               <div className="space-y-3">
+                {(() => {
+                  const activeSeasonId =
+                    game.seasonSystem?.currentSeason ?? getSeasonFromDate();
+                  const seasonMeta = SEASON_META[activeSeasonId];
+                  const seasonVisitors = getSeasonalVisitorsForSeason(activeSeasonId);
+                  return (
+                    <div className="rounded-2xl bg-[#FFFDF8] border border-[#E5DDD5] p-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <SeasonWeatherBadge
+                          seasonId={activeSeasonId}
+                          weather={game.dialogue.weather}
+                          compact
+                          className="!min-h-[30px]"
+                        />
+                        <span className="text-[10.5px] font-bold text-[#7D635D]">
+                          {seasonMeta.tagline}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] font-extrabold text-[#1F6B54]">
+                          本季活躍訪客：
+                        </span>
+                        {seasonVisitors.map((sv) => (
+                          <span
+                            key={sv.visitorId}
+                            className="px-1.5 py-0.5 rounded-md bg-[#EEF8F4] border border-[#BDE4D5] text-[10px] font-extrabold text-[#1F6B54]"
+                          >
+                            {sv.emoji} {sv.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Co-op Exploration Quick Banner */}
                 {sharedRoom && coopSession && (
                   <button

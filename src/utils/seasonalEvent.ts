@@ -1214,6 +1214,7 @@ export function submitEventPhotoChallenge(
     weightAtCapture: activePet.weight,
     challengeScore: breakdown.totalScore,
     challengeWeekKey: weekKey,
+    authorTitleId: synced.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };
@@ -1522,6 +1523,7 @@ export function createStrawberryPicnicPhoto(
       ...params.partnerPet,
       equipped: { ...params.partnerPet.equipped },
     },
+    authorTitleId: synced.encyclopedia.activeTitle ?? null,
     likes: [],
     comments: [],
   };
