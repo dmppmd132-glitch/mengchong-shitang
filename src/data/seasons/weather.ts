@@ -8,6 +8,7 @@ import {
 export const WEATHER_AUTO_REFRESH_MS = 45 * 60 * 1000; // 45 minutes (within 30-60 min spec)
 
 export const WEATHER_CITIES: WeatherCityOption[] = [
+  { id: 'quebec', name: '魁北克省', region: '加拿大・楓葉雪國', lat: 46.8139, lon: -71.208, climateBias: 'snowy' },
   { id: 'kaohsiung', name: '高雄', region: '南台灣・港都晴陽', lat: 22.6273, lon: 120.3014, climateBias: 'warm' },
   { id: 'taipei', name: '台北', region: '北台灣・盆地微風', lat: 25.033, lon: 121.5654, climateBias: 'mild' },
   { id: 'taichung', name: '台中', region: '中台灣・舒爽晴朗', lat: 24.1477, lon: 120.6736, climateBias: 'mild' },
@@ -22,7 +23,7 @@ export const WEATHER_CITY_BY_ID: Record<string, WeatherCityOption> = Object.from
   WEATHER_CITIES.map((c) => [c.id, c])
 );
 
-export const DEFAULT_CITY_ID = 'kaohsiung';
+export const DEFAULT_CITY_ID = 'quebec';
 
 export interface WeatherEffectProfile {
   condition: WeatherCondition;

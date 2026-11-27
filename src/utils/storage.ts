@@ -89,6 +89,7 @@ import {
   CoopVisitorSession,
   CropPlot,
   DailyTask,
+  DailyWeatherForecastItem,
   DialogueCategory,
   DialogueLine,
   DialogueResponse,
@@ -2957,6 +2958,28 @@ function parseDialogueState(raw: unknown): DialogueState {
     rawWeather.seasonId === 'winter'
       ? rawWeather.seasonId
       : getSeasonFromDate();
+  const dailyForecast: DailyWeatherForecastItem[] = Array.isArray(rawWeather.dailyForecast)
+    ? rawWeather.dailyForecast
+        .filter((item): item is Record<string, unknown> => isRecord(item))
+        .slice(0, 7)
+        .map((item) => {
+          const cond = asWeatherCondition(item.condition);
+          const itemFallback = createInitialWeatherState(cond);
+          return {
+            date: asString(item.date, todayStr),
+            condition: cond,
+            label: asString(item.label, itemFallback.label),
+            emoji: asString(item.emoji, itemFallback.emoji),
+            tempMaxC: asNumber(item.tempMaxC, 24),
+            tempMinC: asNumber(item.tempMinC, 20),
+            weatherCode:
+              typeof item.weatherCode === 'number' && Number.isFinite(item.weatherCode)
+                ? item.weatherCode
+                : undefined,
+          };
+        })
+    : [];
+
   const weather: WeatherState = {
     condition: weatherCond,
     temperatureC: asNumber(rawWeather.temperatureC, weatherFallback.temperatureC),
@@ -2964,8 +2987,14 @@ function parseDialogueState(raw: unknown): DialogueState {
     emoji: asString(rawWeather.emoji, weatherFallback.emoji),
     source: rawWeather.source === 'api_ready' ? 'api_ready' : 'fixed',
     updatedAt: asNumber(rawWeather.updatedAt, weatherFallback.updatedAt),
-    cityId: typeof rawWeather.cityId === 'string' ? rawWeather.cityId : 'kaohsiung',
-    cityName: typeof rawWeather.cityName === 'string' ? rawWeather.cityName : '高雄',
+    cityId: typeof rawWeather.cityId === 'string' ? rawWeather.cityId : 'quebec',
+    cityName: typeof rawWeather.cityName === 'string' ? rawWeather.cityName : '魁北克省',
+    locationName:
+      typeof rawWeather.locationName === 'string'
+        ? rawWeather.locationName
+        : typeof rawWeather.cityName === 'string'
+        ? rawWeather.cityName
+        : '魁北克省',
     nextRefreshAt:
       typeof rawWeather.nextRefreshAt === 'number' && Number.isFinite(rawWeather.nextRefreshAt)
         ? rawWeather.nextRefreshAt
@@ -2979,6 +3008,7 @@ function parseDialogueState(raw: unknown): DialogueState {
       typeof rawWeather.isOfflineFallback === 'boolean' ? rawWeather.isOfflineFallback : false,
     seasonId: weatherSeason,
     mode: rawWeather.mode === 'live' ? 'live' : 'simulated',
+    dailyForecast,
   };
 
   const memoryEvents: PetMemoryEvent[] = Array.isArray(raw.memoryEvents)
@@ -3270,7 +3300,7 @@ function parseSeasonSystemState(raw: unknown): SeasonSystemState {
       seasonId: asSeasonIdValue(raw.offlineSummary.seasonId, currentSeason),
       weatherCondition: asWeatherCondition(raw.offlineSummary.weatherCondition),
       weatherLabel: asString(raw.offlineSummary.weatherLabel, '晴天'),
-      cityName: asString(raw.offlineSummary.cityName, '高雄'),
+      cityName: asString(raw.offlineSummary.cityName, '魁北克省'),
       isOffline: raw.offlineSummary.isOffline === true,
       summaryText: asString(raw.offlineSummary.summaryText, ''),
     };

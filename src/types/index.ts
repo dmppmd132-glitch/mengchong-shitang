@@ -1437,6 +1437,16 @@ export interface WeatherCityOption {
   climateBias: 'warm' | 'mild' | 'cool' | 'snowy';
 }
 
+export interface DailyWeatherForecastItem {
+  date: string;
+  condition: WeatherCondition;
+  label: string;
+  emoji: string;
+  tempMaxC: number;
+  tempMinC: number;
+  weatherCode?: number;
+}
+
 export interface WeatherState {
   condition: WeatherCondition;
   temperatureC: number;
@@ -1446,11 +1456,13 @@ export interface WeatherState {
   updatedAt: number;
   cityId?: string;
   cityName?: string;
+  locationName?: string;
   nextRefreshAt?: number;
   lastSyncedOnlineAt?: number | null;
   isOfflineFallback?: boolean;
   seasonId?: SeasonId;
   mode?: 'simulated' | 'live';
+  dailyForecast?: DailyWeatherForecastItem[];
 }
 
 export type TimePeriodId =

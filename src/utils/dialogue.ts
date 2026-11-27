@@ -85,12 +85,14 @@ export function createInitialWeatherState(
     emoji: meta.emoji,
     source: 'fixed',
     updatedAt: Date.now(),
-    cityId: 'kaohsiung',
-    cityName: '高雄',
+    cityId: 'quebec',
+    cityName: '魁北克省',
+    locationName: '魁北克省',
     mode: 'simulated',
     isOfflineFallback: false,
     seasonId: detectLocalSeason(),
     lastSyncedOnlineAt: null,
+    dailyForecast: [],
   };
 }
 

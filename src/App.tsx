@@ -4721,7 +4721,7 @@ export default function App() {
   const handleSelectWeatherCity = (cityId: string) => {
     soundFX.pop(game.soundEnabled);
     setGame((prev) => selectWeatherCity(prev, cityId));
-    void applyWeatherRefresh({ cityId, force: true });
+    void applyWeatherRefresh({ cityId, force: false });
   };
 
   const handleRefreshWeather = () => {

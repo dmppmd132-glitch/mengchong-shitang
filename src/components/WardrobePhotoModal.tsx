@@ -202,8 +202,8 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
       emoji: '☀️',
       source: 'fixed',
       updatedAt: 0,
-      cityId: 'kaohsiung',
-      cityName: '高雄',
+      cityId: 'quebec',
+      cityName: '魁北克省',
     };
   const seasonPhotoRec = SEASON_PHOTO_CONTENT[activeSeasonId];
   const [studioTab, setStudioTab] = useState<StudioTab>(initialTab);

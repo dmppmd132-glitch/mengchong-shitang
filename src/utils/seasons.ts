@@ -17,10 +17,10 @@ import {
   buildSakuraDailyTasks,
   createInitialSpringSakuraEvent,
   isCropInSeason,
-  simulateWeatherForCity,
 } from '../data/seasons';
 import {
   CropPlot,
+  DailyWeatherForecastItem,
   GameState,
   IngredientId,
   PhotoBackground,
@@ -232,6 +232,68 @@ export function syncSeasonSystemState(
   return nextState;
 }
 
+const WEATHER_CACHE_STORAGE_KEY = 'mengchong_weather_cache_v1';
+
+interface WeatherLocalCache {
+  lastSuccess?: WeatherState;
+  byCity?: Record<string, WeatherState>;
+}
+
+function readWeatherLocalCache(): WeatherLocalCache {
+  if (typeof window === 'undefined' || !window.localStorage) return {};
+  try {
+    const raw = window.localStorage.getItem(WEATHER_CACHE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as WeatherLocalCache;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeWeatherLocalCache(weather: WeatherState): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const existing = readWeatherLocalCache();
+    const cityKey = weather.cityId ?? DEFAULT_CITY_ID;
+    const nextCache: WeatherLocalCache = {
+      lastSuccess: weather,
+      byCity: {
+        ...(existing.byCity ?? {}),
+        [cityKey]: weather,
+      },
+    };
+    window.localStorage.setItem(WEATHER_CACHE_STORAGE_KEY, JSON.stringify(nextCache));
+  } catch {
+    // Ignore storage quota / private-mode errors safely
+  }
+}
+
+function getLastSuccessfulWeather(
+  state: GameState,
+  cityId: string
+): WeatherState | null {
+  const existingWeather = state.dialogue.weather;
+  if (
+    existingWeather.lastSyncedOnlineAt != null &&
+    existingWeather.cityId === cityId
+  ) {
+    return existingWeather;
+  }
+  const cache = readWeatherLocalCache();
+  const cityCached = cache.byCity?.[cityId];
+  if (cityCached && cityCached.lastSyncedOnlineAt != null) {
+    return cityCached;
+  }
+  if (existingWeather.lastSyncedOnlineAt != null) {
+    return existingWeather;
+  }
+  if (cache.lastSuccess && cache.lastSuccess.lastSyncedOnlineAt != null) {
+    return cache.lastSuccess;
+  }
+  return null;
+}
+
 export function selectWeatherCity(
   state: GameState,
   cityId: string
@@ -241,6 +303,8 @@ export function selectWeatherCity(
   if (base.selectedCityId === validCity.id && state.dialogue.weather.cityId === validCity.id) {
     return state;
   }
+  const cache = readWeatherLocalCache();
+  const cachedForCity = cache.byCity?.[validCity.id];
   return {
     ...state,
     seasonSystem: {
@@ -249,22 +313,42 @@ export function selectWeatherCity(
     },
     dialogue: {
       ...state.dialogue,
-      weather: {
-        ...state.dialogue.weather,
-        cityId: validCity.id,
-        cityName: validCity.name,
-      },
+      weather: cachedForCity
+        ? {
+            ...cachedForCity,
+            cityId: validCity.id,
+            cityName: validCity.name,
+            locationName: cachedForCity.locationName ?? validCity.name,
+          }
+        : {
+            ...state.dialogue.weather,
+            cityId: validCity.id,
+            cityName: validCity.name,
+            locationName: validCity.name,
+          },
     },
   };
 }
 
+interface WeatherApiForecastItem {
+  date?: unknown;
+  condition?: unknown;
+  label?: unknown;
+  emoji?: unknown;
+  tempMaxC?: unknown;
+  tempMinC?: unknown;
+  weatherCode?: unknown;
+}
+
 interface WeatherApiResponse {
+  ok?: unknown;
   condition?: unknown;
   temperatureC?: unknown;
+  updatedAt?: unknown;
+  locationName?: unknown;
   cityId?: unknown;
   cityName?: unknown;
-  mode?: unknown;
-  seasonId?: unknown;
+  dailyForecast?: unknown;
 }
 
 function asValidWeatherCondition(value: unknown): WeatherCondition | null {
@@ -280,6 +364,40 @@ function asValidWeatherCondition(value: unknown): WeatherCondition | null {
     return value;
   }
   return null;
+}
+
+function sanitizeDailyForecast(raw: unknown): DailyWeatherForecastItem[] {
+  if (!Array.isArray(raw)) return [];
+  const items: DailyWeatherForecastItem[] = [];
+  for (const entry of raw.slice(0, 7)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const rec = entry as WeatherApiForecastItem;
+    const date = typeof rec.date === 'string' ? rec.date : '';
+    const cond = asValidWeatherCondition(rec.condition) ?? 'clear';
+    const profile = WEATHER_EFFECT_PROFILES[cond];
+    const tempMaxC =
+      typeof rec.tempMaxC === 'number' && Number.isFinite(rec.tempMaxC)
+        ? Math.round(rec.tempMaxC)
+        : 24;
+    const tempMinC =
+      typeof rec.tempMinC === 'number' && Number.isFinite(rec.tempMinC)
+        ? Math.round(rec.tempMinC)
+        : tempMaxC;
+    if (!date) continue;
+    items.push({
+      date,
+      condition: cond,
+      label: typeof rec.label === 'string' && rec.label ? rec.label : profile.label,
+      emoji: typeof rec.emoji === 'string' && rec.emoji ? rec.emoji : profile.emoji,
+      tempMaxC,
+      tempMinC,
+      weatherCode:
+        typeof rec.weatherCode === 'number' && Number.isFinite(rec.weatherCode)
+          ? Math.round(rec.weatherCode)
+          : undefined,
+    });
+  }
+  return items;
 }
 
 export async function fetchAndApplyWeather(
@@ -303,19 +421,65 @@ export async function fetchAndApplyWeather(
   const shouldSkipThrottle =
     !opts?.force &&
     existingWeather.cityId === city.id &&
-    existingWeather.nextRefreshAt &&
+    existingWeather.lastSyncedOnlineAt != null &&
+    existingWeather.nextRefreshAt != null &&
     now < existingWeather.nextRefreshAt;
   if (shouldSkipThrottle) {
     return state;
   }
 
+  // Check client cache for this city if not forced
+  if (!opts?.force) {
+    const cache = readWeatherLocalCache();
+    const cachedCityWeather = cache.byCity?.[city.id];
+    if (
+      cachedCityWeather &&
+      cachedCityWeather.lastSyncedOnlineAt != null &&
+      cachedCityWeather.nextRefreshAt != null &&
+      now < cachedCityWeather.nextRefreshAt
+    ) {
+      const cachedProfile = WEATHER_EFFECT_PROFILES[cachedCityWeather.condition];
+      const updatedWeatherTasks =
+        base.weatherTasksDate !== dateKey ||
+        base.weatherTasks[0]?.weatherCondition !== cachedCityWeather.condition
+          ? buildDailyWeatherTasks(dateKey, cachedCityWeather.condition)
+          : base.weatherTasks;
+      return {
+        ...state,
+        dialogue: {
+          ...state.dialogue,
+          weather: {
+            ...cachedCityWeather,
+            label: cachedProfile.label,
+            emoji: cachedProfile.emoji,
+            seasonId,
+          },
+        },
+        seasonSystem: {
+          ...base,
+          currentSeason: seasonId,
+          lastKnownSeason: seasonId,
+          selectedCityId: city.id,
+          weatherTasksDate: dateKey,
+          weatherTasks: updatedWeatherTasks,
+          offlineSummary: null,
+        },
+      };
+    }
+  }
+
   const onlineFlag =
     opts?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
 
-  let resolvedCondition: WeatherCondition = existingWeather.condition ?? 'clear';
-  let resolvedTemp = existingWeather.temperatureC ?? 24;
+  let resolvedCondition: WeatherCondition = 'clear';
+  let resolvedTemp = 24;
+  let resolvedLocationName = city.name;
+  let resolvedDailyForecast: DailyWeatherForecastItem[] = [];
+  let resolvedUpdatedAt = now;
+  let resolvedLastSyncedAt: number | null = null;
   let resolvedMode: 'simulated' | 'live' = 'simulated';
   let isOfflineFallback = !onlineFlag;
+  let apiSucceeded = false;
 
   if (onlineFlag) {
     try {
@@ -323,11 +487,11 @@ export async function fetchAndApplyWeather(
         typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timer =
         controller && typeof window !== 'undefined'
-          ? window.setTimeout(() => controller.abort(), 3500)
+          ? window.setTimeout(() => controller.abort(), 5000)
           : null;
 
       const res = await fetch(
-        `/api/weather?city=${encodeURIComponent(city.id)}&season=${encodeURIComponent(seasonId)}`,
+        `/api/weather?city=${encodeURIComponent(city.id)}`,
         {
           method: 'GET',
           signal: controller?.signal,
@@ -338,7 +502,8 @@ export async function fetchAndApplyWeather(
         window.clearTimeout(timer);
       }
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') ?? '';
+      if (res.ok && contentType.includes('application/json')) {
         const payload = (await res.json()) as WeatherApiResponse;
         const apiCond = asValidWeatherCondition(payload.condition);
         const apiTemp =
@@ -346,40 +511,52 @@ export async function fetchAndApplyWeather(
           Number.isFinite(payload.temperatureC)
             ? Math.round(payload.temperatureC)
             : null;
-        if (apiCond) {
+        if (payload.ok !== false && apiCond && apiTemp !== null) {
           resolvedCondition = apiCond;
-          resolvedTemp = apiTemp ?? simulateWeatherForCity(city.id, seasonId, nowDate).temperatureC;
-          resolvedMode = payload.mode === 'live' ? 'live' : 'simulated';
+          resolvedTemp = apiTemp;
+          resolvedLocationName =
+            typeof payload.locationName === 'string' && payload.locationName.trim()
+              ? payload.locationName.trim()
+              : city.name;
+          resolvedDailyForecast = sanitizeDailyForecast(payload.dailyForecast);
+          resolvedUpdatedAt =
+            typeof payload.updatedAt === 'number' && Number.isFinite(payload.updatedAt)
+              ? payload.updatedAt
+              : now;
+          resolvedLastSyncedAt = now;
+          resolvedMode = 'live';
           isOfflineFallback = false;
-        } else {
-          const sim = simulateWeatherForCity(city.id, seasonId, nowDate);
-          resolvedCondition = sim.condition;
-          resolvedTemp = sim.temperatureC;
-          resolvedMode = 'simulated';
+          apiSucceeded = true;
         }
-      } else {
-        const sim = simulateWeatherForCity(city.id, seasonId, nowDate);
-        resolvedCondition = sim.condition;
-        resolvedTemp = sim.temperatureC;
-        resolvedMode = 'simulated';
       }
     } catch {
-      // Fall back safely to cached weather if offline, or deterministic city seasonal simulation
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        isOfflineFallback = true;
-        resolvedCondition = existingWeather.condition ?? 'clear';
-        resolvedTemp = existingWeather.temperatureC ?? 24;
-      } else {
-        const sim = simulateWeatherForCity(city.id, seasonId, nowDate);
-        resolvedCondition = sim.condition;
-        resolvedTemp = sim.temperatureC;
-        resolvedMode = 'simulated';
-      }
+      // Non-blocking fallback handled cleanly below
     }
-  } else {
-    // Offline: retain last synced weather (or clear default)
-    resolvedCondition = existingWeather.condition ?? 'clear';
-    resolvedTemp = existingWeather.temperatureC ?? 24;
+  }
+
+  if (!apiSucceeded) {
+    const lastSuccess = getLastSuccessfulWeather(state, city.id);
+    if (lastSuccess) {
+      resolvedCondition = lastSuccess.condition;
+      resolvedTemp = lastSuccess.temperatureC;
+      resolvedLocationName =
+        lastSuccess.cityId === city.id
+          ? lastSuccess.locationName ?? lastSuccess.cityName ?? city.name
+          : lastSuccess.locationName ?? lastSuccess.cityName ?? city.name;
+      resolvedDailyForecast = lastSuccess.dailyForecast ?? [];
+      resolvedUpdatedAt = lastSuccess.updatedAt;
+      resolvedLastSyncedAt = lastSuccess.lastSyncedOnlineAt ?? null;
+      resolvedMode = lastSuccess.mode ?? 'live';
+    } else {
+      // Never fetched weather before -> default safely to 'clear' (晴天)
+      resolvedCondition = 'clear';
+      resolvedTemp = 24;
+      resolvedLocationName = city.name;
+      resolvedDailyForecast = [];
+      resolvedUpdatedAt = now;
+      resolvedLastSyncedAt = null;
+      resolvedMode = 'simulated';
+    }
     isOfflineFallback = true;
   }
 
@@ -389,29 +566,36 @@ export async function fetchAndApplyWeather(
     temperatureC: resolvedTemp,
     label: profile.label,
     emoji: profile.emoji,
-    source: resolvedMode === 'live' ? 'api_ready' : 'fixed',
-    updatedAt: now,
+    source: resolvedLastSyncedAt != null ? 'api_ready' : 'fixed',
+    updatedAt: resolvedUpdatedAt,
     cityId: city.id,
-    cityName: city.name,
+    cityName: resolvedLocationName,
+    locationName: resolvedLocationName,
     nextRefreshAt: now + WEATHER_AUTO_REFRESH_MS,
-    lastSyncedOnlineAt: isOfflineFallback
-      ? existingWeather.lastSyncedOnlineAt ?? null
-      : now,
+    lastSyncedOnlineAt: resolvedLastSyncedAt,
     isOfflineFallback,
     seasonId,
     mode: resolvedMode,
+    dailyForecast: resolvedDailyForecast,
   };
 
+  if (apiSucceeded) {
+    writeWeatherLocalCache(nextWeather);
+  }
+
   const seasonMeta = SEASON_META[seasonId];
-  const nextOfflineSummary = isOfflineFallback
+  const nextOfflineSummary = !onlineFlag
     ? {
         dateKey,
         seasonId,
         weatherCondition: resolvedCondition,
         weatherLabel: profile.label,
-        cityName: city.name,
+        cityName: resolvedLocationName,
         isOffline: true,
-        summaryText: `目前離線中，沿用上次同步天氣「${profile.emoji} ${profile.label}（${city.name}）」，季節為${seasonMeta.emoji} ${seasonMeta.name}。`,
+        summaryText:
+          resolvedLastSyncedAt != null
+            ? `目前離線中，沿用最近一次成功取得的天氣「${profile.emoji} ${profile.label}（${resolvedLocationName}）」，季節為${seasonMeta.emoji} ${seasonMeta.name}。`
+            : `目前離線中，暫時使用預設「☀️ 晴天（${resolvedLocationName}）」，季節為${seasonMeta.emoji} ${seasonMeta.name}。`,
       }
     : null;
 

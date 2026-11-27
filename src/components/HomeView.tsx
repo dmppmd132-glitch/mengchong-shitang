@@ -233,8 +233,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
     emoji: '☀️',
     source: 'fixed',
     updatedAt: 0,
-    cityId: 'kaohsiung',
-    cityName: '高雄',
+    cityId: 'quebec',
+    cityName: '魁北克省',
   };
   const claimableWeatherTasksCount = (seasonSystem?.weatherTasks ?? []).filter(
     (t) => t.completed && !t.claimed

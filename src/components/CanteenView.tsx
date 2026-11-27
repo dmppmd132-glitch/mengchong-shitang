@@ -210,8 +210,8 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
     emoji: '☀️',
     source: 'fixed',
     updatedAt: 0,
-    cityId: 'kaohsiung',
-    cityName: '高雄',
+    cityId: 'quebec',
+    cityName: '魁北克省',
   };
   const weatherProfile = WEATHER_EFFECT_PROFILES[activeWeather.condition];
   const greenhouseLevel = house.farmUpgrades.greenhouseLevel ?? 0;

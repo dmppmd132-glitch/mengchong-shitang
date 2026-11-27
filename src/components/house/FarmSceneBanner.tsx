@@ -108,8 +108,8 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
     emoji: '☀️',
     source: 'fixed',
     updatedAt: 0,
-    cityId: 'kaohsiung',
-    cityName: '高雄',
+    cityId: 'quebec',
+    cityName: '魁北克省',
   };
   const activeYardTheme =
     seasonSystem?.yardThemeOverride && seasonSystem.yardThemeOverride !== 'none'

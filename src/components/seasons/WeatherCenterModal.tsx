@@ -204,9 +204,11 @@ export const WeatherCenterModal: React.FC<WeatherCenterModalProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] font-bold text-[#7D635D] mt-0.5">
-                      {weather.source === 'api_ready'
-                        ? '即時氣象連線同步（每 45 分鐘自動更新）'
-                        : '季節小鎮氣象模擬（離線也能穩定運作・無使用 GPS 定位）'}
+                      {weather.mode === 'live' && !weather.isOfflineFallback
+                        ? 'Open-Meteo 即時氣象同步（每 45 分鐘更新・無需 API 金鑰）'
+                        : weather.lastSyncedOnlineAt != null
+                        ? '目前離線或氣象更新失敗，沿用最近一次成功取得的天氣'
+                        : '尚未連線取得氣象，目前使用預設晴天（不影響遊戲進行）'}
                     </p>
                   </div>
                   <button
@@ -220,6 +222,38 @@ export const WeatherCenterModal: React.FC<WeatherCenterModalProps> = ({
                     <span>{weatherLoading ? '更新中' : '重新整理'}</span>
                   </button>
                 </div>
+
+                {weather.dailyForecast && weather.dailyForecast.length > 0 && (
+                  <div className="pt-1">
+                    <div className="text-[11px] font-extrabold text-[#4A3531] mb-1.5">
+                      📅 未來 7 天預報（{weather.locationName ?? weather.cityName}）
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {weather.dailyForecast.slice(0, 7).map((day, idx) => {
+                        const shortDate = day.date.slice(5).replace('-', '/');
+                        return (
+                          <div
+                            key={`${day.date}_${idx}`}
+                            className="rounded-xl bg-white/90 border border-[#E4EDF4] py-1.5 px-1 text-center flex flex-col items-center gap-0.5"
+                          >
+                            <span className="text-[10px] font-bold text-[#7D635D] tabular-nums">
+                              {idx === 0 ? '今天' : shortDate}
+                            </span>
+                            <span className="text-base leading-none" title={day.label}>
+                              {day.emoji}
+                            </span>
+                            <span className="text-[10px] font-extrabold text-[#4A3531] tabular-nums">
+                              {day.tempMaxC}°
+                            </span>
+                            <span className="text-[9px] font-bold text-[#8A756E] tabular-nums">
+                              {day.tempMinC}°
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-1.5 pt-1 text-xs">
                   <div className="rounded-xl bg-white/90 border border-[#EAE4DE] px-3 py-2">
