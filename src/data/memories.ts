@@ -98,10 +98,17 @@ export const MEMORY_TYPE_META: Record<MemoryType, MemoryTypeMeta> = {
     emoji: '🗺️',
     badgeClass: 'bg-[#E6F8EE] border-[#8BD7B3] text-[#1D6B4F]',
   },
+  birthday: {
+    id: 'birthday',
+    label: '生日回憶',
+    emoji: '🎂',
+    badgeClass: 'bg-[#FFEAF2] border-[#FF9EB9] text-[#C43463]',
+  },
 };
 
 export const MEMORY_TYPE_ORDER: MemoryType[] = [
   'hatching',
+  'birthday',
   'feeding',
   'wardrobe',
   'room',

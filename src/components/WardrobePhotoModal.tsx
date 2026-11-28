@@ -70,6 +70,18 @@ import {
   WeatherState,
 } from '../types';
 import { DuoPhotoPetInfo } from '../types/house';
+import {
+  BIRTHDAY_DEFAULT_STUDIO_BACKGROUNDS,
+  BIRTHDAY_DEFAULT_STUDIO_FILTERS,
+  BIRTHDAY_DEFAULT_STUDIO_FRAMES,
+  BIRTHDAY_DEFAULT_STUDIO_POSES,
+  BIRTHDAY_DEFAULT_STUDIO_STICKERS,
+} from '../data/birthday';
+import {
+  getAllPetBirthdayStatuses,
+  getBirthdayStatusForPet,
+  getPrimaryBirthdayPetStatus,
+} from '../utils/birthday';
 import { getSeasonFromDate } from '../utils/seasons';
 import { PiggyCharacter } from './PiggyCharacter';
 import { SeasonWeatherAtmosphere } from './seasons/SeasonWeatherAtmosphere';
@@ -260,6 +272,19 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
           lastUpdatedAt: 0,
         });
 
+  const primaryBirthdayStatus = useMemo(
+    () => (game ? getPrimaryBirthdayPetStatus(game) : getBirthdayStatusForPet(pet)),
+    [game, pet]
+  );
+
+  const anyPetBirthdayToday = useMemo(
+    () =>
+      game
+        ? getAllPetBirthdayStatuses(game).some((s) => s.isTodayBirthday)
+        : primaryBirthdayStatus.isTodayBirthday,
+    [game, primaryBirthdayStatus.isTodayBirthday]
+  );
+
   const ownedPoseSet = useMemo(
     () =>
       new Set<PhotoPose>([
@@ -267,10 +292,11 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         'shy',
         'sleep',
         'eat',
+        ...(anyPetBirthdayToday ? BIRTHDAY_DEFAULT_STUDIO_POSES : []),
         ...unlockedPoses,
         ...studio.unlockedPoses,
       ]),
-    [unlockedPoses, studio.unlockedPoses]
+    [anyPetBirthdayToday, unlockedPoses, studio.unlockedPoses]
   );
 
   const ownedBgSet = useMemo(
@@ -280,9 +306,10 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         'strawberry_field',
         'cloud_sky',
         'kitchen',
+        ...(anyPetBirthdayToday ? BIRTHDAY_DEFAULT_STUDIO_BACKGROUNDS : []),
         ...studio.unlockedBackgrounds,
       ]),
-    [studio.unlockedBackgrounds]
+    [anyPetBirthdayToday, studio.unlockedBackgrounds]
   );
 
   const ownedFilterSet = useMemo(
@@ -293,24 +320,30 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         'cloud',
         'kitchen',
         'party',
+        ...(anyPetBirthdayToday ? BIRTHDAY_DEFAULT_STUDIO_FILTERS : []),
         ...studio.unlockedFilters,
       ]),
-    [studio.unlockedFilters]
+    [anyPetBirthdayToday, studio.unlockedFilters]
   );
 
   const ownedFrameSet = useMemo(
     () =>
       new Set<PhotoFrame>([
         'none',
+        ...(anyPetBirthdayToday ? BIRTHDAY_DEFAULT_STUDIO_FRAMES : []),
         ...unlockedFrames,
         ...studio.unlockedFrames,
       ]),
-    [unlockedFrames, studio.unlockedFrames]
+    [anyPetBirthdayToday, unlockedFrames, studio.unlockedFrames]
   );
 
   const ownedStickerSet = useMemo(
-    () => new Set<PhotoStickerId>(studio.unlockedStickers),
-    [studio.unlockedStickers]
+    () =>
+      new Set<PhotoStickerId>([
+        ...(anyPetBirthdayToday ? BIRTHDAY_DEFAULT_STUDIO_STICKERS : []),
+        ...studio.unlockedStickers,
+      ]),
+    [anyPetBirthdayToday, studio.unlockedStickers]
   );
 
   // Duo pet candidates: partner's showcase pets first, then other household pets
@@ -386,6 +419,8 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         : 'pink_room';
     let defaultFilter: PhotoFilter = 'none';
     let defaultFrame: PhotoFrame = ownedFrameSet.has('rounded') ? 'rounded' : 'none';
+    let defaultPose: PhotoPose = 'happy';
+    let defaultStickers: PhotoStickerId[] = [];
 
     if (initialScene === 'visitor' && resolvedVisitorId) {
       const preferredVisitorBg = visitorDefaultBgMap[resolvedVisitorId];
@@ -404,14 +439,30 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
       if (recFilter) defaultFilter = recFilter;
       const recFrame = locDef.recommendedFrameIds.find((fr) => ownedFrameSet.has(fr));
       if (recFrame) defaultFrame = recFrame;
+    } else if (initialScene === 'birthday') {
+      if (ownedBgSet.has('bday_pink_balloons')) {
+        defaultBg = 'bday_pink_balloons';
+      }
+      if (ownedFilterSet.has('bday_cream_pink')) {
+        defaultFilter = 'bday_cream_pink';
+      }
+      if (ownedFrameSet.has('bday_balloon')) {
+        defaultFrame = 'bday_balloon';
+      }
+      if (ownedPoseSet.has('bday_blow_candles')) {
+        defaultPose = 'bday_blow_candles';
+      }
+      defaultStickers = (['bday_happy', 'bday_candle'] as PhotoStickerId[]).filter((sid) =>
+        ownedStickerSet.has(sid)
+      );
     }
 
     setBackgroundId(defaultBg);
     setFilterId(defaultFilter);
     setFrameId(defaultFrame);
-    setPoseId('happy');
+    setPoseId(defaultPose);
     setFacing('front');
-    setStickers([]);
+    setStickers(defaultStickers);
     const sceneMeta = PHOTO_SCENE_BY_ID[initialScene] ?? PHOTO_SCENES[0];
     setTitle(
       initialScene === 'visitor' && resolvedVisitorId
@@ -420,6 +471,8 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
         ? resolvedTownVisitorId
           ? `${TOWN_LOCATION_BY_ID[resolvedTownLocId].name}・${TOWN_VISITOR_BY_ID[resolvedTownVisitorId].speciesLabel}`.slice(0, 20)
           : `${pet.name}的${TOWN_LOCATION_BY_ID[resolvedTownLocId].name}遊記`.slice(0, 20)
+        : initialScene === 'birthday'
+        ? `${pet.name}的生日派對`.slice(0, 20)
         : `${pet.name}的${sceneMeta.defaultTitleSuffix}`.slice(0, 20)
     );
     setCaption('');
@@ -916,6 +969,16 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
           {/* TAB 1: STUDIO SHOOT */}
           {studioTab === 'shoot' && (
             <>
+              {(primaryBirthdayStatus.isTodayBirthday ||
+                primaryBirthdayStatus.isCountdown ||
+                primaryBirthdayStatus.isReviewPeriod) && (
+                <div className="rounded-2xl bg-gradient-to-r from-[#FFF0F5] to-[#FFF6DA] border border-[#F3C8D6] px-3 py-2 flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#9F3058]">
+                  <span className="truncate">
+                    🎂 {primaryBirthdayStatus.countdownText} · {primaryBirthdayStatus.dateLabel}
+                  </span>
+                </div>
+              )}
+
               {scene === 'visitor' ? (
                 <div className="rounded-2xl bg-[#EEF8F4] border border-[#BDE4D5] px-2.5 py-2 flex items-center justify-between gap-1.5 flex-wrap">
                   <div className="flex items-center gap-1 flex-wrap">
@@ -1027,9 +1090,25 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                     })}
                   </div>
                 </div>
+              ) : scene === 'birthday' ? (
+                <div className="rounded-2xl bg-[#FFF0F5] border border-[#F3C8D6] px-2.5 py-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold text-[#B83B64]">
+                    🎂 生日合照模式（慶生照 +3 生日券，每日最多 3 次）
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScene('wardrobe');
+                      setTitle(`${pet.name}的穿搭日記`.slice(0, 20));
+                    }}
+                    className="min-h-[34px] px-2.5 rounded-xl bg-white border border-[#E7D8D0] text-[10px] font-extrabold text-[#6E544E] shrink-0"
+                  >
+                    切換獨照
+                  </button>
+                </div>
               ) : (
-                game?.visitorState && (
-                  <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {game?.visitorState && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1046,8 +1125,31 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
                       <span>🐾</span>
                       <span>切換與小鎮訪客合影</span>
                     </button>
-                  </div>
-                )
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScene('birthday');
+                      setTitle(`${pet.name}的生日派對`.slice(0, 20));
+                      if (ownedBgSet.has('bday_pink_balloons')) {
+                        setBackgroundId('bday_pink_balloons');
+                      }
+                      if (ownedFilterSet.has('bday_cream_pink')) {
+                        setFilterId('bday_cream_pink');
+                      }
+                      if (ownedFrameSet.has('bday_balloon')) {
+                        setFrameId('bday_balloon');
+                      }
+                      if (ownedPoseSet.has('bday_blow_candles')) {
+                        setPoseId('bday_blow_candles');
+                      }
+                    }}
+                    className="min-h-[34px] px-2.5 rounded-xl bg-[#FFF0F5] border border-[#F3C8D6] text-[11px] font-extrabold text-[#B83B64] inline-flex items-center gap-1 hover:bg-[#FFE4EE] transition"
+                  >
+                    <span>🎂</span>
+                    <span>切換生日派對拍照</span>
+                  </button>
+                </div>
               )}
 
               {renderLiveStage(null)}

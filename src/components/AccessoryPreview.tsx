@@ -652,6 +652,35 @@ export const AccessoryPreview: React.FC<AccessoryPreviewProps> = ({ accessoryId 
           <circle cx="13" cy="2" r="2.8" fill="#A78BFA" stroke="#5A3E36" strokeWidth="1.5" />
         </g>
       )}
+      {accessoryId === 'birthday_hat' && (
+        <g transform="translate(32, 37)">
+          <polygon points="-17,12 0,-21 17,12" fill="#FF92B4" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <path d="M -11 2 L 8 -7 M -14 8 L 12 0" stroke="#FFE066" strokeWidth="2.6" strokeLinecap="round" />
+          <ellipse cx="0" cy="12" rx="19" ry="4.5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.2" />
+          <circle cx="-8" cy="12" r="2.6" fill="#82E9FF" />
+          <circle cx="0" cy="12" r="2.6" fill="#FFE066" />
+          <circle cx="8" cy="12" r="2.6" fill="#A78BFA" />
+          <circle cx="0" cy="-23" r="4.8" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.2" />
+        </g>
+      )}
+      {accessoryId === 'birthday_crown' && (
+        <g transform="translate(32, 36)">
+          <path d="M -21 10 L -24 -10 L -10 -1 L 0 -19 L 10 -1 L 24 -10 L 21 10 Z" fill="#FFD447" stroke="#5A3E36" strokeWidth="2.6" strokeLinejoin="round" />
+          <rect x="-21" y="9" width="42" height="6" rx="3" fill="#FF7EA8" stroke="#5A3E36" strokeWidth="2.2" />
+          <circle cx="0" cy="-17" r="3" fill="#FF7EA8" stroke="#5A3E36" strokeWidth="1.6" />
+          <polygon points="0,-9 4,-1 0,5 -4,-1" fill="#82E9FF" stroke="#5A3E36" strokeWidth="1.6" />
+        </g>
+      )}
+      {accessoryId === 'birthday_cape' && (
+        <g transform="translate(32, 32)">
+          <path d="M -19 -14 L -24 18 Q 0 23 24 18 L 19 -14 Q 0 -7 -19 -14 Z" fill="#FF7EB6" stroke="#5A3E36" strokeWidth="2.8" strokeLinejoin="round" />
+          <path d="M -17 15 Q 0 20 17 15" fill="none" stroke="#FFE066" strokeWidth="3" strokeLinecap="round" />
+          <path d="M -14 -10 Q 0 -3 14 -10" fill="none" stroke="#FFE066" strokeWidth="2.8" strokeLinecap="round" />
+          <circle cx="-9" cy="4" r="2.8" fill="#FFE066" />
+          <circle cx="9" cy="4" r="2.8" fill="#82E9FF" />
+          <circle cx="0" cy="10" r="2.6" fill="#FFFDF7" />
+        </g>
+      )}
     </svg>
   );
 };

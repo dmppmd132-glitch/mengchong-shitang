@@ -31,6 +31,8 @@ import { getStickerById } from '../data/stickers';
 import { VISITOR_BY_ID } from '../data/visitors';
 import { SEASON_META } from '../data/seasons';
 import {
+  BirthdayCake,
+  BirthdaySystemState,
   CollectionCategoryId,
   CollectionProgress,
   DialogueLine,
@@ -55,6 +57,7 @@ import {
   VisitorVisit,
   WeatherState,
 } from '../types';
+import { PetBirthdayStatus } from '../utils/birthday';
 import { CollectionReminderPayload } from '../utils/collection';
 import { evaluateFoodPreference, getPersonalitySummaryLabel } from '../utils/personality';
 import { getTimeOfDayMeta, getTimeOfDayPeriod } from '../utils/farmGrowth';
@@ -137,6 +140,11 @@ interface HomeViewProps {
   onOpenSeasonFestival?: () => void;
   onDismissSeasonNotice?: () => void;
   onDismissOfflineSummary?: () => void;
+  birthdaySystem?: BirthdaySystemState;
+  primaryBirthdayStatus?: PetBirthdayStatus;
+  birthdayBadgeCount?: number;
+  onOpenBirthdayParty?: () => void;
+  onTapBirthdayCake?: (cake: BirthdayCake) => void;
 }
 
 type PetStatKey = 'hunger' | 'mood' | 'cleanliness' | 'energy';
@@ -223,6 +231,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenSeasonFestival,
   onDismissSeasonNotice,
   onDismissOfflineSummary,
+  birthdaySystem,
+  primaryBirthdayStatus,
+  birthdayBadgeCount = 0,
+  onOpenBirthdayParty,
+  onTapBirthdayCake,
 }) => {
   const activeSeasonId = seasonSystem?.currentSeason ?? getSeasonFromDate();
   const seasonMeta = SEASON_META[activeSeasonId];
@@ -1037,8 +1050,50 @@ export const HomeView: React.FC<HomeViewProps> = ({
           companionPets={companionPets}
           house={house}
           roomThemeOverride={seasonSystem?.roomThemeOverride}
+          birthdaySystem={birthdaySystem}
+          onTapBirthdayCake={onTapBirthdayCake}
           onOpenHouse={onOpenHouse}
         />
+      )}
+
+      {onOpenBirthdayParty && primaryBirthdayStatus && (
+        <button
+          type="button"
+          onClick={onOpenBirthdayParty}
+          className={`w-full min-h-[56px] rounded-2xl border-2 px-3.5 py-2.5 flex items-center justify-between gap-2 text-left shadow-xs hover:brightness-[0.99] active:scale-[0.99] transition ${
+            primaryBirthdayStatus.isTodayBirthday
+              ? 'bg-gradient-to-r from-[#FFDCEB] via-[#FFF4D6] to-[#FFE7F2] border-[#F08CAE]'
+              : 'bg-gradient-to-r from-[#FFF0F6] via-[#FFF8EC] to-[#EEF8F4] border-[#F2C3D5]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-white/90 border border-[#F5C6D6] flex items-center justify-center text-xl shrink-0">
+              {primaryBirthdayStatus.isTodayBirthday ? '🎂' : '🎉'}
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-extrabold text-[#B83B64] truncate">
+                  {primaryBirthdayStatus.countdownText}
+                </span>
+                {birthdayBadgeCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#3BA886] text-white text-[10px] font-extrabold tabular-nums">
+                    {birthdayBadgeCount} 待領
+                  </span>
+                ) : primaryBirthdayStatus.isTodayBirthday ? (
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#FF6B97] text-white text-[10px] font-extrabold">
+                    壽星派對
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-[11px] font-bold text-[#7B4F5D] truncate tabular-nums">
+                生日 {primaryBirthdayStatus.dateLabel} · 🎫 {birthdaySystem?.tickets.balance ?? 0} 生日券
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-xl bg-white border border-[#F2BDCE] text-[11px] font-extrabold text-[#B83B64] whitespace-nowrap shrink-0">
+            🎉 派對 ›
+          </span>
+        </button>
       )}
 
       {seasonSystem?.seasonEvent && onOpenSeasonFestival && (
@@ -1341,7 +1396,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         latestMessage.stickerId
                           ? `[${getStickerById(latestMessage.stickerId)?.label ?? '貼圖'}] `
                           : ''
-                      }${latestMessage.content.replace(/\[photo:[^\]]+\]/g, '📸 合照').trim()}`
+                      }${latestMessage.content.replace(/\[photo:[^\]]+\]/g, '📸 合照').replace(/\[bdaycard:[^\]]+\]/g, '🎂 生日賀卡').trim()}`
                     : '傳送貼圖與悄悄話'}
                 </p>
               </div>

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, MessageCircleHeart, Send, Smile, Trash2, X } from 'lucide-react';
 import { getTitleDefinition } from '../data/encyclopedia';
+import { PHOTO_STICKER_BY_ID } from '../data/photoStudio';
 import { getStickerById, PET_STICKERS } from '../data/stickers';
-import { Pet, PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom, TitleId } from '../types';
+import { BirthdayCard, Pet, PetMessage, PetStickerId, RoomPhotoRecord, SharedPetRoom, TitleId } from '../types';
 import { PiggySticker } from './PiggySticker';
 import { RoomPhotoCard } from './house/RoomPhotoCard';
 
@@ -27,15 +28,28 @@ interface MessageBoardModalProps {
   onTogglePhotoLike?: (photoId: string) => void;
   onAddPhotoComment?: (photoId: string, content: string) => void;
   activeTitle?: TitleId | null;
+  birthdayCards?: BirthdayCard[];
 }
 
 const PHOTO_TAG_REGEX = /\[photo:([^\]]+)\]/;
+const BDAY_CARD_TAG_REGEX = /\[bdaycard:([^\]]+)\]/;
 
-function parseMessagePhotoTag(content: string): { cleanText: string; photoId: string | null } {
-  const match = PHOTO_TAG_REGEX.exec(content);
-  if (!match) return { cleanText: content, photoId: null };
-  const cleanText = content.replace(PHOTO_TAG_REGEX, '').trim();
-  return { cleanText, photoId: match[1] };
+function parseMessagePhotoTag(content: string): {
+  cleanText: string;
+  photoId: string | null;
+  birthdayCardId: string | null;
+} {
+  const photoMatch = PHOTO_TAG_REGEX.exec(content);
+  const bdayMatch = BDAY_CARD_TAG_REGEX.exec(content);
+  const cleanText = content
+    .replace(PHOTO_TAG_REGEX, '')
+    .replace(BDAY_CARD_TAG_REGEX, '')
+    .trim();
+  return {
+    cleanText,
+    photoId: photoMatch ? photoMatch[1] : null,
+    birthdayCardId: bdayMatch ? bdayMatch[1] : null,
+  };
 }
 
 function formatMessageTime(ts: number): string {
@@ -65,6 +79,7 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
   onTogglePhotoLike,
   onAddPhotoComment,
   activeTitle = null,
+  birthdayCards = [],
 }) => {
   const [text, setText] = useState<string>('');
   const [selectedSticker, setSelectedSticker] = useState<PetStickerId | null>(null);
@@ -176,9 +191,12 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                 msg.authorId === 'local' ||
                 (currentUserId !== null && msg.authorId === currentUserId);
               const stickerInfo = getStickerById(msg.stickerId);
-              const { cleanText, photoId } = parseMessagePhotoTag(msg.content);
+              const { cleanText, photoId, birthdayCardId } = parseMessagePhotoTag(msg.content);
               const matchedPhoto = photoId
                 ? roomPhotos.find((p) => p.id === photoId) ?? null
+                : null;
+              const matchedBirthdayCard = birthdayCardId
+                ? birthdayCards.find((c) => c.id === birthdayCardId) ?? null
                 : null;
 
               return (
@@ -241,6 +259,46 @@ export const MessageBoardModal: React.FC<MessageBoardModalProps> = ({
                     {!matchedPhoto && photoId && (
                       <div className="my-1 rounded-xl bg-[#FFF8EE] border border-[#EED9C4] px-2.5 py-1.5 text-[11px] font-bold text-[#8A5A12]">
                         📸 分享了一張紀念相片（早期相片已不在最新 36 張相簿內）
+                      </div>
+                    )}
+
+                    {matchedBirthdayCard && (
+                      <div className="my-1.5 rounded-2xl bg-gradient-to-br from-[#FFF4F7] via-[#FFF9E6] to-[#F3FAF6] border-2 border-[#F3C8D6] p-2.5 space-y-1.5 text-left">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-extrabold text-[#B83B64]">
+                            🎂 給 {matchedBirthdayCard.petName} 的生日賀卡
+                          </span>
+                          <span className="text-[10px] font-bold text-[#8B6C62] tabular-nums">
+                            {matchedBirthdayCard.birthdayDateLabel}
+                          </span>
+                        </div>
+                        {matchedBirthdayCard.stickers.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap text-sm">
+                            {matchedBirthdayCard.stickers.map((sid) => {
+                              const st = PHOTO_STICKER_BY_ID[sid];
+                              return st ? <span key={sid}>{st.emoji}</span> : null;
+                            })}
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          {matchedBirthdayCard.blessings.map((bl) => (
+                            <div
+                              key={`${bl.userId}_${bl.createdAt}`}
+                              className="rounded-xl bg-white/85 border border-[#F4DFD7] px-2 py-1 text-[11px] text-[#4A3531]"
+                            >
+                              <span className="font-extrabold text-[#B83B64]">
+                                {bl.userName}：
+                              </span>
+                              <span className="font-medium">{bl.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {!matchedBirthdayCard && birthdayCardId && (
+                      <div className="my-1 rounded-xl bg-[#FFF4F7] border border-[#F3C8D6] px-2.5 py-1.5 text-[11px] font-bold text-[#B83B64]">
+                        💌 分享了一張生日賀卡
                       </div>
                     )}
 

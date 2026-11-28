@@ -721,7 +721,9 @@ export function saveScenePhoto(
     uniqueKey: `photo_${photo.id}`,
     petId: activePet.id,
     type:
-      resolvedKind === 'town'
+      resolvedKind === 'birthday'
+        ? 'birthday'
+        : resolvedKind === 'town'
         ? 'town'
         : resolvedKind === 'visitor'
         ? 'visitor'

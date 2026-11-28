@@ -55,6 +55,7 @@ export const RoomPhotoCard: React.FC<RoomPhotoCardProps> = ({
     photo.photoKind === 'farm' ||
     photo.photoKind === 'album' ||
     photo.photoKind === 'visitor' ||
+    photo.photoKind === 'birthday' ||
     (Boolean(photo.wardrobePoseId) && photo.placedItems.length === 0);
   const stickers = photo.stickers ?? [];
 

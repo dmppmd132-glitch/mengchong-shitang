@@ -195,6 +195,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '連續 3 天完成小鎮地圖「共養探索」合作任務',
     badgeClass: 'bg-[#E6F8EE] border-[#8BD7B3] text-[#1D6B4F]',
   },
+  birthday_party_partner: {
+    id: 'birthday_party_partner',
+    name: '生日派對搭檔',
+    emoji: '🎂',
+    description: '連續 3 次與共養夥伴一起做蛋糕、佈置房間、拍合照與寫賀卡！',
+    conditionText: '連續完成 3 次共養生日任務',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

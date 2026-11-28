@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckSquare, Cloud, Coins, Volume2, VolumeX } from 'lucide-react';
 import { AuthSyncModal } from './components/AuthSyncModal';
+import { BirthdayModal, BirthdayModalTab } from './components/birthday/BirthdayModal';
 import { BottomTabBar } from './components/BottomTabBar';
 import { CanteenSection, CanteenView } from './components/CanteenView';
 import { CollectionCelebrationModal } from './components/collection/CollectionCelebrationModal';
@@ -90,7 +91,17 @@ import {
 import {
   Accessory,
   ActiveTownLocationId,
+  BirthdayCake,
+  BirthdayCakeBase,
+  BirthdayCakeCream,
+  BirthdayCakeDecor,
+  BirthdayCakeId,
+  BirthdayDecorationId,
+  BirthdayGiftId,
+  BirthdayLeapChoice,
+  BirthdayPantryState,
   CloudSavePayload,
+  CoopBirthdayTaskKey,
   CloudSyncStatus,
   CloudUser,
   CollectionCategoryId,
@@ -354,6 +365,30 @@ import {
   syncSeasonSystemState,
   unlockWinterSnowPhotoBonus,
 } from './utils/seasons';
+import {
+  addBirthdayCardBlessing,
+  applyBirthdayOnPhotoTaken,
+  bakeBirthdayCake,
+  buyBirthdayDecoration,
+  buyBirthdayGift,
+  buyBirthdayPantryItem,
+  buyBirthdayTicketShopItem,
+  celebrateEatBirthdayCake,
+  claimBirthdayOrder,
+  claimBirthdayTask,
+  claimCoopBirthdayReward,
+  contributeCoopBirthdayStep,
+  finalizeBirthdayCard,
+  getBirthdaySystemState,
+  getOrCreateCoopBirthdaySession,
+  getPrimaryBirthdayPetStatus,
+  markBirthdayCardShared,
+  mergeBirthdaySystemRemoteState,
+  placeBirthdayCake,
+  reserveBirthdayCake,
+  syncBirthdaySystemState,
+  updatePetBirthday,
+} from './utils/birthday';
 
 export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
@@ -399,6 +434,10 @@ export default function App() {
   const [weatherCenterOpen, setWeatherCenterOpen] = useState<boolean>(false);
   const [seasonFestivalOpen, setSeasonFestivalOpen] = useState<boolean>(false);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState<boolean>(false);
+  const [birthdayModalTab, setBirthdayModalTab] = useState<BirthdayModalTab>('overview');
+  const [birthdayNotice, setBirthdayNotice] = useState<string>('');
+  const [birthdayError, setBirthdayError] = useState<string>('');
   const [personalityModalOpen, setPersonalityModalOpen] = useState<boolean>(false);
   const [dialogueHistoryOpen, setDialogueHistoryOpen] = useState<boolean>(false);
   const [wardrobePhotoOpen, setWardrobePhotoOpen] = useState<boolean>(false);
@@ -764,6 +803,10 @@ export default function App() {
             mergedCoopState.seasonSystem,
             remoteState.seasonSystem
           ),
+          birthdaySystem: mergeBirthdaySystemRemoteState(
+            mergedCoopState.birthdaySystem,
+            remoteState.birthdaySystem
+          ),
         };
         const mergedActive = getActivePet(mergedState);
         const partnerFedNow = remoteState.feedLogs.length > gameRef.current.feedLogs.length;
@@ -787,7 +830,8 @@ export default function App() {
           (ev) =>
             (ev.gameType === 'event_coop' ||
               ev.gameType === 'visitor_coop' ||
-              ev.gameType === 'town_coop') &&
+              ev.gameType === 'town_coop' ||
+              ev.gameType === 'birthday_coop') &&
             !prevPartnerEventIds.has(ev.id)
         );
         const nextMergedActive = getActivePet(nextMerged);
@@ -805,6 +849,8 @@ export default function App() {
                 ? '🍓'
                 : newPartnerCoopEv.gameType === 'town_coop'
                 ? '🗺️'
+                : newPartnerCoopEv.gameType === 'birthday_coop'
+                ? '🎂'
                 : '🐾'
               : '💞',
           },
@@ -841,12 +887,17 @@ export default function App() {
               mergedCoopState.seasonSystem,
               res.state.seasonSystem
             ),
+            birthdaySystem: mergeBirthdaySystemRemoteState(
+              mergedCoopState.birthdaySystem,
+              res.state.birthdaySystem
+            ),
           };
           const newPartnerCoopEv = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
             (ev) =>
               (ev.gameType === 'event_coop' ||
                 ev.gameType === 'visitor_coop' ||
-                ev.gameType === 'town_coop') &&
+                ev.gameType === 'town_coop' ||
+                ev.gameType === 'birthday_coop') &&
               !prevPartnerEventIds.has(ev.id)
           );
           const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
@@ -863,6 +914,8 @@ export default function App() {
                     ? '🍓'
                     : newPartnerCoopEv.gameType === 'town_coop'
                     ? '🗺️'
+                    : newPartnerCoopEv.gameType === 'birthday_coop'
+                    ? '🎂'
                     : '🐾',
               },
             ]);
@@ -1215,6 +1268,7 @@ export default function App() {
         draft = syncTownMapState(draft, new Date(now));
         draft = syncCoopTownExploration(draft, hasShared, new Date(now));
         draft = syncSeasonSystemState(draft, now);
+        draft = syncBirthdaySystemState(draft, new Date(now));
         if (draft.dialogue.weather.condition === 'windy') {
           draft = maybeTriggerWindblownPlot(draft, now);
         }
@@ -4681,6 +4735,18 @@ export default function App() {
     finalState = advanceSakuraCoopStep(finalState, 'photo', currentUserId);
     const snowBonus = unlockWinterSnowPhotoBonus(finalState);
     finalState = snowBonus.nextState;
+    const bdayPhotoRes = applyBirthdayOnPhotoTaken(finalState, {
+      photoId: photo.id,
+      scene: params.scene,
+      poseId: params.poseId,
+      backgroundId: params.backgroundId,
+      filterId: params.filterId,
+      frameId: params.frameId,
+      stickers: params.stickers,
+      petId: activePet.id,
+      petName: activePet.name,
+    });
+    finalState = bdayPhotoRes.nextState;
     setGame(finalState);
     pushFeedback(
       params.duoPet
@@ -4689,9 +4755,14 @@ export default function App() {
         ? `已將與${VISITOR_BY_ID[params.visitorId].speciesLabel}的合影存入照片牆！`
         : params.townLocationId
         ? '已儲存小鎮地點寫真到照片牆！'
+        : params.scene === 'birthday'
+        ? '已儲存生日派對寫真到照片牆！'
         : '已儲存寫真到照片牆！',
-      '📸'
+      params.scene === 'birthday' ? '🎂' : '📸'
     );
+    if (bdayPhotoRes.birthdayNotice) {
+      pushFeedback(bdayPhotoRes.birthdayNotice, '🎂');
+    }
     for (const label of snowBonus.newlyUnlockedLabels) {
       pushFeedback(`❄️ 下雪限定解鎖「${label}」！`, '❄️');
     }
@@ -5190,6 +5261,265 @@ export default function App() {
     return handleSendMessage(`${payload.emoji} ${payload.title}${summary}`, 'heart');
   };
 
+  // ==================== 生日派對系統 Handlers ====================
+  const applyBirthdayActionResult = (
+    res: { nextState: GameState; ok: boolean; notice: string; error?: string },
+    emoji = '🎂',
+    celebrationSound = false
+  ) => {
+    setBirthdayNotice('');
+    setBirthdayError('');
+    if (!res.ok) {
+      soundFX.miss(game.soundEnabled);
+      if (res.error) {
+        setBirthdayError(res.error);
+        pushFeedback(res.error, '⚠️');
+      }
+      return false;
+    }
+    if (celebrationSound) {
+      soundFX.levelUp(game.soundEnabled);
+    } else {
+      soundFX.heart(game.soundEnabled);
+    }
+    setGame(res.nextState);
+    if (res.notice) {
+      setBirthdayNotice(res.notice);
+      pushFeedback(res.notice, emoji);
+      setSpeech(res.notice);
+    }
+    return true;
+  };
+
+  const handleUpdatePetBirthday = (
+    petId: string,
+    month: number,
+    day: number,
+    leapChoice: BirthdayLeapChoice
+  ) => {
+    applyBirthdayActionResult(
+      updatePetBirthday(gameRef.current, petId, month, day, leapChoice),
+      '📅'
+    );
+  };
+
+  const handleBuyBirthdayPantryItem = (
+    itemId: keyof BirthdayPantryState,
+    qty = 1
+  ) => {
+    applyBirthdayActionResult(
+      buyBirthdayPantryItem(gameRef.current, itemId, qty),
+      '🧁'
+    );
+  };
+
+  const handleReserveBirthdayCake = (petId: string, cakeId: BirthdayCakeId) => {
+    applyBirthdayActionResult(
+      reserveBirthdayCake(gameRef.current, petId, cakeId),
+      '🗓️'
+    );
+  };
+
+  const handleBakeBirthdayCake = (params: {
+    cakeTypeId: BirthdayCakeId | 'custom';
+    petId: string;
+    base: BirthdayCakeBase;
+    cream: BirthdayCakeCream;
+    decors: BirthdayCakeDecor[];
+    plaqueText: string;
+    fruitIngredientId?: IngredientId;
+  }) => {
+    applyBirthdayActionResult(
+      bakeBirthdayCake(gameRef.current, params),
+      '🍰',
+      true
+    );
+  };
+
+  const handlePlaceBirthdayCake = (
+    cakeId: string,
+    target: 'room' | 'yard' | null
+  ) => {
+    applyBirthdayActionResult(
+      placeBirthdayCake(gameRef.current, cakeId, target),
+      '🎂'
+    );
+  };
+
+  const handleCelebrateEatBirthdayCake = (cakeId: string, petId: string) => {
+    applyBirthdayActionResult(
+      celebrateEatBirthdayCake(gameRef.current, cakeId, petId),
+      '🎉',
+      true
+    );
+  };
+
+  const handleTapBirthdayCake = (cake: BirthdayCake) => {
+    if (!cake.eaten) {
+      handleCelebrateEatBirthdayCake(cake.id, cake.petId);
+      return;
+    }
+    setBirthdayModalTab('cakes');
+    setBirthdayNotice('');
+    setBirthdayError('');
+    setBirthdayModalOpen(true);
+  };
+
+  const handleBuyBirthdayGift = (giftId: BirthdayGiftId, petId: string) => {
+    applyBirthdayActionResult(
+      buyBirthdayGift(gameRef.current, giftId, petId),
+      '🎁',
+      true
+    );
+  };
+
+  const handleBuyBirthdayTicketShopItem = (itemId: string, petId: string) => {
+    applyBirthdayActionResult(
+      buyBirthdayTicketShopItem(gameRef.current, itemId, petId),
+      '🎫',
+      true
+    );
+  };
+
+  const handleBuyOrToggleBirthdayDecor = (decorId: BirthdayDecorationId) => {
+    applyBirthdayActionResult(
+      buyBirthdayDecoration(gameRef.current, decorId),
+      '🎈'
+    );
+  };
+
+  const handleAddBirthdayCardBlessing = (params: {
+    petId: string;
+    text: string;
+    stickers: PhotoStickerId[];
+  }) => {
+    applyBirthdayActionResult(
+      addBirthdayCardBlessing(gameRef.current, {
+        petId: params.petId,
+        userId: currentUserId,
+        userName: actorName,
+        text: params.text,
+        stickers: params.stickers,
+      }),
+      '💌'
+    );
+  };
+
+  const handleFinalizeBirthdayCard = (
+    petId: string,
+    stickers: PhotoStickerId[]
+  ) => {
+    applyBirthdayActionResult(
+      finalizeBirthdayCard(gameRef.current, petId, stickers),
+      '💌',
+      true
+    );
+  };
+
+  const handleShareBirthdayCardToBoard = async (cardId: string) => {
+    setBirthdayNotice('');
+    setBirthdayError('');
+    const sys = getBirthdaySystemState(gameRef.current);
+    const card = sys.cards.find((c) => c.id === cardId);
+    if (!card) {
+      setBirthdayError('找不到要分享的生日賀卡喔！');
+      return;
+    }
+    const err = await handleSendMessage(
+      `🎂 送上${card.petName}的生日賀卡！ [bdaycard:${card.id}]`,
+      'heart'
+    );
+    if (err) {
+      setBirthdayError(err);
+      pushFeedback(err, '⚠️');
+      return;
+    }
+    setGame((prev) => markBirthdayCardShared(prev, card.id));
+    setBirthdayNotice('賀卡已分享到萌寵留言板！');
+    pushFeedback(`已將${card.petName}的生日賀卡分享到留言板！`, '💌');
+  };
+
+  const handleClaimBirthdayTask = (taskId: string) => {
+    applyBirthdayActionResult(
+      claimBirthdayTask(gameRef.current, taskId),
+      '🎫',
+      true
+    );
+  };
+
+  const handleClaimBirthdayOrder = (orderId: string) => {
+    applyBirthdayActionResult(
+      claimBirthdayOrder(gameRef.current, orderId),
+      '🎁',
+      true
+    );
+  };
+
+  const handleContributeCoopBirthdayStep = (stepKey: CoopBirthdayTaskKey) => {
+    applyBirthdayActionResult(
+      contributeCoopBirthdayStep(
+        gameRef.current,
+        stepKey,
+        currentUserId,
+        actorName
+      ),
+      '💞'
+    );
+  };
+
+  const handleClaimCoopBirthdayReward = () => {
+    applyBirthdayActionResult(
+      claimCoopBirthdayReward(gameRef.current, currentUserId),
+      '🎂',
+      true
+    );
+  };
+
+  const primaryBirthdayStatus = getPrimaryBirthdayPetStatus(game);
+  const birthdaySystemState = getBirthdaySystemState(game);
+  const coopBirthdaySession = getOrCreateCoopBirthdaySession(game);
+  const birthdayBadgeCount =
+    birthdaySystemState.tasks.filter((t) => t.completed && !t.claimed).length +
+    birthdaySystemState.orders.filter((o) => o.completed && !o.claimed).length +
+    (coopBirthdaySession.completed &&
+    !coopBirthdaySession.claimedByUserIds.includes(currentUserId || 'local')
+      ? 1
+      : 0);
+
+  useEffect(() => {
+    if (!activePet.hatched) return;
+    if (!primaryBirthdayStatus.isCountdown && !primaryBirthdayStatus.isTodayBirthday) {
+      return;
+    }
+    const toastKey = `${primaryBirthdayStatus.yearKey}_${primaryBirthdayStatus.daysUntil}`;
+    const currentSys = getBirthdaySystemState(gameRef.current);
+    if (currentSys.lastCountdownToastKey === toastKey) return;
+
+    setGame((prev) => {
+      const prevSys = getBirthdaySystemState(prev);
+      if (prevSys.lastCountdownToastKey === toastKey) return prev;
+      return {
+        ...prev,
+        birthdaySystem: {
+          ...prevSys,
+          lastCountdownToastKey: toastKey,
+        },
+      };
+    });
+    pushFeedback(
+      primaryBirthdayStatus.countdownText,
+      primaryBirthdayStatus.isTodayBirthday ? '🎂' : '🗓️'
+    );
+    setSpeech(primaryBirthdayStatus.countdownText);
+  }, [
+    activePet.hatched,
+    primaryBirthdayStatus.isCountdown,
+    primaryBirthdayStatus.isTodayBirthday,
+    primaryBirthdayStatus.yearKey,
+    primaryBirthdayStatus.daysUntil,
+    primaryBirthdayStatus.countdownText,
+  ]);
+
   const activeMessages = sharedRoom ? sharedMessages : game.messages;
   const latestMessage =
     activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
@@ -5522,6 +5852,16 @@ export default function App() {
                   onOpenSeasonFestival={() => setSeasonFestivalOpen(true)}
                   onDismissSeasonNotice={handleDismissSeasonNotice}
                   onDismissOfflineSummary={handleDismissOfflineSummary}
+                  birthdaySystem={birthdaySystemState}
+                  primaryBirthdayStatus={primaryBirthdayStatus}
+                  birthdayBadgeCount={birthdayBadgeCount}
+                  onOpenBirthdayParty={() => {
+                    setBirthdayModalTab('overview');
+                    setBirthdayNotice('');
+                    setBirthdayError('');
+                    setBirthdayModalOpen(true);
+                  }}
+                  onTapBirthdayCake={handleTapBirthdayCake}
                 />
               )}
 
@@ -5536,6 +5876,13 @@ export default function App() {
                   onOpenMemories={() => {
                     setJournalInitialSection('memories');
                     setActiveTab('journal');
+                  }}
+                  onUpdatePetBirthday={handleUpdatePetBirthday}
+                  onOpenBirthdayParty={() => {
+                    setBirthdayModalTab('overview');
+                    setBirthdayNotice('');
+                    setBirthdayError('');
+                    setBirthdayModalOpen(true);
                   }}
                 />
               )}
@@ -5642,6 +5989,7 @@ export default function App() {
                   onTogglePhotoLike={handleTogglePhotoLike}
                   onAddPhotoComment={handleAddPhotoComment}
                   onOpenShareCard={handleOpenShareCard}
+                  onCelebrateBirthdayCake={handleTapBirthdayCake}
                 />
               )}
 
@@ -5837,6 +6185,7 @@ export default function App() {
           onTogglePhotoLike={handleTogglePhotoLike}
           onAddPhotoComment={handleAddPhotoComment}
           activeTitle={game.encyclopedia.activeTitle}
+          birthdayCards={birthdaySystemState.cards}
         />
 
         <MinigameHubModal
@@ -6086,6 +6435,41 @@ export default function App() {
           onOpenSharedPet={() => {
             setSeasonFestivalOpen(false);
             setSharedModalOpen(true);
+          }}
+        />
+
+        <BirthdayModal
+          open={birthdayModalOpen}
+          game={game}
+          initialTab={birthdayModalTab}
+          actorName={actorName}
+          currentUserId={cloudUser?.id ?? null}
+          notice={birthdayNotice}
+          errorMsg={birthdayError}
+          onClearBanner={() => {
+            setBirthdayNotice('');
+            setBirthdayError('');
+          }}
+          onClose={() => setBirthdayModalOpen(false)}
+          onUpdatePetBirthday={handleUpdatePetBirthday}
+          onBuyPantryItem={handleBuyBirthdayPantryItem}
+          onReserveCake={handleReserveBirthdayCake}
+          onBakeCake={handleBakeBirthdayCake}
+          onPlaceCake={handlePlaceBirthdayCake}
+          onEatCake={handleCelebrateEatBirthdayCake}
+          onBuyGift={handleBuyBirthdayGift}
+          onBuyTicketShopItem={handleBuyBirthdayTicketShopItem}
+          onBuyOrToggleDecoration={handleBuyOrToggleBirthdayDecor}
+          onAddCardBlessing={handleAddBirthdayCardBlessing}
+          onFinalizeCard={handleFinalizeBirthdayCard}
+          onShareCardToBoard={handleShareBirthdayCardToBoard}
+          onClaimTask={handleClaimBirthdayTask}
+          onClaimOrder={handleClaimBirthdayOrder}
+          onContributeCoopStep={handleContributeCoopBirthdayStep}
+          onClaimCoopReward={handleClaimCoopBirthdayReward}
+          onOpenBirthdayPhoto={() => {
+            setBirthdayModalOpen(false);
+            handleOpenScenePhoto('birthday', 'shoot');
           }}
         />
       </div>

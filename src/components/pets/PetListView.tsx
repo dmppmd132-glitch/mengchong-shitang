@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Heart, Lock, Plus, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, Cake, CheckCircle2, Heart, Lock, Plus, Sparkles, Users } from 'lucide-react';
 import { getTitleDefinition } from '../../data/encyclopedia';
 import { FOOD_BY_ID } from '../../data/foods';
 import { PET_ABILITIES, RESERVED_SPECIAL_PETS } from '../../data/pets';
 import { getPetSpeciesInfo } from '../../data/species';
-import { GameState, Pet, PetSpecies } from '../../types';
+import { BirthdayLeapChoice, GameState, Pet, PetSpecies } from '../../types';
+import { getBirthdayStatusForPet } from '../../utils/birthday';
 import {
   evaluatePetSlots,
   evaluateSpeciesUnlocks,
@@ -22,6 +23,13 @@ interface PetListViewProps {
   onAdoptPet: (species: PetSpecies, name: string) => boolean;
   onClaimSlotReward: (slotNumber: number) => void;
   onOpenMemories?: () => void;
+  onUpdatePetBirthday?: (
+    petId: string,
+    month: number,
+    day: number,
+    leapChoice: BirthdayLeapChoice
+  ) => void;
+  onOpenBirthdayParty?: () => void;
 }
 
 export const PetListView: React.FC<PetListViewProps> = ({
@@ -32,6 +40,8 @@ export const PetListView: React.FC<PetListViewProps> = ({
   onAdoptPet,
   onClaimSlotReward,
   onOpenMemories,
+  onUpdatePetBirthday,
+  onOpenBirthdayParty,
 }) => {
   const activePet = getActivePet(game);
   const slotEval = useMemo(
@@ -48,6 +58,10 @@ export const PetListView: React.FC<PetListViewProps> = ({
   const [selectedSpecies, setSelectedSpecies] = useState<PetSpecies>(firstUnlockedSpecies);
   const [newPetName, setNewPetName] = useState('');
   const [subTab, setSubTab] = useState<'roster' | 'adopt' | 'slots'>('roster');
+  const [editingBirthdayPetId, setEditingBirthdayPetId] = useState<string | null>(null);
+  const [editBdayMonth, setEditBdayMonth] = useState<number>(1);
+  const [editBdayDay, setEditBdayDay] = useState<number>(1);
+  const [editBdayLeap, setEditBdayLeap] = useState<BirthdayLeapChoice>('mar1');
 
   const hasFreeSlot = game.pets.length < slotEval.maxSlots;
   const selectedUnlockInfo =
@@ -73,6 +87,14 @@ export const PetListView: React.FC<PetListViewProps> = ({
       .slice(0, 2)
       .map((id) => FOOD_BY_ID[id]?.name ?? id)
       .join('、');
+    const bdayStatus = getBirthdayStatusForPet(pet);
+    const isEditingBday = !readOnly && editingBirthdayPetId === pet.id;
+    const maxDayForEdit =
+      editBdayMonth === 2
+        ? 29
+        : [4, 6, 9, 11].includes(editBdayMonth)
+        ? 30
+        : 31;
 
     return (
       <div
@@ -167,6 +189,137 @@ export const PetListView: React.FC<PetListViewProps> = ({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Birthday Info & Inline Editor */}
+        <div className="mt-2.5 rounded-2xl bg-[#FFF6FA] border border-[#F3D5E1] px-3 py-2 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Cake className="w-3.5 h-3.5 text-[#D64470] shrink-0" />
+              <span className="text-[11px] font-extrabold text-[#B83B64] truncate">
+                生日 {bdayStatus.dateLabel} · {bdayStatus.countdownText}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {(bdayStatus.isTodayBirthday || bdayStatus.isCountdown) && onOpenBirthdayParty && (
+                <button
+                  type="button"
+                  onClick={onOpenBirthdayParty}
+                  className="px-2.5 py-1 rounded-xl bg-[#FF7EA8] text-white text-[10.5px] font-extrabold active:scale-95 transition"
+                >
+                  🎂 去慶生
+                </button>
+              )}
+              {!readOnly && onUpdatePetBirthday && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditingBday) {
+                      setEditingBirthdayPetId(null);
+                    } else {
+                      setEditBdayMonth(bdayStatus.month);
+                      setEditBdayDay(bdayStatus.day);
+                      setEditBdayLeap(bdayStatus.config.leapYearChoice);
+                      setEditingBirthdayPetId(pet.id);
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-white border border-[#ECC4D3] text-[10.5px] font-extrabold text-[#9A4262] active:scale-95 transition"
+                >
+                  {isEditingBday ? '收合' : '設定生日'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isEditingBday && onUpdatePetBirthday && (
+            <div className="pt-1 border-t border-[#F5DCE6] space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10.5px] font-extrabold text-[#6E544E] space-y-1">
+                  <span>月份</span>
+                  <select
+                    value={editBdayMonth}
+                    onChange={(e) => {
+                      const nextM = Number(e.target.value);
+                      const nextMax =
+                        nextM === 2 ? 29 : [4, 6, 9, 11].includes(nextM) ? 30 : 31;
+                      setEditBdayMonth(nextM);
+                      if (editBdayDay > nextMax) setEditBdayDay(nextMax);
+                    }}
+                    className="w-full min-h-[38px] rounded-xl bg-white border border-[#E5C9B0] px-2 text-xs font-extrabold text-[#4A3531]"
+                  >
+                    {Array.from({ length: 12 }, (_, idx) => idx + 1).map((m) => (
+                      <option key={m} value={m}>
+                        {m} 月
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="text-[10.5px] font-extrabold text-[#6E544E] space-y-1">
+                  <span>日期</span>
+                  <select
+                    value={Math.min(editBdayDay, maxDayForEdit)}
+                    onChange={(e) => setEditBdayDay(Number(e.target.value))}
+                    className="w-full min-h-[38px] rounded-xl bg-white border border-[#E5C9B0] px-2 text-xs font-extrabold text-[#4A3531]"
+                  >
+                    {Array.from({ length: maxDayForEdit }, (_, idx) => idx + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d} 日
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {editBdayMonth === 2 && editBdayDay === 29 && (
+                <div className="flex items-center justify-between gap-2 rounded-xl bg-white border border-[#F2D5E1] px-2.5 py-1.5">
+                  <span className="text-[10.5px] font-extrabold text-[#7D635D]">
+                    非閏年慶祝日期：
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditBdayLeap('feb28')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border ${
+                        editBdayLeap === 'feb28'
+                          ? 'bg-[#FFE7F0] border-[#EC7FA3] text-[#B83B64]'
+                          : 'bg-[#FFFDF8] border-[#E8D6CE] text-[#6E544E]'
+                      }`}
+                    >
+                      2月28日
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditBdayLeap('mar1')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-extrabold border ${
+                        editBdayLeap === 'mar1'
+                          ? 'bg-[#FFE7F0] border-[#EC7FA3] text-[#B83B64]'
+                          : 'bg-[#FFFDF8] border-[#E8D6CE] text-[#6E544E]'
+                      }`}
+                    >
+                      3月1日
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdatePetBirthday(
+                    pet.id,
+                    editBdayMonth,
+                    Math.min(editBdayDay, maxDayForEdit),
+                    editBdayLeap
+                  );
+                  setEditingBirthdayPetId(null);
+                }}
+                className="w-full min-h-[38px] rounded-xl bg-[#FF7EA8] text-white text-xs font-extrabold active:scale-95 transition"
+              >
+                儲存 {pet.name} 的生日
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">

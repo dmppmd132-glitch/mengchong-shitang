@@ -428,6 +428,66 @@
   animation: poseShy 1.6s ease-in-out infinite;
 }
 
+@keyframes poseBlowCandles {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-2px) scale(1.04, 0.97) rotate(-2deg);
+  }
+  70% {
+    transform: translateY(-5px) scale(0.98, 1.03) rotate(1deg);
+  }
+}
+
+@keyframes poseCutCake {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-5px) rotate(-5deg) scale(1.03);
+  }
+  65% {
+    transform: translateY(-2px) rotate(5deg) scale(1.02);
+  }
+}
+
+@keyframes poseWearCrown {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 2px rgba(242, 201, 76, 0.25));
+  }
+  50% {
+    transform: translateY(-6px) scale(1.05);
+    filter: drop-shadow(0 0 10px rgba(242, 201, 76, 0.65));
+  }
+}
+
+@keyframes poseHoldGift {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg) scale(1.01, 0.99);
+  }
+  50% {
+    transform: translateY(-4px) rotate(3deg) scale(0.99, 1.02);
+  }
+}
+
+.animate-pose-blow-candles {
+  animation: poseBlowCandles 1.3s ease-in-out infinite;
+}
+
+.animate-pose-cut-cake {
+  animation: poseCutCake 1.05s ease-in-out infinite;
+}
+
+.animate-pose-wear-crown {
+  animation: poseWearCrown 1.4s ease-in-out infinite;
+}
+
+.animate-pose-hold-gift {
+  animation: poseHoldGift 1.25s ease-in-out infinite;
+}
+
 @keyframes cardReveal {
   0% {
     transform: scale(0.86) rotateY(70deg);
@@ -975,6 +1035,10 @@
   .animate-pose-runway,
   .animate-pose-star-eyes,
   .animate-pose-shy,
+  .animate-pose-blow-candles,
+  .animate-pose-cut-cake,
+  .animate-pose-wear-crown,
+  .animate-pose-hold-gift,
   .animate-season-petal,
   .animate-season-snow,
   .animate-season-rain,

@@ -34,7 +34,11 @@ export type PhotoPose =
   | 'crown_star'
   | 'anniversary_cheer'
   | 'strawberry_sweetheart'
-  | 'collection_twirl';
+  | 'collection_twirl'
+  | 'bday_blow_candles'
+  | 'bday_cut_cake'
+  | 'bday_wear_crown'
+  | 'bday_hold_gift';
 
 export type PhotoBackground =
   | 'pink_room'
@@ -64,7 +68,12 @@ export type PhotoBackground =
   | 'maple_path'
   | 'harvest_farm'
   | 'snow_cabin'
-  | 'christmas_market';
+  | 'christmas_market'
+  | 'bday_pink_balloons'
+  | 'bday_rainbow_cake'
+  | 'bday_starry_party'
+  | 'bday_forest_picnic'
+  | 'birthday_bg';
 
 export type PhotoFilter =
   | 'none'
@@ -94,7 +103,11 @@ export type PhotoFilter =
   | 'maple_red'
   | 'warm_gold'
   | 'snow_white'
-  | 'hearth_orange';
+  | 'hearth_orange'
+  | 'bday_cream_pink'
+  | 'bday_candy_color'
+  | 'bday_warm_gold'
+  | 'bday_starry_purple';
 
 export type PhotoFrame =
   | 'none'
@@ -122,9 +135,14 @@ export type PhotoFrame =
   | 'maple_frame'
   | 'pumpkin_frame'
   | 'snowflake_frame'
-  | 'gingerbread_frame';
+  | 'gingerbread_frame'
+  | 'bday_balloon'
+  | 'bday_cake'
+  | 'bday_crown'
+  | 'bday_giftbox'
+  | 'birthday_frame';
 
-export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town';
+export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town' | 'birthday';
 
 export type PhotoStickerId =
   | 'heart'
@@ -139,7 +157,12 @@ export type PhotoStickerId =
   | 'balloon'
   | 'moon'
   | 'fish'
-  | 'strawberry';
+  | 'strawberry'
+  | 'bday_happy'
+  | 'bday_heart'
+  | 'bday_candle'
+  | 'bday_gift'
+  | 'bday_streamer';
 
 export type StudioShopCategory = 'pose' | 'background' | 'filter' | 'frame' | 'sticker';
 
@@ -294,6 +317,7 @@ export interface Pet {
   isSharedCoopPet?: boolean;
   adoptedAt?: number;
   source?: PetUnlockRuleType;
+  birthday?: BirthdayConfig;
 }
 
 export type PetAbilityId =
@@ -583,7 +607,9 @@ export type TitleId =
   | 'collection_master'
   | 'sakura_picnic_host'
   | 'four_seasons_keeper'
-  | 'weather_watcher';
+  | 'weather_watcher'
+  | 'birthday_superstar'
+  | 'best_birthday_partner';
 
 export type PersonalityId =
   | 'greedy'
@@ -627,7 +653,7 @@ export interface Toy {
   petAction: PiggyActionState;
 }
 
-export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop' | 'town_coop';
+export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop' | 'town_coop' | 'birthday_coop';
 
 export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
 
@@ -638,7 +664,8 @@ export type CoopBadgeId =
   | 'town_host'
   | 'best_outfit_partner'
   | 'strawberry_sweetheart_partner'
-  | 'town_explore_partner';
+  | 'town_explore_partner'
+  | 'birthday_party_partner';
 
 export interface CoopGoal {
   id: string;
@@ -975,6 +1002,9 @@ export interface CoopHubState {
   coopTownSession?: CoopTownExploreSession | null;
   townExploreStreakDays?: number;
   lastTownExploreCompletedDate?: string | null;
+  coopBirthdaySession?: CoopBirthdaySession | null;
+  birthdayStreak?: number;
+  lastBirthdayCoopDateKey?: string | null;
 }
 
 export type TownLocationId =
@@ -1665,7 +1695,8 @@ export type MemoryType =
   | 'dialogue'
   | 'milestone'
   | 'visitor'
-  | 'town';
+  | 'town'
+  | 'birthday';
 
 export interface MemoryEntry {
   id: string;
@@ -1833,6 +1864,7 @@ export interface GameState {
   filterShards?: number;
   townMap?: TownMapState;
   seasonSystem?: SeasonSystemState;
+  birthdaySystem?: BirthdaySystemState;
 }
 
 export interface FloatingFeedback {
@@ -2186,4 +2218,275 @@ export interface SeasonSystemState {
   seasonEvent: SeasonEvent;
   offlineSummary: SeasonOfflineSummary | null;
 }
+
+export type BirthdayId = string;
+
+export type BirthdayLeapChoice = 'feb28' | 'mar1';
+
+export interface BirthdayConfig {
+  month: number;
+  day: number;
+  leapYearChoice: BirthdayLeapChoice;
+  updatedAt: number;
+  customized: boolean;
+}
+
+export type BirthdayPhase = 'none' | 'countdown' | 'birthday' | 'review';
+
+export type BirthdayCakeId =
+  | 'strawberry_cream_cake'
+  | 'chocolate_cake'
+  | 'fruit_cake'
+  | 'carrot_cake'
+  | 'ice_cream_cake'
+  | 'birthday_limited_cake';
+
+export type BirthdayCakeBase = 'sponge' | 'chocolate' | 'carrot' | 'ice_cream';
+
+export type BirthdayCakeCream = 'strawberry' | 'vanilla' | 'chocolate' | 'mint';
+
+export type BirthdayCakeDecor = 'strawberry' | 'candle' | 'sprinkles' | 'flags' | 'heart';
+
+export interface BirthdayCakeDefinition {
+  id: BirthdayCakeId;
+  name: string;
+  emoji: string;
+  description: string;
+  moodBonus: number;
+  intimacyBonus: number;
+  hungerBonus: number;
+  growthBonus: number;
+  weightGain: number;
+  roundnessBonus: number;
+  price: number;
+  defaultBase: BirthdayCakeBase;
+  defaultCream: BirthdayCakeCream;
+  defaultDecors: BirthdayCakeDecor[];
+  recipeIngredients: Partial<Record<IngredientId, number>>;
+  requiresFruitChoice?: boolean;
+  pantryCost: {
+    cream: number;
+    sugar: number;
+    iceCream: number;
+  };
+  limitedTicketUnlock?: number;
+}
+
+export interface BirthdayCake {
+  id: string;
+  cakeTypeId: BirthdayCakeId | 'custom';
+  name: string;
+  emoji: string;
+  base: BirthdayCakeBase;
+  cream: BirthdayCakeCream;
+  decors: BirthdayCakeDecor[];
+  plaqueText: string;
+  moodBonus: number;
+  intimacyBonus: number;
+  petId: string;
+  createdAt: number;
+  placedIn: 'room' | 'yard' | null;
+  eaten: boolean;
+}
+
+export interface BirthdayPantryState {
+  cream: number;
+  sugar: number;
+  iceCream: number;
+}
+
+export type BirthdayGiftId =
+  | 'birthday_hat'
+  | 'birthday_cape'
+  | 'birthday_balloons'
+  | 'birthday_streamers'
+  | 'birthday_crown'
+  | 'birthday_gift_box'
+  | 'birthday_frame'
+  | 'birthday_bg';
+
+export interface BirthdayGift {
+  id: BirthdayGiftId;
+  name: string;
+  emoji: string;
+  description: string;
+  moodBonus: number;
+  currency: 'coins' | 'birthday_tickets';
+  price: number;
+  category: 'accessory' | 'decor' | 'box' | 'studio';
+  targetId?: string;
+  isLimited?: boolean;
+}
+
+export type BirthdayDecorationId =
+  | 'room_balloon_arch'
+  | 'room_banner'
+  | 'room_streamers'
+  | 'room_cake_table'
+  | 'room_gift_pile'
+  | 'room_party_lights'
+  | 'yard_balloons'
+  | 'yard_flags'
+  | 'yard_picnic_mat'
+  | 'yard_cake_table'
+  | 'yard_gift_pile'
+  | 'yard_party_lights';
+
+export interface BirthdayDecoration {
+  id: BirthdayDecorationId;
+  target: 'room' | 'yard';
+  name: string;
+  emoji: string;
+  description: string;
+  moodBonus: number;
+  priceCoins: number;
+  unlockedByGiftId?: BirthdayGiftId;
+}
+
+export interface BirthdayPhotoContent {
+  poses: PhotoPose[];
+  backgrounds: PhotoBackground[];
+  filters: PhotoFilter[];
+  frames: PhotoFrame[];
+  stickers: PhotoStickerId[];
+}
+
+export interface BirthdayCardBlessing {
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: number;
+}
+
+export interface BirthdayCard {
+  id: string;
+  petId: string;
+  petName: string;
+  yearKey: string;
+  birthdayDateLabel: string;
+  blessings: BirthdayCardBlessing[];
+  stickers: PhotoStickerId[];
+  completed: boolean;
+  savedToMemories: boolean;
+  sharedToBoard: boolean;
+  createdAt: number;
+}
+
+export type CoopBirthdayTaskKey = 'cake' | 'room' | 'photo' | 'card';
+
+export interface CoopBirthdayStepProgress {
+  key: CoopBirthdayTaskKey;
+  label: string;
+  emoji: string;
+  target: number;
+  progress: number;
+  contributorUserIds: string[];
+  contributorNames: string[];
+}
+
+export interface CoopBirthdaySession {
+  id: string;
+  petId: string;
+  petName: string;
+  yearKey: string;
+  birthdayDateLabel: string;
+  steps: CoopBirthdayStepProgress[];
+  completed: boolean;
+  completedAt: number | null;
+  claimedByUserIds: string[];
+  lastUpdatedByName: string | null;
+  lastUpdatedAt: number | null;
+}
+
+export interface BirthdayCurrency {
+  balance: number;
+  totalEarned: number;
+}
+
+export type BirthdayTaskKind =
+  | 'login_birthday'
+  | 'prep_cake'
+  | 'prep_decor'
+  | 'birthday_photo'
+  | 'birthday_gift'
+  | 'birthday_card'
+  | 'coop_birthday';
+
+export interface BirthdayTask {
+  id: string;
+  kind: BirthdayTaskKind;
+  title: string;
+  description: string;
+  emoji: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardTickets: number;
+  rewardCoins: number;
+}
+
+export type BirthdayOrderKind = 'cake' | 'photo' | 'gift';
+
+export interface BirthdayOrder {
+  id: string;
+  dateKey: string;
+  kind: BirthdayOrderKind;
+  title: string;
+  description: string;
+  emoji: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  claimed: boolean;
+  rewardTickets: number;
+  rewardCoins: number;
+}
+
+export type BirthdayTicketShopCategory =
+  | 'accessory'
+  | 'frame'
+  | 'background'
+  | 'furniture'
+  | 'title'
+  | 'box'
+  | 'cake_recipe';
+
+export interface BirthdayTicketShopItem {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  category: BirthdayTicketShopCategory;
+  targetId: string;
+  ticketPrice: number;
+  badgeText: string;
+}
+
+export interface BirthdaySystemState {
+  tickets: BirthdayCurrency;
+  pantry: BirthdayPantryState;
+  cakes: BirthdayCake[];
+  reservedCakeByPetId: Record<string, BirthdayCakeId>;
+  unlockedLimitedCakeRecipe: boolean;
+  ownedGiftIds: BirthdayGiftId[];
+  giftBoxesOpenedCount: number;
+  ownedRoomDecorIds: BirthdayDecorationId[];
+  activeRoomDecorIds: BirthdayDecorationId[];
+  ownedYardDecorIds: BirthdayDecorationId[];
+  activeYardDecorIds: BirthdayDecorationId[];
+  placedCakeId: string | null;
+  cards: BirthdayCard[];
+  dailyDate: string;
+  dailyLoginTicketDate: string | null;
+  birthdayDayLoginAwardedKeys: string[];
+  tasks: BirthdayTask[];
+  orders: BirthdayOrder[];
+  purchasedShopItemIds: string[];
+  unlockedBirthdayStudioKeys: string[];
+  birthdayPhotosByYearKey: Record<string, string[]>;
+  celebratedYearKeys: string[];
+  lastCountdownToastKey: string | null;
+}
+
 

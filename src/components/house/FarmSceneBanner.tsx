@@ -6,6 +6,8 @@ import { PicnicSnackId, SYSTEM_COOKIE_ID, useYardActivities } from '../../hooks/
 import { VISITOR_BEHAVIOR_META, VISITOR_BY_ID, VISITOR_DECOR_BY_ID } from '../../data/visitors';
 import { SEASON_YARD_THEMES } from '../../data/seasons';
 import {
+  BirthdayCake,
+  BirthdaySystemState,
   CoopVisitorSession,
   IngredientId,
   Pet,
@@ -21,6 +23,7 @@ import {
 import { getSeasonFromDate } from '../../utils/seasons';
 import { soundFX, triggerHaptic } from '../../utils/sound';
 import { getActiveYardBuffExpiresAt } from '../../utils/farmGrowth';
+import { BirthdayPartyOverlay } from '../birthday/BirthdayPartyOverlay';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { SeasonWeatherAtmosphere } from '../seasons/SeasonWeatherAtmosphere';
 import { SeasonWeatherBadge } from '../seasons/SeasonWeatherBadge';
@@ -77,6 +80,8 @@ interface FarmSceneBannerProps {
   seasonSystem?: SeasonSystemState;
   weather?: WeatherState;
   onOpenWeatherCenter?: () => void;
+  birthdaySystem?: BirthdaySystemState;
+  onTapBirthdayCake?: (cake: BirthdayCake) => void;
 }
 
 export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
@@ -99,6 +104,8 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
   seasonSystem,
   weather,
   onOpenWeatherCenter,
+  birthdaySystem,
+  onTapBirthdayCake,
 }) => {
   const activeSeasonId = seasonSystem?.currentSeason ?? getSeasonFromDate();
   const activeWeather: WeatherState = weather ?? {
@@ -294,6 +301,11 @@ export const FarmSceneBanner: React.FC<FarmSceneBannerProps> = ({
 
         {/* 2. MIDDLE OUTDOOR LAWN PLAYGROUND: Left Fountain + Center Picnic Blanket & Live Pet + Right Flower Swing */}
         <div className="relative w-full h-[252px] sm:h-[280px] -mt-3 px-2 select-none">
+          <BirthdayPartyOverlay
+            target="yard"
+            birthdaySystem={birthdaySystem}
+            onTapCake={onTapBirthdayCake}
+          />
           {/* Placed Yard Visitor Decorations */}
           {visitorState && visitorState.placedYardDecors.length > 0 && (
             <div className="pointer-events-none absolute inset-x-3 top-2 z-[8] flex items-center justify-center gap-2 opacity-95">

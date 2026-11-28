@@ -65,6 +65,11 @@ import {
   mergeCoopTownSession,
   syncTownMapState,
 } from './townMap';
+import {
+  mergeBirthdaySystemRemoteState,
+  mergeCoopBirthdaySession,
+  syncBirthdaySystemState,
+} from './birthday';
 import { syncCollectionProgress } from './collection';
 
 export function getCoopDateKey(date: Date = new Date()): string {
@@ -159,6 +164,9 @@ export function createInitialCoopHubState(dateKey: string = getCoopDateKey()): C
     coopVisitor: null,
     visitorStreakDays: 0,
     lastVisitorCompletedDate: null,
+    coopBirthdaySession: null,
+    birthdayStreak: 0,
+    lastBirthdayCoopDateKey: null,
   };
 }
 
@@ -1674,6 +1682,18 @@ export function mergeCoopRemoteState(
         remoteState.coop.lastTownExploreCompletedDate ??
         localState.coop.lastTownExploreCompletedDate ??
         null,
+      coopBirthdaySession: mergeCoopBirthdaySession(
+        localState.coop.coopBirthdaySession,
+        remoteState.coop.coopBirthdaySession
+      ),
+      birthdayStreak: Math.max(
+        remoteState.coop.birthdayStreak ?? 0,
+        localState.coop.birthdayStreak ?? 0
+      ),
+      lastBirthdayCoopDateKey:
+        remoteState.coop.lastBirthdayCoopDateKey ??
+        localState.coop.lastBirthdayCoopDateKey ??
+        null,
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(
@@ -1685,6 +1705,10 @@ export function mergeCoopRemoteState(
       remoteState.photoStudio
     ),
     seasonalEvent: localState.seasonalEvent ?? remoteState.seasonalEvent,
+    birthdaySystem: mergeBirthdaySystemRemoteState(
+      localState.birthdaySystem,
+      remoteState.birthdaySystem
+    ),
     seasonSystem:
       localState.seasonSystem && remoteState.seasonSystem
         ? {
@@ -1735,5 +1759,5 @@ export function mergeCoopRemoteState(
         : localState.seasonSystem ?? remoteState.seasonSystem,
   }));
 
-  return syncCollectionProgress(mergedDraft, true).nextState;
+  return syncCollectionProgress(syncBirthdaySystemState(mergedDraft), true).nextState;
 }

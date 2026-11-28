@@ -314,6 +314,22 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '完成任意天氣每日任務領獎',
     badgeClass: 'bg-[#E3F2FF] border-[#9EC9F2] text-[#1D5A94]',
   },
+  birthday_superstar: {
+    id: 'birthday_superstar',
+    name: '生日派對壽星',
+    emoji: '🎂',
+    description: '生日商店限定！戴上壽星光環接受全小鎮祝福的慶生主角稱號。',
+    unlockCondition: '於生日商店兌換（400 生日券）',
+    badgeClass: 'bg-[#FFEAF2] border-[#FF8EB0] text-[#C43463]',
+  },
+  best_birthday_partner: {
+    id: 'best_birthday_partner',
+    name: '最佳生日搭檔',
+    emoji: '🥳',
+    description: '連續 5 次與重要的人共同完成共養生日慶祝，把每個生日都變成雙倍幸福！',
+    unlockCondition: '連續完成 5 次共養生日任務',
+    badgeClass: 'bg-[#FFF3D8] border-[#F2CE6D] text-[#8A5610]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

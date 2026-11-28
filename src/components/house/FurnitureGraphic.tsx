@@ -500,6 +500,22 @@ export const FurnitureGraphic: React.FC<FurnitureGraphicProps> = ({
           </g>
         );
 
+      case 'birthday_limited_furniture':
+        return (
+          <g>
+            <line x1="16" y1="36" x2="16" y2="52" stroke={COCOA} strokeWidth="2.8" strokeLinecap="round" />
+            <line x1="48" y1="36" x2="48" y2="52" stroke={COCOA} strokeWidth="2.8" strokeLinecap="round" />
+            <ellipse cx="32" cy="36" rx="20" ry="6" fill="#FFF2D6" stroke={COCOA} strokeWidth="2.2" />
+            <path d="M 14 37 Q 32 45 50 37 L 48 42 Q 32 49 16 42 Z" fill="#FF8EB0" stroke={COCOA} strokeWidth="1.8" />
+            <rect x="21" y="25" width="22" height="9" rx="3" fill="#FFF8EE" stroke={COCOA} strokeWidth="2" />
+            <rect x="24" y="18" width="16" height="8" rx="3" fill="#FFB3CC" stroke={COCOA} strokeWidth="2" />
+            <line x1="32" y1="12" x2="32" y2="18" stroke="#FF7AA8" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M 32 7 C 34 10 34 12 32 12 C 30 12 30 10 32 7 Z" fill="#FFE066" stroke={COCOA} strokeWidth="1.4" />
+            <circle cx="15" cy="18" r="5" fill="#82E9FF" stroke={COCOA} strokeWidth="1.8" />
+            <circle cx="49" cy="16" r="5" fill="#FFE066" stroke={COCOA} strokeWidth="1.8" />
+          </g>
+        );
+
       default: {
         const item = ROOM_ITEM_BY_ID[itemId];
         return (

@@ -142,6 +142,8 @@ export const COLLECTION_TITLE_GROUPS: CollectionTitleGroup[] = [
       'strawberry_fashionista',
       'coop_partner',
       'coop_best_host',
+      'birthday_superstar',
+      'best_birthday_partner',
     ],
   },
 ];

@@ -416,6 +416,39 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
           <circle cx="15" cy="2" r="3.4" fill="#A78BFA" stroke="#5A3E36" strokeWidth="1.8" />
         </g>
       )}
+      {equipped.head === 'birthday_hat' && (
+        <g transform="translate(120, 62)">
+          <polygon
+            points="-22,12 0,-28 22,12"
+            fill="#FF92B4"
+            stroke="#5A3E36"
+            strokeWidth="3.2"
+            strokeLinejoin="round"
+          />
+          <path d="M -15 0 L 11 -10 M -18 8 L 16 -2" stroke="#FFE066" strokeWidth="3.2" strokeLinecap="round" />
+          <ellipse cx="0" cy="12" rx="24" ry="5.5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.8" />
+          <circle cx="-11" cy="12" r="3.4" fill="#82E9FF" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="0" cy="12" r="3.4" fill="#FFE066" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="11" cy="12" r="3.4" fill="#A78BFA" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="0" cy="-31" r="6" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.6" />
+        </g>
+      )}
+      {equipped.head === 'birthday_crown' && (
+        <g transform="translate(120, 60)">
+          <path
+            d="M -27 12 L -31 -14 L -13 -1 L 0 -24 L 13 -1 L 31 -14 L 27 12 Z"
+            fill="#FFD447"
+            stroke="#5A3E36"
+            strokeWidth="3.2"
+            strokeLinejoin="round"
+          />
+          <rect x="-27" y="10" width="54" height="7" rx="3.5" fill="#FF7EA8" stroke="#5A3E36" strokeWidth="2.8" />
+          <circle cx="-18" cy="-11" r="3.2" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="1.8" />
+          <circle cx="0" cy="-21" r="4" fill="#FF7EA8" stroke="#5A3E36" strokeWidth="2" />
+          <circle cx="18" cy="-11" r="3.2" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="1.8" />
+          <polygon points="0,-10 5,-1 0,6 -5,-1" fill="#82E9FF" stroke="#5A3E36" strokeWidth="2" />
+        </g>
+      )}
     </>
   );
 
@@ -678,7 +711,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               {(equipped.body === 'strawberry_cape' ||
                 equipped.body === 'star_pajama' ||
                 equipped.body === 'hero_cape' ||
-                equipped.body === 'party_mini_cape') && (
+                equipped.body === 'party_mini_cape' ||
+                equipped.body === 'birthday_cape') && (
                 <path
                   d="M 60 128 Q 44 176 58 196 Q 120 208 182 196 Q 196 176 180 128 Q 120 140 60 128 Z"
                   fill={
@@ -688,6 +722,8 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                       ? '#A996E6'
                       : equipped.body === 'hero_cape'
                       ? '#FF6464'
+                      : equipped.body === 'birthday_cape'
+                      ? '#FF7EB6'
                       : '#FF85B3'
                   }
                   stroke="#5A3E36"
@@ -974,6 +1010,27 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
               <circle cx="76" cy="176" r="4" fill="#85D7FF" />
               <circle cx="164" cy="176" r="4" fill="#FFE066" />
               <circle cx="120" cy="190" r="4" fill="#95E8C9" />
+            </g>
+          )}
+          {equipped.body === 'birthday_cape' && (
+            <g>
+              <path
+                d="M 52 132 Q 33 176 47 200 Q 120 214 193 200 Q 207 176 188 132 Q 120 146 52 132 Z"
+                fill="#FF7EB6"
+                stroke="#5A3E36"
+                strokeWidth="4"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M 54 192 Q 120 206 186 192"
+                fill="none"
+                stroke="#FFE066"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+              />
+              <circle cx="72" cy="176" r="4.5" fill="#FFE066" />
+              <circle cx="168" cy="176" r="4.5" fill="#82E9FF" />
+              <circle cx="120" cy="190" r="4.5" fill="#FFFDF7" />
             </g>
           )}
           {equipped.back === 'space_mini_cape' && (
@@ -1573,6 +1630,25 @@ export const PiggyCharacter: React.FC<PiggyCharacterProps> = ({
                 strokeLinecap="round"
               />
               <circle cx="120" cy="161" r="6" fill="#FF7AA8" stroke="#5A3E36" strokeWidth="2.6" />
+            </g>
+          )}
+          {equipped.body === 'birthday_cape' && (
+            <g>
+              <path
+                d="M 76 150 Q 120 166 164 150"
+                fill="none"
+                stroke="#FFE066"
+                strokeWidth="4.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 109 156 L 120 163 L 131 156 L 128 170 L 120 165 L 112 170 Z"
+                fill="#FFE066"
+                stroke="#5A3E36"
+                strokeWidth="2.4"
+                strokeLinejoin="round"
+              />
+              <circle cx="120" cy="161" r="4.2" fill="#FF7EB6" stroke="#5A3E36" strokeWidth="2" />
             </g>
           )}
           <g transform={isSideView ? 'translate(-8, 0)' : undefined}>

@@ -17,7 +17,11 @@ import {
   STRAWBERRY_SHOP_ITEMS,
   createInitialStrawberryMilestones,
 } from '../data/events/strawberrySeason';
-import { FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
+import {
+  BIRTHDAY_CAKE_FOOD_IDS,
+  FOOD_CATEGORY_LABELS,
+  FOODS,
+} from '../data/foods';
 import {
   FARM_DECORATIONS,
   FARM_UPGRADES,
@@ -184,17 +188,19 @@ export function buildCollectionItems(
     const owned = collectedFoodSet.has(food.id);
     const recipe = KITCHEN_RECIPE_BY_OUTPUT.get(food.id);
     const isSeasonalFood = STRAWBERRY_FOOD_IDS.includes(food.id);
+    const isBirthdayCake = (BIRTHDAY_CAKE_FOOD_IDS as readonly string[]).includes(food.id);
     const filters: CollectionFilterId[] = [owned ? 'owned' : 'unowned'];
     if (food.price > 0) filters.push('purchasable');
-    if (recipe) filters.push('craftable');
-    if (isSeasonalFood) {
+    if (recipe || isBirthdayCake) filters.push('craftable');
+    if (isSeasonalFood || isBirthdayCake) {
       filters.push('event');
-      if (eventIsActive) filters.push('expiring');
+      if (isSeasonalFood && eventIsActive) filters.push('expiring');
     }
     const obtainParts: string[] = [];
     if (food.price > 0) obtainParts.push(`食堂商店購買（${food.price} 金幣）`);
     if (recipe) obtainParts.push(`廚房料理「${recipe.name}」烹飪取得`);
     if (isSeasonalFood) obtainParts.push(`${STRAWBERRY_EVENT_NAME}推薦料理`);
+    if (isBirthdayCake) obtainParts.push('生日派對蛋糕廚房烘焙取得');
 
     items.push({
       id: `food_${food.id}`,
@@ -203,7 +209,7 @@ export function buildCollectionItems(
       emoji: food.emoji,
       description: food.description,
       owned,
-      rarity: isSeasonalFood ? 'event' : recipe ? 'rare' : 'common',
+      rarity: isSeasonalFood || isBirthdayCake ? 'event' : recipe ? 'rare' : 'common',
       obtainMethod: obtainParts.join(' 或 ') || '食堂料理取得',
       mysteryHint: !owned && recipe ? `料理提示：${recipe.hint ?? '嘗試在廚房搭配農場作物料理'}` : undefined,
       filters,
@@ -211,11 +217,11 @@ export function buildCollectionItems(
       eventRemainingText: isSeasonalFood && eventIsActive ? eventRemaining : undefined,
       isExpiring: isSeasonalFood && eventIsActive,
       jumpTarget: 'canteen',
-      jumpLabel: recipe ? '前往廚房料理' : '前往食堂商店',
+      jumpLabel: isBirthdayCake ? '前往生日蛋糕廚房' : recipe ? '前往廚房料理' : '前往食堂商店',
       previewKind: 'food',
       previewId: food.id,
       subtitle: `${FOOD_CATEGORY_LABELS[food.category]} · 飽足 +${food.hunger}`,
-      tagText: food.price > 0 ? `${food.price} 金幣` : '手作料理',
+      tagText: isBirthdayCake ? '生日派對烘焙' : food.price > 0 ? `${food.price} 金幣` : '手作料理',
     });
   }
 

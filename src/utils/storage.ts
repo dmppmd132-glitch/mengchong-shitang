@@ -68,9 +68,23 @@ import {
   AccessorySlot,
   AccessoryTheme,
   ActiveTownLocationId,
+  BirthdayCake,
+  BirthdayCakeBase,
+  BirthdayCakeCream,
+  BirthdayCakeDecor,
+  BirthdayCakeId,
+  BirthdayCard,
+  BirthdayConfig,
+  BirthdayDecorationId,
+  BirthdayGiftId,
+  BirthdayOrder,
+  BirthdaySystemState,
+  BirthdayTask,
   CollectionBadgeId,
   CollectionOfflineSummary,
   CoopBadgeId,
+  CoopBirthdaySession,
+  CoopBirthdayTaskKey,
   CoopEventSession,
   CoopFarmOrderState,
   CoopGameType,
@@ -277,6 +291,19 @@ import {
   getSeasonFromDate,
   syncSeasonSystemState,
 } from './seasons';
+import {
+  BIRTHDAY_CAKE_BY_ID,
+  BIRTHDAY_DECORATION_BY_ID,
+  BIRTHDAY_GIFT_BY_ID,
+  buildDailyBirthdayTasks,
+  buildInitialCoopBirthdaySteps,
+} from '../data/birthday';
+import {
+  buildDailyBirthdayOrders,
+  clampBirthdayDay,
+  createInitialBirthdaySystemState,
+  syncBirthdaySystemState,
+} from './birthday';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -384,6 +411,7 @@ export function createInitialGameState(): GameState {
     seasonalEvent: createInitialSeasonalEvent(),
     townMap: createInitialTownMapState(),
     seasonSystem: createInitialSeasonSystemState(),
+    birthdaySystem: createInitialBirthdaySystemState(),
   };
 }
 
@@ -1263,7 +1291,8 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             kindRaw === 'farm' ||
             kindRaw === 'album' ||
             kindRaw === 'visitor' ||
-            kindRaw === 'town'
+            kindRaw === 'town' ||
+            kindRaw === 'birthday'
               ? kindRaw
               : undefined;
           const visitorId = asVisitorId(p.visitorId) ?? undefined;
@@ -1441,7 +1470,8 @@ function asCoopGameType(value: unknown): CoopGameType {
     value === 'farm_relay' ||
     value === 'visitor_coop' ||
     value === 'event_coop' ||
-    value === 'town_coop'
+    value === 'town_coop' ||
+    value === 'birthday_coop'
   ) {
     return value;
   }
@@ -1786,6 +1816,7 @@ function parseCoopHubState(raw: unknown): CoopHubState {
   const duoChallenge = parseCoopDuoChallenge(raw.duoChallenge);
   const coopEventSession = parseCoopEventSession(raw.coopEventSession, todayStr);
   const coopTownSession = parseCoopTownSession(raw.coopTownSession, todayStr);
+  const coopBirthdaySession = parseCoopBirthdaySession(raw.coopBirthdaySession);
 
   return syncCoopHubState(
     {
@@ -1819,9 +1850,58 @@ function parseCoopHubState(raw: unknown): CoopHubState {
         typeof raw.lastTownExploreCompletedDate === 'string'
           ? raw.lastTownExploreCompletedDate
           : null,
+      coopBirthdaySession,
+      birthdayStreak: Math.max(0, Math.floor(asNumber(raw.birthdayStreak, 0))),
+      lastBirthdayCoopDateKey:
+        typeof raw.lastBirthdayCoopDateKey === 'string'
+          ? raw.lastBirthdayCoopDateKey
+          : null,
     },
     todayStr
   );
+}
+
+function parseCoopBirthdaySession(raw: unknown): CoopBirthdaySession | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  const petId = asString(raw.petId, '');
+  if (!id || !petId) return null;
+  const defaults = buildInitialCoopBirthdaySteps();
+  const rawSteps = Array.isArray(raw.steps) ? raw.steps : [];
+  const steps = defaults.map((def) => {
+    const found = rawSteps.find((s) => isRecord(s) && s.key === def.key);
+    if (!isRecord(found)) return def;
+    const progress = Math.min(def.target, Math.max(0, Math.floor(asNumber(found.progress, 0))));
+    return {
+      ...def,
+      key: def.key as CoopBirthdayTaskKey,
+      progress,
+      contributorUserIds: Array.isArray(found.contributorUserIds)
+        ? found.contributorUserIds.filter((u): u is string => typeof u === 'string')
+        : [],
+      contributorNames: Array.isArray(found.contributorNames)
+        ? found.contributorNames.filter((n): n is string => typeof n === 'string')
+        : [],
+    };
+  });
+  const completed =
+    raw.completed === true || steps.every((s) => s.progress >= s.target);
+  return {
+    id,
+    petId,
+    petName: asString(raw.petName, '布丁'),
+    yearKey: asString(raw.yearKey, id.replace(/^cbday_/, '')),
+    birthdayDateLabel: asString(raw.birthdayDateLabel, ''),
+    steps,
+    completed,
+    completedAt: typeof raw.completedAt === 'number' ? raw.completedAt : null,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? raw.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+      : [],
+    lastUpdatedByName:
+      typeof raw.lastUpdatedByName === 'string' ? raw.lastUpdatedByName : null,
+    lastUpdatedAt: typeof raw.lastUpdatedAt === 'number' ? raw.lastUpdatedAt : null,
+  };
 }
 
 function parseCoopTownSession(
@@ -3335,6 +3415,246 @@ function asPetUnlockRuleType(value: unknown): PetUnlockRuleType {
   return 'starter';
 }
 
+function parsePetBirthday(raw: unknown): BirthdayConfig | undefined {
+  if (!isRecord(raw)) return undefined;
+  if (typeof raw.month !== 'number' || typeof raw.day !== 'number') return undefined;
+  const clamped = clampBirthdayDay(raw.month, raw.day);
+  return {
+    month: clamped.month,
+    day: clamped.day,
+    leapYearChoice: raw.leapYearChoice === 'feb28' ? 'feb28' : 'mar1',
+    updatedAt: asNumber(raw.updatedAt, Date.now()),
+    customized: raw.customized === true,
+  };
+}
+
+function parseBirthdaySystemState(raw: unknown): BirthdaySystemState {
+  const defaults = createInitialBirthdaySystemState();
+  if (!isRecord(raw)) return defaults;
+
+  const rawTickets = isRecord(raw.tickets) ? raw.tickets : {};
+  const rawPantry = isRecord(raw.pantry) ? raw.pantry : {};
+
+  const validBases: BirthdayCakeBase[] = ['sponge', 'chocolate', 'carrot', 'ice_cream'];
+  const validCreams: BirthdayCakeCream[] = ['strawberry', 'vanilla', 'chocolate', 'mint'];
+  const validDecors: BirthdayCakeDecor[] = ['strawberry', 'candle', 'sprinkles', 'flags', 'heart'];
+
+  const cakes: BirthdayCake[] = Array.isArray(raw.cakes)
+    ? raw.cakes
+        .filter((c): c is Record<string, unknown> => isRecord(c))
+        .map((c) => {
+          const typeIdRaw = asString(c.cakeTypeId, 'custom');
+          const cakeTypeId: BirthdayCakeId | 'custom' =
+            typeIdRaw !== 'custom' && typeIdRaw in BIRTHDAY_CAKE_BY_ID
+              ? (typeIdRaw as BirthdayCakeId)
+              : 'custom';
+          const base = validBases.includes(c.base as BirthdayCakeBase)
+            ? (c.base as BirthdayCakeBase)
+            : 'sponge';
+          const cream = validCreams.includes(c.cream as BirthdayCakeCream)
+            ? (c.cream as BirthdayCakeCream)
+            : 'strawberry';
+          const decors = Array.isArray(c.decors)
+            ? Array.from(
+                new Set(
+                  c.decors.filter((d): d is BirthdayCakeDecor =>
+                    validDecors.includes(d as BirthdayCakeDecor)
+                  )
+                )
+              )
+            : (['candle'] as BirthdayCakeDecor[]);
+          const placedIn: 'room' | 'yard' | null =
+            c.placedIn === 'room' || c.placedIn === 'yard' ? c.placedIn : null;
+          return {
+            id: asString(c.id, `bcake_${Date.now()}`),
+            cakeTypeId,
+            name: asString(c.name, '生日蛋糕'),
+            emoji: asString(c.emoji, '🎂'),
+            base,
+            cream,
+            decors,
+            plaqueText: asString(c.plaqueText, '生日快樂！'),
+            moodBonus: Math.max(0, Math.floor(asNumber(c.moodBonus, 20))),
+            intimacyBonus: Math.max(0, Math.floor(asNumber(c.intimacyBonus, 5))),
+            petId: asString(c.petId, 'pet_1'),
+            createdAt: asNumber(c.createdAt, Date.now()),
+            placedIn,
+            eaten: c.eaten === true,
+          };
+        })
+        .slice(0, 24)
+    : [];
+
+  const reservedCakeByPetId: Record<string, BirthdayCakeId> = {};
+  if (isRecord(raw.reservedCakeByPetId)) {
+    for (const [k, v] of Object.entries(raw.reservedCakeByPetId)) {
+      if (typeof v === 'string' && v in BIRTHDAY_CAKE_BY_ID) {
+        reservedCakeByPetId[k] = v as BirthdayCakeId;
+      }
+    }
+  }
+
+  const ownedGiftIds = Array.isArray(raw.ownedGiftIds)
+    ? Array.from(
+        new Set(
+          raw.ownedGiftIds.filter(
+            (id): id is BirthdayGiftId => typeof id === 'string' && id in BIRTHDAY_GIFT_BY_ID
+          )
+        )
+      )
+    : [];
+
+  const asRoomDecorList = (val: unknown): BirthdayDecorationId[] =>
+    Array.isArray(val)
+      ? Array.from(
+          new Set(
+            val.filter(
+              (id): id is BirthdayDecorationId =>
+                typeof id === 'string' &&
+                id in BIRTHDAY_DECORATION_BY_ID &&
+                BIRTHDAY_DECORATION_BY_ID[id as BirthdayDecorationId].target === 'room'
+            )
+          )
+        )
+      : [];
+
+  const asYardDecorList = (val: unknown): BirthdayDecorationId[] =>
+    Array.isArray(val)
+      ? Array.from(
+          new Set(
+            val.filter(
+              (id): id is BirthdayDecorationId =>
+                typeof id === 'string' &&
+                id in BIRTHDAY_DECORATION_BY_ID &&
+                BIRTHDAY_DECORATION_BY_ID[id as BirthdayDecorationId].target === 'yard'
+            )
+          )
+        )
+      : [];
+
+  const cards: BirthdayCard[] = Array.isArray(raw.cards)
+    ? raw.cards
+        .filter((c): c is Record<string, unknown> => isRecord(c))
+        .map((c) => ({
+          id: asString(c.id, `bcard_${Date.now()}`),
+          petId: asString(c.petId, 'pet_1'),
+          petName: asString(c.petName, '布丁'),
+          yearKey: asString(c.yearKey, ''),
+          birthdayDateLabel: asString(c.birthdayDateLabel, ''),
+          blessings: Array.isArray(c.blessings)
+            ? c.blessings
+                .filter((b): b is Record<string, unknown> => isRecord(b))
+                .map((b) => ({
+                  userId: asString(b.userId, 'local'),
+                  userName: asString(b.userName, '飼主'),
+                  text: asString(b.text, ''),
+                  createdAt: asNumber(b.createdAt, Date.now()),
+                }))
+                .filter((b) => Boolean(b.text))
+            : [],
+          stickers: Array.isArray(c.stickers)
+            ? c.stickers.filter(
+                (s): s is PhotoStickerId => typeof s === 'string' && s in PHOTO_STICKER_BY_ID
+              )
+            : [],
+          completed: c.completed === true,
+          savedToMemories: c.savedToMemories === true,
+          sharedToBoard: c.sharedToBoard === true,
+          createdAt: asNumber(c.createdAt, Date.now()),
+        }))
+        .slice(0, 24)
+    : [];
+
+  const dailyDate = asString(raw.dailyDate, defaults.dailyDate);
+  const templateTasks = buildDailyBirthdayTasks(dailyDate);
+  const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
+  const tasks: BirthdayTask[] = templateTasks.map((tpl) => {
+    const saved = rawTasks.find((t) => isRecord(t) && t.id === tpl.id);
+    if (!isRecord(saved)) return tpl;
+    const progress = Math.min(tpl.target, Math.max(0, Math.floor(asNumber(saved.progress, 0))));
+    return {
+      ...tpl,
+      progress,
+      completed: typeof saved.completed === 'boolean' ? saved.completed : progress >= tpl.target,
+      claimed: saved.claimed === true,
+    };
+  });
+
+  const templateOrders = buildDailyBirthdayOrders(dailyDate);
+  const rawOrders = Array.isArray(raw.orders) ? raw.orders : [];
+  const orders: BirthdayOrder[] = templateOrders.map((tpl) => {
+    const saved = rawOrders.find((o) => isRecord(o) && o.id === tpl.id);
+    if (!isRecord(saved)) return tpl;
+    const progress = Math.min(tpl.target, Math.max(0, Math.floor(asNumber(saved.progress, 0))));
+    return {
+      ...tpl,
+      progress,
+      completed: typeof saved.completed === 'boolean' ? saved.completed : progress >= tpl.target,
+      claimed: saved.claimed === true,
+    };
+  });
+
+  const birthdayPhotosByYearKey: Record<string, string[]> = {};
+  if (isRecord(raw.birthdayPhotosByYearKey)) {
+    for (const [k, v] of Object.entries(raw.birthdayPhotosByYearKey)) {
+      if (Array.isArray(v)) {
+        birthdayPhotosByYearKey[k] = v.filter((id): id is string => typeof id === 'string');
+      }
+    }
+  }
+
+  return {
+    tickets: {
+      balance: Math.max(0, Math.floor(asNumber(rawTickets.balance, 0))),
+      totalEarned: Math.max(0, Math.floor(asNumber(rawTickets.totalEarned, 0))),
+    },
+    pantry: {
+      cream: Math.max(0, Math.floor(asNumber(rawPantry.cream, 1))),
+      sugar: Math.max(0, Math.floor(asNumber(rawPantry.sugar, 1))),
+      iceCream: Math.max(0, Math.floor(asNumber(rawPantry.iceCream, 0))),
+    },
+    cakes,
+    reservedCakeByPetId,
+    unlockedLimitedCakeRecipe: raw.unlockedLimitedCakeRecipe === true,
+    ownedGiftIds,
+    giftBoxesOpenedCount: Math.max(0, Math.floor(asNumber(raw.giftBoxesOpenedCount, 0))),
+    ownedRoomDecorIds: asRoomDecorList(raw.ownedRoomDecorIds),
+    activeRoomDecorIds: asRoomDecorList(raw.activeRoomDecorIds),
+    ownedYardDecorIds: asYardDecorList(raw.ownedYardDecorIds),
+    activeYardDecorIds: asYardDecorList(raw.activeYardDecorIds),
+    placedCakeId: typeof raw.placedCakeId === 'string' ? raw.placedCakeId : null,
+    cards,
+    dailyDate,
+    dailyLoginTicketDate:
+      typeof raw.dailyLoginTicketDate === 'string' ? raw.dailyLoginTicketDate : null,
+    birthdayDayLoginAwardedKeys: Array.isArray(raw.birthdayDayLoginAwardedKeys)
+      ? raw.birthdayDayLoginAwardedKeys.filter((k): k is string => typeof k === 'string')
+      : [],
+    tasks,
+    orders,
+    purchasedShopItemIds: Array.isArray(raw.purchasedShopItemIds)
+      ? Array.from(
+          new Set(raw.purchasedShopItemIds.filter((id): id is string => typeof id === 'string'))
+        )
+      : [],
+    unlockedBirthdayStudioKeys: Array.isArray(raw.unlockedBirthdayStudioKeys)
+      ? Array.from(
+          new Set(
+            raw.unlockedBirthdayStudioKeys.filter((k): k is string => typeof k === 'string')
+          )
+        )
+      : [],
+    birthdayPhotosByYearKey,
+    celebratedYearKeys: Array.isArray(raw.celebratedYearKeys)
+      ? Array.from(
+          new Set(raw.celebratedYearKeys.filter((k): k is string => typeof k === 'string'))
+        )
+      : [],
+    lastCountdownToastKey:
+      typeof raw.lastCountdownToastKey === 'string' ? raw.lastCountdownToastKey : null,
+  };
+}
+
 function parseSinglePet(
   raw: Record<string, unknown>,
   fallbackId: string,
@@ -3378,6 +3698,7 @@ function parseSinglePet(
     isSharedCoopPet: isFirstShared,
     adoptedAt: asNumber(raw.adoptedAt, Date.now()),
     source: asPetUnlockRuleType(raw.source),
+    birthday: parsePetBirthday(raw.birthday),
   };
 }
 
@@ -3502,6 +3823,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     seasonalEvent: createInitialSeasonalEvent(),
     townMap: createInitialTownMapState(),
     seasonSystem: createInitialSeasonSystemState(),
+    birthdaySystem: createInitialBirthdaySystemState(),
   };
 }
 
@@ -3866,6 +4188,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     seasonalEvent: parseSeasonalEvent(parsed.seasonalEvent),
     townMap: parseTownMapState(parsed.townMap),
     seasonSystem: parseSeasonSystemState(parsed.seasonSystem),
+    birthdaySystem: parseBirthdaySystemState(parsed.birthdaySystem),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -3888,6 +4211,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   hydrated = syncPhotoStudioState(hydrated).nextState;
   hydrated = syncSeasonalEventState(hydrated);
   hydrated = syncSeasonSystemState(hydrated);
+  hydrated = syncBirthdaySystemState(hydrated);
   hydrated = syncCollectionProgress(hydrated, false).nextState;
   return hydrated;
 }

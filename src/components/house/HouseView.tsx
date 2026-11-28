@@ -54,6 +54,7 @@ import { SEASON_ROOM_THEME_BY_ID } from '../../data/seasons';
 import { VISITOR_BY_ID, VISITOR_DECORS } from '../../data/visitors';
 import { PicnicSnackId, SYSTEM_COOKIE_ID } from '../../hooks/useYardActivities';
 import {
+  BirthdayCake,
   CropPlot,
   FarmDecorationId,
   FarmUpgradeId,
@@ -109,6 +110,7 @@ import { evaluateItemPreference } from '../../utils/personality';
 import { getActivePet, updateActivePet } from '../../utils/pets';
 import { ShareCardPayload } from '../../utils/shareCardCanvas';
 import { soundFX, triggerHaptic } from '../../utils/sound';
+import { BirthdayPartyOverlay } from '../birthday/BirthdayPartyOverlay';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { FarmSceneBanner } from './FarmSceneBanner';
 import { FurnitureGraphic } from './FurnitureGraphic';
@@ -147,6 +149,7 @@ interface HouseViewProps {
   onTogglePhotoLike: (photoId: string) => void;
   onAddPhotoComment: (photoId: string, content: string) => void;
   onOpenShareCard: (payload: ShareCardPayload) => void;
+  onCelebrateBirthdayCake?: (cake: BirthdayCake) => void;
 }
 
 const QUICK_NOTE_PRESETS = [
@@ -180,6 +183,7 @@ export const HouseView: React.FC<HouseViewProps> = ({
   onTogglePhotoLike,
   onAddPhotoComment,
   onOpenShareCard,
+  onCelebrateBirthdayCake,
 }) => {
   const [tab, setTab] = useState<HouseSubTab>(initialTab);
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all');
@@ -1207,6 +1211,11 @@ export const HouseView: React.FC<HouseViewProps> = ({
             </div>
 
             <div className="relative w-full h-[312px] sm:h-[336px] overflow-hidden select-none">
+              <BirthdayPartyOverlay
+                target="room"
+                birthdaySystem={game.birthdaySystem}
+                onTapCake={onCelebrateBirthdayCake}
+              />
               <div
                 className="relative h-[35%] w-full overflow-hidden"
                 style={{
@@ -2410,6 +2419,8 @@ export const HouseView: React.FC<HouseViewProps> = ({
             seasonSystem={game.seasonSystem}
             weather={game.dialogue.weather}
             onOpenWeatherCenter={onOpenWeatherCenter}
+            birthdaySystem={game.birthdaySystem}
+            onTapBirthdayCake={onCelebrateBirthdayCake}
           />
 
           <div className="-mt-2 flex items-center justify-between gap-2 flex-wrap">

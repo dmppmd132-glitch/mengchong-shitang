@@ -10,7 +10,14 @@ import {
   getZoneForCell,
 } from '../../data/house';
 import { SEASON_ROOM_THEME_BY_ID } from '../../data/seasons';
-import { Pet, PlacedRoomItem, SeasonRoomThemeId, SharedHouse } from '../../types';
+import {
+  BirthdayCake,
+  BirthdaySystemState,
+  Pet,
+  PlacedRoomItem,
+  SeasonRoomThemeId,
+  SharedHouse,
+} from '../../types';
 import {
   HousePetCoordinates,
   HousePetInteractionTarget,
@@ -18,6 +25,7 @@ import {
   getHouseFurnitureReactionType,
   selectRandomHouseInteraction,
 } from '../../utils/house';
+import { BirthdayPartyOverlay } from '../birthday/BirthdayPartyOverlay';
 import { PiggyCharacter } from '../PiggyCharacter';
 import { FurnitureGraphic } from './FurnitureGraphic';
 import { HouseSubTab } from './HouseView';
@@ -27,6 +35,8 @@ interface HomeHousePreviewProps {
   companionPets?: Pet[];
   house: SharedHouse;
   roomThemeOverride?: SeasonRoomThemeId;
+  birthdaySystem?: BirthdaySystemState;
+  onTapBirthdayCake?: (cake: BirthdayCake) => void;
   onOpenHouse: (tab?: HouseSubTab) => void;
 }
 
@@ -37,6 +47,8 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
   companionPets = [],
   house,
   roomThemeOverride = 'none',
+  birthdaySystem,
+  onTapBirthdayCake,
   onOpenHouse,
 }) => {
   const entryCoords = useMemo(
@@ -288,7 +300,12 @@ export const HomeHousePreview: React.FC<HomeHousePreviewProps> = ({
       </div>
 
       {/* Interactive Cozy 2D Room Stage */}
-      <div className="rounded-2xl border border-[#EAD4CB] overflow-hidden bg-[#FFF9F2]">
+      <div className="relative rounded-2xl border border-[#EAD4CB] overflow-hidden bg-[#FFF9F2]">
+        <BirthdayPartyOverlay
+          target="room-mini"
+          birthdaySystem={birthdaySystem}
+          onTapCake={onTapBirthdayCake}
+        />
         <div
           className="relative px-2.5 pt-3.5 pb-3 border-b-2 border-[#9C6F45] flex items-center justify-between gap-2 overflow-hidden"
           style={{ background: seasonRoomTheme ? seasonRoomTheme.wallStyle : wallDef.wallBgStyle }}

@@ -866,6 +866,160 @@ export const StudioBackgroundArt: React.FC<StudioBackgroundArtProps> = ({
           </svg>
         );
 
+      case 'bday_pink_balloons':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBdayPink" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFE0EC" />
+                <stop offset="68%" stopColor="#FFF2F7" />
+                <stop offset="100%" stopColor="#FBE1C8" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBdayPink)" />
+            <path d="M 10 24 Q 90 54 180 28 Q 270 54 350 24" fill="none" stroke="#D98BA4" strokeWidth="2.5" />
+            {[36, 76, 118, 242, 284, 324].map((x, idx) => (
+              <polygon
+                key={x}
+                points={`${x - 10},${idx % 2 === 0 ? 32 : 38} ${x + 10},${idx % 2 === 0 ? 32 : 38} ${x},${idx % 2 === 0 ? 52 : 58}`}
+                fill={idx % 3 === 0 ? '#FF7EB6' : idx % 3 === 1 ? '#FFE066' : '#82E9FF'}
+                stroke="#5A3E36"
+                strokeWidth="1.5"
+              />
+            ))}
+            <ellipse cx="52" cy="84" rx="18" ry="22" fill="#FF8EB8" stroke="#5A3E36" strokeWidth="2.2" />
+            <ellipse cx="82" cy="100" rx="15" ry="19" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.2" />
+            <ellipse cx="308" cy="82" rx="18" ry="22" fill="#82E9FF" stroke="#5A3E36" strokeWidth="2.2" />
+            <ellipse cx="276" cy="98" rx="15" ry="19" fill="#FFB3CE" stroke="#5A3E36" strokeWidth="2.2" />
+            <rect x="0" y="162" width="360" height="58" fill="#FDE6D4" />
+            <ellipse cx="180" cy="190" rx="112" ry="18" fill="#FFFDF9" stroke="#F4A5C0" strokeWidth="3" />
+          </svg>
+        );
+
+      case 'bday_rainbow_cake':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBdayRainbow" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#FFE5EC" />
+                <stop offset="50%" stopColor="#FFF8D8" />
+                <stop offset="100%" stopColor="#E1F6FF" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBdayRainbow)" />
+            <path d="M 46 154 A 134 114 0 0 1 314 154" fill="none" stroke="#FF8EB0" strokeWidth="10" opacity="0.5" />
+            <path d="M 58 154 A 122 102 0 0 1 302 154" fill="none" stroke="#FFD666" strokeWidth="10" opacity="0.55" />
+            <path d="M 70 154 A 110 90 0 0 1 290 154" fill="none" stroke="#8CE0C5" strokeWidth="10" opacity="0.5" />
+            <g transform="translate(56, 126)">
+              <rect x="-20" y="8" width="40" height="22" rx="5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.2" />
+              <rect x="-15" y="-6" width="30" height="14" rx="4" fill="#FF9EBB" stroke="#5A3E36" strokeWidth="2.2" />
+              <line x1="0" y1="-15" x2="0" y2="-6" stroke="#FF7AA8" strokeWidth="3" />
+              <circle cx="0" cy="-18" r="3" fill="#FFE066" />
+            </g>
+            <g transform="translate(304, 126)">
+              <rect x="-20" y="8" width="40" height="22" rx="5" fill="#FFFDF7" stroke="#5A3E36" strokeWidth="2.2" />
+              <rect x="-15" y="-6" width="30" height="14" rx="4" fill="#82E9FF" stroke="#5A3E36" strokeWidth="2.2" />
+              <line x1="0" y1="-15" x2="0" y2="-6" stroke="#FF7AA8" strokeWidth="3" />
+              <circle cx="0" cy="-18" r="3" fill="#FFE066" />
+            </g>
+            <rect x="0" y="162" width="360" height="58" fill="#FFF1DF" />
+          </svg>
+        );
+
+      case 'bday_starry_party':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBdayStarry" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#26285A" />
+                <stop offset="65%" stopColor="#463E88" />
+                <stop offset="100%" stopColor="#725CAD" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBdayStarry)" />
+            <path d="M 0 34 Q 180 62 360 34" fill="none" stroke="#FFE066" strokeWidth="2.5" />
+            {[46, 98, 152, 208, 262, 314].map((x, idx) => (
+              <circle key={x} cx={x} cy={44 + (idx % 2) * 5} r="5.5" fill={idx % 2 === 0 ? '#FFE066' : '#FF8EB8'} />
+            ))}
+            {[28, 72, 134, 234, 294, 338].map((x, idx) => (
+              <circle key={`s-${x}`} cx={x} cy={78 + (idx % 3) * 18} r="2.6" fill="#FFF7C2" />
+            ))}
+            <rect x="0" y="164" width="360" height="56" fill="#4A3F7A" />
+            <ellipse cx="180" cy="192" rx="115" ry="18" fill="#FFE082" opacity="0.24" />
+          </svg>
+        );
+
+      case 'bday_forest_picnic':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBdayPicnic" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#CBEFFF" />
+                <stop offset="56%" stopColor="#EAF9E4" />
+                <stop offset="100%" stopColor="#9EDB8C" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBdayPicnic)" />
+            <circle cx="48" cy="108" r="34" fill="#77C67E" />
+            <circle cx="312" cy="104" r="38" fill="#77C67E" />
+            <path d="M 22 44 Q 180 74 338 44" fill="none" stroke="#8C5A3C" strokeWidth="2.4" />
+            {[62, 120, 180, 240, 298].map((x, i) => (
+              <polygon key={x} points={`${x - 9},54 ${x + 9},54 ${x},72`} fill={i % 2 === 0 ? '#FF8EB0' : '#FFE066'} />
+            ))}
+            <rect x="0" y="156" width="360" height="64" fill="#92D67E" />
+            <rect x="64" y="168" width="232" height="44" rx="12" fill="#FFF8EE" stroke="#FF7E9D" strokeWidth="3" />
+            <path d="M 70 184 H 290 M 70 198 H 290" stroke="#FFB8CB" strokeWidth="4" />
+          </svg>
+        );
+
+      case 'birthday_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgBdayLimited" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FFCEE3" />
+                <stop offset="55%" stopColor="#FFF5DD" />
+                <stop offset="100%" stopColor="#FFE1EE" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgBdayLimited)" />
+            <path d="M 10 30 Q 180 68 350 30" fill="none" stroke="#D98BA4" strokeWidth="2.5" />
+            {[40, 96, 152, 208, 264, 320].map((x, idx) => (
+              <circle key={x} cx={x} cy={42 + (idx % 2) * 8} r="7" fill={idx % 3 === 0 ? '#FF7EB6' : idx % 3 === 1 ? '#FFE066' : '#82E9FF'} />
+            ))}
+            <ellipse cx="44" cy="108" rx="18" ry="22" fill="#FF8EB8" stroke="#5A3E36" strokeWidth="2.2" />
+            <ellipse cx="316" cy="108" rx="18" ry="22" fill="#FFE066" stroke="#5A3E36" strokeWidth="2.2" />
+            <rect x="0" y="162" width="360" height="58" fill="#FFF0D6" />
+            <ellipse cx="180" cy="190" rx="124" ry="20" fill="#FFE1EF" stroke="#FF92B4" strokeWidth="3" />
+            <polygon points="180,58 184,68 195,68 186,74 189,84 180,78 171,84 174,74 165,68 176,68" fill="#FFE066" stroke="#D49A2A" strokeWidth="1.5" />
+          </svg>
+        );
+
       case 'christmas_cabin':
       default:
         return (

@@ -629,6 +629,20 @@ export const ROOM_ITEMS: RoomItem[] = [
     petReactionText: '站在閃亮亮的珍藏展示櫃前數著每一份回憶，超有成就感！',
     petAction: 'petted',
   },
+  {
+    id: 'birthday_limited_furniture',
+    name: '生日限定蛋糕展示桌',
+    category: 'diningTable',
+    zone: 'dining',
+    tier: 'advanced',
+    price: 0,
+    sellPrice: 160,
+    themeId: null,
+    emoji: '🎂',
+    description: '生日商店限定家具！繫著彩球與星星燈串的豪華三層生日蛋糕慶典圓桌，每天都是幸福派對！',
+    petReactionText: '繞著閃亮亮的三層蛋糕桌許願轉圈圈，每天都像過生日一樣快樂！',
+    petAction: 'petted',
+  },
   ...TOYS.map(toyToRoomItem),
 ];
 

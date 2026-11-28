@@ -14,7 +14,12 @@ import {
   Sprout,
   Utensils,
 } from 'lucide-react';
-import { FOOD_CATEGORIES, FOOD_CATEGORY_LABELS, FOODS } from '../data/foods';
+import {
+  BIRTHDAY_CAKE_FOOD_IDS,
+  FOOD_CATEGORIES,
+  FOOD_CATEGORY_LABELS,
+  FOODS,
+} from '../data/foods';
 import {
   FARM_DECORATIONS,
   FARM_PLOT_EXPANSION_COSTS,
@@ -456,7 +461,13 @@ export const CanteenView: React.FC<CanteenViewProps> = ({
       )
     ).map((r) => r.outputFoodId)
   );
-  const categoryItems = filter === 'all' ? FOODS : FOODS.filter((f) => f.category === filter);
+  const buyableOrOwnedFoods = FOODS.filter(
+    (f) => !(BIRTHDAY_CAKE_FOOD_IDS as readonly string[]).includes(f.id) || (inventory[f.id] ?? 0) > 0
+  );
+  const categoryItems =
+    filter === 'all'
+      ? buyableOrOwnedFoods
+      : buyableOrOwnedFoods.filter((f) => f.category === filter);
   const items = categoryItems.filter((food) => {
     if (quickFilter === 'favorite') return speciesInfo.favoriteFoodIds.includes(food.id);
     if (quickFilter === 'inStock') return (inventory[food.id] ?? 0) > 0;
