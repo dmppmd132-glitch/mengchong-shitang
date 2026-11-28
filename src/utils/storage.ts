@@ -96,6 +96,8 @@ import {
   CoopSession,
   CoopDuoChallengeSubmission,
   CoopDuoPhotoChallengeState,
+  CoopPhotoSession,
+  CoopPhotoTaskKey,
   CoopTownExploreSession,
   CoopTownExploreTemplateId,
   CoopVisitorContribution,
@@ -138,12 +140,19 @@ import {
   PetViewDirection,
   PhotoBackground,
   PhotoComment,
+  PhotoContestId,
+  PhotoContestRank,
+  PhotoContestSettlementRecord,
+  PhotoContestState,
   PhotoFilter,
   PhotoFrame,
   PhotoPose,
   PhotoScene,
+  PhotoScore,
   PhotoStickerId,
   PhotoStudioState,
+  PhotoSubmission,
+  PhotoVote,
   PlacedRoomItem,
   RoomPhotoPoseId,
   RoomPhotoRecord,
@@ -304,6 +313,16 @@ import {
   createInitialBirthdaySystemState,
   syncBirthdaySystemState,
 } from './birthday';
+import {
+  PHOTO_CONTEST_SHOP_ITEM_BY_ID,
+  PHOTO_CONTEST_THEME_BY_ID,
+  buildInitialCoopPhotoSteps,
+} from '../data/photoContest';
+import {
+  createInitialPhotoContestState,
+  getPhotoContestThemeForWeek,
+  syncPhotoContestState,
+} from './photoContest';
 
 export const STORAGE_KEY = 'mengchong_canteen_save_v2';
 const LEGACY_STORAGE_KEY = 'mengchong_canteen_save_v1';
@@ -412,6 +431,7 @@ export function createInitialGameState(): GameState {
     townMap: createInitialTownMapState(),
     seasonSystem: createInitialSeasonSystemState(),
     birthdaySystem: createInitialBirthdaySystemState(),
+    photoContest: createInitialPhotoContestState(),
   };
 }
 
@@ -1292,7 +1312,8 @@ function parseSharedHouse(raw: unknown): SharedHouse {
             kindRaw === 'album' ||
             kindRaw === 'visitor' ||
             kindRaw === 'town' ||
-            kindRaw === 'birthday'
+            kindRaw === 'birthday' ||
+            kindRaw === 'contest'
               ? kindRaw
               : undefined;
           const visitorId = asVisitorId(p.visitorId) ?? undefined;
@@ -1471,7 +1492,8 @@ function asCoopGameType(value: unknown): CoopGameType {
     value === 'visitor_coop' ||
     value === 'event_coop' ||
     value === 'town_coop' ||
-    value === 'birthday_coop'
+    value === 'birthday_coop' ||
+    value === 'photo_contest'
   ) {
     return value;
   }
@@ -1817,6 +1839,13 @@ function parseCoopHubState(raw: unknown): CoopHubState {
   const coopEventSession = parseCoopEventSession(raw.coopEventSession, todayStr);
   const coopTownSession = parseCoopTownSession(raw.coopTownSession, todayStr);
   const coopBirthdaySession = parseCoopBirthdaySession(raw.coopBirthdaySession);
+  const coopPhotoSession = parseCoopPhotoSession(raw.coopPhotoSession);
+  const coopPhotoSubmissions: PhotoSubmission[] = Array.isArray(raw.coopPhotoSubmissions)
+    ? raw.coopPhotoSubmissions
+        .map(parsePhotoSubmission)
+        .filter((s): s is PhotoSubmission => s !== null)
+        .slice(0, 30)
+    : [];
 
   return syncCoopHubState(
     {
@@ -1856,9 +1885,219 @@ function parseCoopHubState(raw: unknown): CoopHubState {
         typeof raw.lastBirthdayCoopDateKey === 'string'
           ? raw.lastBirthdayCoopDateKey
           : null,
+      coopPhotoSession,
+      coopPhotoSubmissions,
+      photoContestStreakWeeks: Math.max(
+        0,
+        Math.floor(asNumber(raw.photoContestStreakWeeks, 0))
+      ),
+      lastPhotoContestCoopWeek:
+        typeof raw.lastPhotoContestCoopWeek === 'string'
+          ? raw.lastPhotoContestCoopWeek
+          : null,
     },
     todayStr
   );
+}
+
+function asPhotoContestIdValue(value: unknown, weekKey: string): PhotoContestId {
+  if (typeof value === 'string' && value in PHOTO_CONTEST_THEME_BY_ID) {
+    return value as PhotoContestId;
+  }
+  return getPhotoContestThemeForWeek(weekKey).id;
+}
+
+function asPhotoContestRank(value: unknown, totalScore: number): PhotoContestRank {
+  if (
+    value === 'S' ||
+    value === 'A' ||
+    value === 'B' ||
+    value === 'C' ||
+    value === 'D' ||
+    value === 'E' ||
+    value === 'F'
+  ) {
+    return value;
+  }
+  if (totalScore >= 90) return 'S';
+  if (totalScore >= 80) return 'A';
+  if (totalScore >= 70) return 'B';
+  if (totalScore >= 60) return 'C';
+  if (totalScore >= 50) return 'D';
+  if (totalScore >= 40) return 'E';
+  return 'F';
+}
+
+function parsePhotoSubmission(raw: unknown): PhotoSubmission | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  if (!id) return null;
+  const contestWeekKey = asString(raw.contestWeekKey, getStudioWeekKey());
+  const rawScore = isRecord(raw.score) ? raw.score : {};
+  const totalScore = Math.min(100, Math.max(0, Math.floor(asNumber(rawScore.totalScore, 60))));
+  const score: PhotoScore = {
+    themeMatch: Math.min(40, Math.max(0, Math.floor(asNumber(rawScore.themeMatch, 20)))),
+    outfitCompleteness: Math.min(
+      25,
+      Math.max(0, Math.floor(asNumber(rawScore.outfitCompleteness, 15)))
+    ),
+    photoCompletion: Math.min(
+      20,
+      Math.max(0, Math.floor(asNumber(rawScore.photoCompletion, 15)))
+    ),
+    creativityBonus: Math.min(
+      10,
+      Math.max(0, Math.floor(asNumber(rawScore.creativityBonus, 5)))
+    ),
+    popularityVotes: Math.min(
+      5,
+      Math.max(0, Math.floor(asNumber(rawScore.popularityVotes, 0)))
+    ),
+    totalScore,
+    rank: asPhotoContestRank(rawScore.rank, totalScore),
+    hasRequiredAccessory: rawScore.hasRequiredAccessory === true,
+    matchingAccessoryCount: Math.max(
+      0,
+      Math.floor(asNumber(rawScore.matchingAccessoryCount, 0))
+    ),
+    equippedSlotCount: Math.max(0, Math.floor(asNumber(rawScore.equippedSlotCount, 0))),
+    notes: Array.isArray(rawScore.notes)
+      ? rawScore.notes.filter((n): n is string => typeof n === 'string').slice(0, 6)
+      : [],
+  };
+  const duoRaw = isRecord(raw.duoPet) ? raw.duoPet : null;
+  const duoFacing: PetViewDirection =
+    duoRaw &&
+    (duoRaw.facing === 'front' ||
+      duoRaw.facing === 'left' ||
+      duoRaw.facing === 'back' ||
+      duoRaw.facing === 'right' ||
+      duoRaw.facing === 'flipped')
+      ? duoRaw.facing
+      : 'front';
+  const duoPet = duoRaw
+    ? {
+        petId: typeof duoRaw.petId === 'string' ? duoRaw.petId : undefined,
+        petName: asString(duoRaw.petName, '夥伴寶貝'),
+        species: asSpecies(duoRaw.species),
+        equipped: parseAccessoriesRecord(duoRaw.equipped, {
+          head: null,
+          face: null,
+          neck: null,
+          body: null,
+          held: null,
+          back: null,
+        }),
+        poseId: asStudioPose(duoRaw.poseId) ?? undefined,
+        facing: duoFacing,
+        weightAtCapture:
+          typeof duoRaw.weightAtCapture === 'number' &&
+          Number.isFinite(duoRaw.weightAtCapture)
+            ? duoRaw.weightAtCapture
+            : undefined,
+      }
+    : undefined;
+
+  return {
+    id,
+    contestWeekKey,
+    themeId: asPhotoContestIdValue(raw.themeId, contestWeekKey),
+    authorUserId: asString(raw.authorUserId, 'local'),
+    authorLabel: asString(raw.authorLabel, '我的萌寵'),
+    petId: asString(raw.petId, 'pet_1'),
+    petName: asString(raw.petName, '布丁'),
+    species: asSpecies(raw.species),
+    equipped: parseAccessoriesRecord(raw.equipped, {
+      head: null,
+      face: null,
+      neck: null,
+      body: null,
+      held: null,
+      back: null,
+    }),
+    poseId: asStudioPose(raw.poseId) ?? 'happy',
+    facing:
+      raw.facing === 'front' ||
+      raw.facing === 'left' ||
+      raw.facing === 'back' ||
+      raw.facing === 'right' ||
+      raw.facing === 'flipped'
+        ? raw.facing
+        : 'front',
+    backgroundId: asStudioBg(raw.backgroundId) ?? 'pink_room',
+    filterId: asStudioFilter(raw.filterId) ?? 'none',
+    frameId: asStudioFrame(raw.frameId) ?? 'none',
+    stickers: Array.isArray(raw.stickers)
+      ? raw.stickers
+          .map(asStudioSticker)
+          .filter((s): s is PhotoStickerId => s !== null)
+          .slice(0, 6)
+      : [],
+    title: asString(raw.title, '攝影比賽作品'),
+    caption: asString(raw.caption, ''),
+    score,
+    votesReceived: Math.max(0, Math.floor(asNumber(raw.votesReceived, 0))),
+    rewardCoins: Math.max(0, Math.floor(asNumber(raw.rewardCoins, 0))),
+    rewardMaterials: Math.max(0, Math.floor(asNumber(raw.rewardMaterials, 0))),
+    rewardTickets: Math.max(0, Math.floor(asNumber(raw.rewardTickets, 0))),
+    rewardFrameId: asStudioFrame(raw.rewardFrameId),
+    roomPhotoId: typeof raw.roomPhotoId === 'string' ? raw.roomPhotoId : undefined,
+    isCoop: raw.isCoop === true,
+    duoPet,
+    isShowcaseEntry: raw.isShowcaseEntry === true ? true : undefined,
+    createdAt: asNumber(raw.createdAt, Date.now()),
+  };
+}
+
+function parseCoopPhotoSession(raw: unknown): CoopPhotoSession | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id, '');
+  const contestWeekKey = asString(raw.contestWeekKey, '');
+  if (!id || !contestWeekKey) return null;
+  const defaults = buildInitialCoopPhotoSteps();
+  const rawSteps = Array.isArray(raw.steps) ? raw.steps : [];
+  const steps = defaults.map((def) => {
+    const found = rawSteps.find((s) => isRecord(s) && s.key === def.key);
+    if (!isRecord(found)) return def;
+    return {
+      ...def,
+      key: def.key as CoopPhotoTaskKey,
+      progress: Math.min(def.target, Math.max(0, Math.floor(asNumber(found.progress, 0)))),
+      contributorUserIds: Array.isArray(found.contributorUserIds)
+        ? found.contributorUserIds.filter((u): u is string => typeof u === 'string')
+        : [],
+      contributorNames: Array.isArray(found.contributorNames)
+        ? found.contributorNames.filter((n): n is string => typeof n === 'string')
+        : [],
+    };
+  });
+  const completed =
+    raw.completed === true || steps.every((s) => s.progress >= s.target);
+  return {
+    id,
+    contestWeekKey,
+    themeId: asPhotoContestIdValue(raw.themeId, contestWeekKey),
+    steps,
+    draftPoseId: asStudioPose(raw.draftPoseId) ?? 'happy',
+    draftBackgroundId: asStudioBg(raw.draftBackgroundId) ?? 'pink_room',
+    draftFilterId: asStudioFilter(raw.draftFilterId) ?? 'none',
+    draftFrameId: asStudioFrame(raw.draftFrameId) ?? 'none',
+    draftStickers: Array.isArray(raw.draftStickers)
+      ? raw.draftStickers
+          .map(asStudioSticker)
+          .filter((s): s is PhotoStickerId => s !== null)
+          .slice(0, 6)
+      : [],
+    submittedPhotoId: asNullableString(raw.submittedPhotoId),
+    completed,
+    completedAt: typeof raw.completedAt === 'number' ? raw.completedAt : null,
+    claimedByUserIds: Array.isArray(raw.claimedByUserIds)
+      ? raw.claimedByUserIds.filter((u): u is string => typeof u === 'string')
+      : [],
+    lastUpdatedByName:
+      typeof raw.lastUpdatedByName === 'string' ? raw.lastUpdatedByName : null,
+    lastUpdatedAt: typeof raw.lastUpdatedAt === 'number' ? raw.lastUpdatedAt : null,
+  };
 }
 
 function parseCoopBirthdaySession(raw: unknown): CoopBirthdaySession | null {
@@ -3655,6 +3894,134 @@ function parseBirthdaySystemState(raw: unknown): BirthdaySystemState {
   };
 }
 
+function parseSettlementRecord(raw: unknown): PhotoContestSettlementRecord | null {
+  if (!isRecord(raw)) return null;
+  const weekKey = asString(raw.weekKey, '');
+  if (!weekKey) return null;
+  const bestScore = Math.min(100, Math.max(0, Math.floor(asNumber(raw.bestScore, 0))));
+  return {
+    weekKey,
+    themeId: asPhotoContestIdValue(raw.themeId, weekKey),
+    themeName: asString(raw.themeName, '每週攝影比賽'),
+    bestScore,
+    bestRank:
+      typeof raw.bestRank === 'string'
+        ? asPhotoContestRank(raw.bestRank, bestScore)
+        : null,
+    submissionsCount: Math.max(0, Math.floor(asNumber(raw.submissionsCount, 0))),
+    votesCastCount: Math.max(0, Math.floor(asNumber(raw.votesCastCount, 0))),
+    ticketsEarned: Math.max(0, Math.floor(asNumber(raw.ticketsEarned, 0))),
+    rewardSummary: asString(raw.rewardSummary, ''),
+    settledAt: asNumber(raw.settledAt, Date.now()),
+  };
+}
+
+function parsePhotoContestState(raw: unknown): PhotoContestState {
+  const defaults = createInitialPhotoContestState();
+  if (!isRecord(raw)) return defaults;
+
+  const currentWeekKey = asString(raw.currentWeekKey, defaults.currentWeekKey);
+  const currentThemeId = asPhotoContestIdValue(raw.currentThemeId, currentWeekKey);
+  const rawTickets = isRecord(raw.tickets) ? raw.tickets : {};
+  const history = Array.isArray(rawTickets.history)
+    ? rawTickets.history
+        .filter((h): h is Record<string, unknown> => isRecord(h))
+        .map((h) => ({
+          id: asString(h.id, `pt_${Date.now()}`),
+          delta: Math.floor(asNumber(h.delta, 0)),
+          reason: asString(h.reason, '攝影券異動'),
+          createdAt: asNumber(h.createdAt, Date.now()),
+        }))
+        .slice(0, 40)
+    : [];
+
+  const submissions = Array.isArray(raw.submissions)
+    ? raw.submissions
+        .map(parsePhotoSubmission)
+        .filter((s): s is PhotoSubmission => s !== null)
+        .slice(0, 60)
+    : [];
+
+  const bestSubmissionByWeek: Record<string, string> = {};
+  if (isRecord(raw.bestSubmissionByWeek)) {
+    for (const [k, v] of Object.entries(raw.bestSubmissionByWeek)) {
+      if (typeof v === 'string' && v) {
+        bestSubmissionByWeek[k] = v;
+      }
+    }
+  }
+
+  const votes: PhotoVote[] = Array.isArray(raw.votes)
+    ? raw.votes
+        .filter((v): v is Record<string, unknown> => isRecord(v))
+        .map((v) => ({
+          id: asString(v.id, `pvote_${Date.now()}`),
+          contestWeekKey: asString(v.contestWeekKey, currentWeekKey),
+          dateKey: asString(v.dateKey, formatLocalDate()),
+          voterUserId: asString(v.voterUserId, 'local'),
+          leftSubmissionId: asString(v.leftSubmissionId, ''),
+          rightSubmissionId: asString(v.rightSubmissionId, ''),
+          chosenSubmissionId: asString(v.chosenSubmissionId, ''),
+          createdAt: asNumber(v.createdAt, Date.now()),
+        }))
+        .filter((v) => Boolean(v.chosenSubmissionId))
+        .slice(0, 120)
+    : [];
+
+  const settledWeeks = Array.isArray(raw.settledWeeks)
+    ? raw.settledWeeks
+        .map(parseSettlementRecord)
+        .filter((s): s is PhotoContestSettlementRecord => s !== null)
+        .slice(0, 24)
+    : [];
+
+  return {
+    currentWeekKey,
+    currentThemeId,
+    tickets: {
+      balance: Math.max(0, Math.floor(asNumber(rawTickets.balance, 0))),
+      totalEarned: Math.max(0, Math.floor(asNumber(rawTickets.totalEarned, 0))),
+      totalSpent: Math.max(0, Math.floor(asNumber(rawTickets.totalSpent, 0))),
+      history,
+    },
+    submissions,
+    bestSubmissionByWeek,
+    votes,
+    votedPairKeys: Array.isArray(raw.votedPairKeys)
+      ? Array.from(
+          new Set(raw.votedPairKeys.filter((k): k is string => typeof k === 'string'))
+        ).slice(0, 200)
+      : [],
+    dailyVoteDate: asString(raw.dailyVoteDate, formatLocalDate()),
+    dailyVoteCount: Math.max(0, Math.floor(asNumber(raw.dailyVoteCount, 0))),
+    weeklyVoteWeekKey: asString(raw.weeklyVoteWeekKey, currentWeekKey),
+    weeklyVoteCount: Math.max(0, Math.floor(asNumber(raw.weeklyVoteCount, 0))),
+    claimedVoteMilestones: Array.isArray(raw.claimedVoteMilestones)
+      ? Array.from(
+          new Set(
+            raw.claimedVoteMilestones.filter(
+              (m): m is number => typeof m === 'number' && Number.isFinite(m) && m > 0
+            )
+          )
+        ).sort((a, b) => a - b)
+      : [],
+    purchasedShopItemIds: Array.isArray(raw.purchasedShopItemIds)
+      ? Array.from(
+          new Set(
+            raw.purchasedShopItemIds.filter(
+              (id): id is string =>
+                typeof id === 'string' && id in PHOTO_CONTEST_SHOP_ITEM_BY_ID
+            )
+          )
+        )
+      : [],
+    settledWeeks,
+    lastSeenWeekKey:
+      typeof raw.lastSeenWeekKey === 'string' ? raw.lastSeenWeekKey : currentWeekKey,
+    pendingWeekSettlementNotice: parseSettlementRecord(raw.pendingWeekSettlementNotice),
+  };
+}
+
 function parseSinglePet(
   raw: Record<string, unknown>,
   fallbackId: string,
@@ -3824,6 +4191,7 @@ function migrateLegacyV1(raw: Record<string, unknown>): GameState {
     townMap: createInitialTownMapState(),
     seasonSystem: createInitialSeasonSystemState(),
     birthdaySystem: createInitialBirthdaySystemState(),
+    photoContest: createInitialPhotoContestState(),
   };
 }
 
@@ -4189,6 +4557,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
     townMap: parseTownMapState(parsed.townMap),
     seasonSystem: parseSeasonSystemState(parsed.seasonSystem),
     birthdaySystem: parseBirthdaySystemState(parsed.birthdaySystem),
+    photoContest: parsePhotoContestState(parsed.photoContest),
   };
 
   let hydrated = syncAllAccessoryProgress(syncHouseProgress(draft).nextState).nextState;
@@ -4212,6 +4581,7 @@ export function normalizeGameState(parsed: unknown): GameState | null {
   hydrated = syncSeasonalEventState(hydrated);
   hydrated = syncSeasonSystemState(hydrated);
   hydrated = syncBirthdaySystemState(hydrated);
+  hydrated = syncPhotoContestState(hydrated);
   hydrated = syncCollectionProgress(hydrated, false).nextState;
   return hydrated;
 }

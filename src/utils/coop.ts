@@ -70,6 +70,11 @@ import {
   mergeCoopBirthdaySession,
   syncBirthdaySystemState,
 } from './birthday';
+import {
+  mergeCoopPhotoSession,
+  mergePhotoContestRemoteState,
+  syncPhotoContestState,
+} from './photoContest';
 import { syncCollectionProgress } from './collection';
 
 export function getCoopDateKey(date: Date = new Date()): string {
@@ -167,6 +172,10 @@ export function createInitialCoopHubState(dateKey: string = getCoopDateKey()): C
     coopBirthdaySession: null,
     birthdayStreak: 0,
     lastBirthdayCoopDateKey: null,
+    coopPhotoSession: null,
+    coopPhotoSubmissions: [],
+    photoContestStreakWeeks: 0,
+    lastPhotoContestCoopWeek: null,
   };
 }
 
@@ -1694,6 +1703,33 @@ export function mergeCoopRemoteState(
         remoteState.coop.lastBirthdayCoopDateKey ??
         localState.coop.lastBirthdayCoopDateKey ??
         null,
+      coopPhotoSession: mergeCoopPhotoSession(
+        localState.coop.coopPhotoSession,
+        remoteState.coop.coopPhotoSession
+      ),
+      coopPhotoSubmissions: (() => {
+        const subMap = new Map<string, NonNullable<CoopHubState['coopPhotoSubmissions']>[number]>();
+        for (const s of [
+          ...(localState.coop.coopPhotoSubmissions ?? []),
+          ...(remoteState.coop.coopPhotoSubmissions ?? []),
+        ]) {
+          const prev = subMap.get(s.id);
+          if (!prev || s.votesReceived > prev.votesReceived) {
+            subMap.set(s.id, s);
+          }
+        }
+        return Array.from(subMap.values())
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 30);
+      })(),
+      photoContestStreakWeeks: Math.max(
+        remoteState.coop.photoContestStreakWeeks ?? 0,
+        localState.coop.photoContestStreakWeeks ?? 0
+      ),
+      lastPhotoContestCoopWeek:
+        remoteState.coop.lastPhotoContestCoopWeek ??
+        localState.coop.lastPhotoContestCoopWeek ??
+        null,
     },
     dialogue: mergeDialogueRemoteState(localState.dialogue, remoteState.dialogue),
     memoryAlbum: mergeMemoryAlbumRemoteState(
@@ -1703,6 +1739,11 @@ export function mergeCoopRemoteState(
     photoStudio: mergePhotoStudioRemoteState(
       localState.photoStudio,
       remoteState.photoStudio
+    ),
+    photoContest: mergePhotoContestRemoteState(
+      localState.photoContest,
+      remoteState.photoContest,
+      remoteState.coop.coopPhotoSubmissions
     ),
     seasonalEvent: localState.seasonalEvent ?? remoteState.seasonalEvent,
     birthdaySystem: mergeBirthdaySystemRemoteState(
@@ -1759,5 +1800,8 @@ export function mergeCoopRemoteState(
         : localState.seasonSystem ?? remoteState.seasonSystem,
   }));
 
-  return syncCollectionProgress(syncBirthdaySystemState(mergedDraft), true).nextState;
+  return syncCollectionProgress(
+    syncPhotoContestState(syncBirthdaySystemState(mergedDraft)),
+    true
+  ).nextState;
 }

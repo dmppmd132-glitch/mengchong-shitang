@@ -78,6 +78,14 @@ export const COLLECTION_BADGES: CollectionBadge[] = [
     unlockCondition: '攝影圖鑑達到 60% 以上',
     categoryId: 'studio',
   },
+  {
+    id: 'badge_photo_partner',
+    name: '攝影搭檔徽章',
+    emoji: '🏆',
+    description: '連續 3 週與共養夥伴攜手完成每週攝影比賽全部合作任務！',
+    unlockCondition: '連續 3 週完成共養攝影比賽合作任務',
+    categoryId: 'studio',
+  },
 ];
 
 export interface CollectionTitleGroup {
@@ -144,6 +152,8 @@ export const COLLECTION_TITLE_GROUPS: CollectionTitleGroup[] = [
       'coop_best_host',
       'birthday_superstar',
       'best_birthday_partner',
+      'contest_photographer',
+      'best_photo_partner',
     ],
   },
 ];

@@ -24,6 +24,11 @@ import { ShareCardModal } from './components/memories/ShareCardModal';
 import { MessageBoardModal } from './components/MessageBoardModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PersonalityProfileModal } from './components/PersonalityProfileView';
+import {
+  PhotoContestDraftConfig,
+  PhotoContestModal,
+  PhotoContestTab,
+} from './components/photoContest/PhotoContestModal';
 import { PetListView } from './components/pets/PetListView';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { PWAUpdateBanner } from './components/PWAUpdateBanner';
@@ -136,7 +141,9 @@ import {
   PhotoFrame,
   PhotoPose,
   PhotoScene,
+  PhotoScore,
   PhotoStickerId,
+  PhotoSubmission,
   PiggyActionState,
   RoomPhotoRecord,
   SeasonRoomThemeId,
@@ -389,6 +396,19 @@ import {
   syncBirthdaySystemState,
   updatePetBirthday,
 } from './utils/birthday';
+import {
+  buyPhotoContestShopItem,
+  claimCoopPhotoReward,
+  dismissContestSettlementNotice,
+  getPhotoContestSchedule,
+  mergePhotoContestRemoteState,
+  submitContestVote,
+  submitCoopPhotoContestEntry,
+  submitPhotoContestEntry,
+  syncPhotoContestState,
+  updateCoopPhotoDecor,
+  updateCoopPhotoOutfit,
+} from './utils/photoContest';
 
 export default function App() {
   const [game, setGame] = useState<GameState>(() => loadGameState());
@@ -445,6 +465,10 @@ export default function App() {
   const [wardrobePhotoTab, setWardrobePhotoTab] = useState<
     'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog'
   >('shoot');
+  const [photoContestOpen, setPhotoContestOpen] = useState<boolean>(false);
+  const [photoContestTab, setPhotoContestTab] = useState<PhotoContestTab>('overview');
+  const [photoContestDraft, setPhotoContestDraft] =
+    useState<PhotoContestDraftConfig | null>(null);
   const [wardrobePhotoVisitorId, setWardrobePhotoVisitorId] = useState<VisitorId | null>(null);
   const [wardrobePhotoTownLocationId, setWardrobePhotoTownLocationId] =
     useState<ActiveTownLocationId | null>(null);
@@ -807,6 +831,11 @@ export default function App() {
             mergedCoopState.birthdaySystem,
             remoteState.birthdaySystem
           ),
+          photoContest: mergePhotoContestRemoteState(
+            mergedCoopState.photoContest,
+            remoteState.photoContest,
+            remoteState.coop.coopPhotoSubmissions
+          ),
         };
         const mergedActive = getActivePet(mergedState);
         const partnerFedNow = remoteState.feedLogs.length > gameRef.current.feedLogs.length;
@@ -831,7 +860,8 @@ export default function App() {
             (ev.gameType === 'event_coop' ||
               ev.gameType === 'visitor_coop' ||
               ev.gameType === 'town_coop' ||
-              ev.gameType === 'birthday_coop') &&
+              ev.gameType === 'birthday_coop' ||
+              ev.gameType === 'photo_contest') &&
             !prevPartnerEventIds.has(ev.id)
         );
         const nextMergedActive = getActivePet(nextMerged);
@@ -851,6 +881,8 @@ export default function App() {
                 ? '🗺️'
                 : newPartnerCoopEv.gameType === 'birthday_coop'
                 ? '🎂'
+                : newPartnerCoopEv.gameType === 'photo_contest'
+                ? '📸'
                 : '🐾'
               : '💞',
           },
@@ -891,13 +923,19 @@ export default function App() {
               mergedCoopState.birthdaySystem,
               res.state.birthdaySystem
             ),
+            photoContest: mergePhotoContestRemoteState(
+              mergedCoopState.photoContest,
+              res.state.photoContest,
+              res.state.coop.coopPhotoSubmissions
+            ),
           };
           const newPartnerCoopEv = getOfflinePartnerEvents(mergedState.coop, cloudUser.id).find(
             (ev) =>
               (ev.gameType === 'event_coop' ||
                 ev.gameType === 'visitor_coop' ||
                 ev.gameType === 'town_coop' ||
-                ev.gameType === 'birthday_coop') &&
+                ev.gameType === 'birthday_coop' ||
+                ev.gameType === 'photo_contest') &&
               !prevPartnerEventIds.has(ev.id)
           );
           const evaluatedDialogue = evaluateAndSelectDialogue(mergedState, cloudUser.id);
@@ -916,6 +954,8 @@ export default function App() {
                     ? '🗺️'
                     : newPartnerCoopEv.gameType === 'birthday_coop'
                     ? '🎂'
+                    : newPartnerCoopEv.gameType === 'photo_contest'
+                    ? '📸'
                     : '🐾',
               },
             ]);
@@ -1269,6 +1309,7 @@ export default function App() {
         draft = syncCoopTownExploration(draft, hasShared, new Date(now));
         draft = syncSeasonSystemState(draft, now);
         draft = syncBirthdaySystemState(draft, new Date(now));
+        draft = syncPhotoContestState(draft, new Date(now));
         if (draft.dialogue.weather.condition === 'windy') {
           draft = maybeTriggerWindblownPlot(draft, now);
         }
@@ -5475,6 +5516,158 @@ export default function App() {
     );
   };
 
+  const currentContestSchedule = getPhotoContestSchedule(
+    new Date(),
+    game.photoContest?.currentThemeId ?? null
+  );
+
+  const handleOpenPhotoContest = (
+    tab: PhotoContestTab = 'overview',
+    draft?: PhotoContestDraftConfig | null
+  ) => {
+    soundFX.pop(game.soundEnabled);
+    setPhotoContestTab(tab);
+    setPhotoContestDraft(draft ?? null);
+    setPhotoContestOpen(true);
+  };
+
+  const handleSubmitPhotoContest = (params: {
+    title: string;
+    caption: string;
+    poseId: PhotoPose;
+    facing: PetViewDirection;
+    backgroundId: PhotoBackground;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): { ok: boolean; notice: string; score?: PhotoScore } => {
+    const res = submitPhotoContestEntry(gameRef.current, {
+      userId: currentUserId,
+      authorLabel: actorName,
+      ...params,
+    });
+    soundFX.levelUp(game.soundEnabled);
+    setGame(res.nextState);
+    const notice =
+      `參賽提交成功！${res.submission.score.totalScore} 分（${res.submission.score.rank} 級），獲得 +${res.submission.rewardCoins} 金幣、+${res.submission.rewardTickets} 攝影券` +
+      (res.unlockedNotices.length > 0 ? ` · ${res.unlockedNotices.join(' · ')}` : '');
+    pushFeedback(notice, '🏆');
+    setSpeech(
+      `「${res.submission.title}」在攝影比賽拿到 ${res.submission.score.totalScore} 分（${res.submission.score.rank} 級）！`
+    );
+    return { ok: true, notice, score: res.submission.score };
+  };
+
+  const handleVotePhotoContest = (params: {
+    leftSubmission: PhotoSubmission;
+    rightSubmission: PhotoSubmission;
+    chosenSubmissionId: string;
+  }): { ok: boolean; notice: string } => {
+    const res = submitContestVote(gameRef.current, {
+      voterUserId: currentUserId,
+      voterName: actorName,
+      ...params,
+    });
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      const msText =
+        res.unlockedMilestones.length > 0
+          ? `（達成 ${res.unlockedMilestones.join('/')} 票里程碑！）`
+          : '';
+      pushFeedback(`${res.notice}${msText}`, '🗳️');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleBuyPhotoContestShopItem = (itemId: string): { ok: boolean; notice: string } => {
+    const res = buyPhotoContestShopItem(gameRef.current, itemId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🛍️');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleCoopPhotoOutfit = (poseId: PhotoPose): { ok: boolean; notice: string } => {
+    const res = updateCoopPhotoOutfit(gameRef.current, currentUserId, actorName, poseId);
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '👗');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleCoopPhotoDecor = (decor: {
+    backgroundId: PhotoBackground;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): { ok: boolean; notice: string } => {
+    const res = updateCoopPhotoDecor(gameRef.current, currentUserId, actorName, decor);
+    if (res.ok) {
+      soundFX.heart(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🎨');
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleSubmitCoopPhotoContest = (params: {
+    partnerPet: Pet;
+    title: string;
+    caption: string;
+    poseId: PhotoPose;
+    facing: PetViewDirection;
+    backgroundId: PhotoBackground;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+  }): { ok: boolean; notice: string } => {
+    const res = submitCoopPhotoContestEntry(gameRef.current, {
+      userId: currentUserId,
+      userName: actorName,
+      ...params,
+    });
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '💞');
+      setSpeech(`共養合照「${res.submission.title}」提交成功！`);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleClaimCoopPhotoReward = (): { ok: boolean; notice: string } => {
+    const res = claimCoopPhotoReward(gameRef.current, currentUserId);
+    if (res.ok) {
+      soundFX.levelUp(game.soundEnabled);
+      setGame(res.nextState);
+      pushFeedback(res.notice, '🏆');
+      setSpeech(res.notice);
+    } else {
+      soundFX.miss(game.soundEnabled);
+    }
+    return { ok: res.ok, notice: res.notice };
+  };
+
+  const handleDismissContestSettlement = () => {
+    setGame((prev) => dismissContestSettlementNotice(prev));
+  };
+
   const primaryBirthdayStatus = getPrimaryBirthdayPetStatus(game);
   const birthdaySystemState = getBirthdaySystemState(game);
   const coopBirthdaySession = getOrCreateCoopBirthdaySession(game);
@@ -5862,6 +6055,8 @@ export default function App() {
                     setBirthdayModalOpen(true);
                   }}
                   onTapBirthdayCake={handleTapBirthdayCake}
+                  photoContest={game.photoContest}
+                  onOpenPhotoContest={() => handleOpenPhotoContest('overview')}
                 />
               )}
 
@@ -5946,6 +6141,8 @@ export default function App() {
                   onOpenPetList={() => setActiveTab('pets')}
                   onOpenPhotoStudio={() => handleOpenScenePhoto('wardrobe', 'shoot')}
                   onOpenStudioTab={(tab) => handleOpenScenePhoto('wardrobe', tab)}
+                  onOpenPhotoContest={() => handleOpenPhotoContest('overview')}
+                  photoContestThemeLabel={`${currentContestSchedule.theme.emoji} ${currentContestSchedule.theme.name}`}
                   weeklyThemeLabel={`${currentWeeklyOutfitTheme.emoji} ${currentWeeklyOutfitTheme.title}`}
                   studioCollectionText={`${studioCollectionProgress.totalOwned}/${studioCollectionProgress.totalCatalog}`}
                   onOpenEncyclopedia={() => {
@@ -6243,6 +6440,10 @@ export default function App() {
           seasonSystem={game.seasonSystem}
           weather={game.dialogue.weather}
           onOpenWeatherCenter={() => setWeatherCenterOpen(true)}
+          onOpenPhotoContest={(draft) => {
+            setWardrobePhotoOpen(false);
+            handleOpenPhotoContest('overview', draft ?? null);
+          }}
         />
 
         <DialogueHistoryModal
@@ -6471,6 +6672,27 @@ export default function App() {
             setBirthdayModalOpen(false);
             handleOpenScenePhoto('birthday', 'shoot');
           }}
+        />
+
+        <PhotoContestModal
+          open={photoContestOpen}
+          onClose={() => setPhotoContestOpen(false)}
+          game={game}
+          pet={activePet}
+          currentUserId={currentUserId}
+          actorName={actorName}
+          sharedRoom={sharedRoom}
+          initialTab={photoContestTab}
+          initialDraft={photoContestDraft}
+          onOpenWardrobe={() => setActiveTab('wardrobe')}
+          onSubmitEntry={handleSubmitPhotoContest}
+          onSubmitVote={handleVotePhotoContest}
+          onBuyShopItem={handleBuyPhotoContestShopItem}
+          onCoopOutfit={handleCoopPhotoOutfit}
+          onCoopDecor={handleCoopPhotoDecor}
+          onSubmitCoopEntry={handleSubmitCoopPhotoContest}
+          onClaimCoopReward={handleClaimCoopPhotoReward}
+          onDismissSettlement={handleDismissContestSettlement}
         />
       </div>
     </div>

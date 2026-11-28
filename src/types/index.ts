@@ -1,4 +1,4 @@
-import type { FarmDecorationId } from './house';
+import type { DuoPhotoPetInfo, FarmDecorationId } from './house';
 import type { MinigameHubState } from './minigame';
 export type { DuoPhotoPetInfo } from './house';
 
@@ -73,7 +73,10 @@ export type PhotoBackground =
   | 'bday_rainbow_cake'
   | 'bday_starry_party'
   | 'bday_forest_picnic'
-  | 'birthday_bg';
+  | 'birthday_bg'
+  | 'contest_cloud_bg'
+  | 'contest_starry_bg'
+  | 'contest_halloween_bg';
 
 export type PhotoFilter =
   | 'none'
@@ -107,7 +110,9 @@ export type PhotoFilter =
   | 'bday_cream_pink'
   | 'bday_candy_color'
   | 'bday_warm_gold'
-  | 'bday_starry_purple';
+  | 'bday_starry_purple'
+  | 'contest_forest_filter'
+  | 'contest_beach_filter';
 
 export type PhotoFrame =
   | 'none'
@@ -140,9 +145,13 @@ export type PhotoFrame =
   | 'bday_cake'
   | 'bday_crown'
   | 'bday_giftbox'
-  | 'birthday_frame';
+  | 'birthday_frame'
+  | 'contest_strawberry_frame'
+  | 'contest_chef_frame'
+  | 'contest_sakura_frame'
+  | 'contest_champion_frame';
 
-export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town' | 'birthday';
+export type PhotoScene = 'wardrobe' | 'room' | 'farm' | 'album' | 'visitor' | 'town' | 'birthday' | 'contest';
 
 export type PhotoStickerId =
   | 'heart'
@@ -609,7 +618,9 @@ export type TitleId =
   | 'four_seasons_keeper'
   | 'weather_watcher'
   | 'birthday_superstar'
-  | 'best_birthday_partner';
+  | 'best_birthday_partner'
+  | 'contest_photographer'
+  | 'best_photo_partner';
 
 export type PersonalityId =
   | 'greedy'
@@ -653,7 +664,14 @@ export interface Toy {
   petAction: PiggyActionState;
 }
 
-export type CoopGameType = 'room_decor' | 'farm_relay' | 'visitor_coop' | 'event_coop' | 'town_coop' | 'birthday_coop';
+export type CoopGameType =
+  | 'room_decor'
+  | 'farm_relay'
+  | 'visitor_coop'
+  | 'event_coop'
+  | 'town_coop'
+  | 'birthday_coop'
+  | 'photo_contest';
 
 export type CoopRole = 'selector' | 'placer' | 'farmer' | 'chef';
 
@@ -665,7 +683,8 @@ export type CoopBadgeId =
   | 'best_outfit_partner'
   | 'strawberry_sweetheart_partner'
   | 'town_explore_partner'
-  | 'birthday_party_partner';
+  | 'birthday_party_partner'
+  | 'photo_partner';
 
 export interface CoopGoal {
   id: string;
@@ -1005,6 +1024,10 @@ export interface CoopHubState {
   coopBirthdaySession?: CoopBirthdaySession | null;
   birthdayStreak?: number;
   lastBirthdayCoopDateKey?: string | null;
+  coopPhotoSession?: CoopPhotoSession | null;
+  coopPhotoSubmissions?: PhotoSubmission[];
+  photoContestStreakWeeks?: number;
+  lastPhotoContestCoopWeek?: string | null;
 }
 
 export type TownLocationId =
@@ -1696,7 +1719,8 @@ export type MemoryType =
   | 'milestone'
   | 'visitor'
   | 'town'
-  | 'birthday';
+  | 'birthday'
+  | 'photo_contest';
 
 export interface MemoryEntry {
   id: string;
@@ -1865,6 +1889,7 @@ export interface GameState {
   townMap?: TownMapState;
   seasonSystem?: SeasonSystemState;
   birthdaySystem?: BirthdaySystemState;
+  photoContest?: PhotoContestState;
 }
 
 export interface FloatingFeedback {
@@ -2019,7 +2044,8 @@ export type CollectionBadgeId =
   | 'badge_sets_3'
   | 'badge_house_master'
   | 'badge_town_explorer'
-  | 'badge_studio_director';
+  | 'badge_studio_director'
+  | 'badge_photo_partner';
 
 export interface CollectionBadge {
   id: CollectionBadgeId;
@@ -2488,5 +2514,196 @@ export interface BirthdaySystemState {
   celebratedYearKeys: string[];
   lastCountdownToastKey: string | null;
 }
+
+export type PhotoContestId =
+  | 'strawberry_sweet'
+  | 'forest_camp'
+  | 'cloud_nap'
+  | 'chef_master'
+  | 'starry_explorer'
+  | 'beach_vacation'
+  | 'sakura_picnic'
+  | 'halloween_candy';
+
+export type PhotoContestPhase = 'creation' | 'voting' | 'settlement';
+
+export type PhotoContestRank = 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+
+export interface PhotoContestTheme {
+  id: PhotoContestId;
+  weekOrder: number;
+  name: string;
+  emoji: string;
+  description: string;
+  requiredConditionText: string;
+  requiredAccessoryThemes: AccessoryTheme[];
+  requiredAccessoryIds: string[];
+  requiredKeywordTags: string[];
+  styleTags: string[];
+  recommendedColors: string[];
+  preferredBackgroundIds: PhotoBackground[];
+  preferredFilterIds: PhotoFilter[];
+  preferredFrameIds: PhotoFrame[];
+  preferredStickerIds: PhotoStickerId[];
+  preferredPoses: PhotoPose[];
+  preferredPersonalityIds: PersonalityId[];
+  rewardLabel: string;
+  rewardKind: 'frame' | 'filter' | 'background';
+  rewardTargetId: string;
+  badgeClass: string;
+  seasonalTag?: 'strawberry' | 'sakura' | 'halloween' | 'christmas';
+}
+
+export interface PhotoScore {
+  themeMatch: number; // 0..40
+  outfitCompleteness: number; // 0..25
+  photoCompletion: number; // 0..20
+  creativityBonus: number; // 0..10
+  popularityVotes: number; // 0..5
+  totalScore: number; // 0..100
+  rank: PhotoContestRank;
+  hasRequiredAccessory: boolean;
+  matchingAccessoryCount: number;
+  equippedSlotCount: number;
+  notes: string[];
+}
+
+export interface PhotoSubmission {
+  id: string;
+  contestWeekKey: string;
+  themeId: PhotoContestId;
+  authorUserId: string;
+  authorLabel: string;
+  petId: string;
+  petName: string;
+  species: PetSpecies;
+  equipped: Record<AccessorySlot, string | null>;
+  poseId: PhotoPose;
+  facing: PetViewDirection;
+  backgroundId: PhotoBackground;
+  filterId: PhotoFilter;
+  frameId: PhotoFrame;
+  stickers: PhotoStickerId[];
+  title: string;
+  caption: string;
+  score: PhotoScore;
+  votesReceived: number;
+  rewardCoins: number;
+  rewardMaterials: number;
+  rewardTickets: number;
+  rewardFrameId?: PhotoFrame | null;
+  roomPhotoId?: string;
+  isCoop: boolean;
+  duoPet?: DuoPhotoPetInfo;
+  isShowcaseEntry?: boolean;
+  createdAt: number;
+}
+
+export interface PhotoVote {
+  id: string;
+  contestWeekKey: string;
+  dateKey: string;
+  voterUserId: string;
+  leftSubmissionId: string;
+  rightSubmissionId: string;
+  chosenSubmissionId: string;
+  createdAt: number;
+}
+
+export interface PhotoTicketTransaction {
+  id: string;
+  delta: number;
+  reason: string;
+  createdAt: number;
+}
+
+export interface PhotoCurrency {
+  balance: number;
+  totalEarned: number;
+  totalSpent: number;
+  history: PhotoTicketTransaction[];
+}
+
+export interface PhotoContestShopItem {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  category: 'frame' | 'filter' | 'background' | 'title';
+  targetId: string;
+  ticketPrice: number;
+  badgeText: string;
+}
+
+export interface VoteMilestoneConfig {
+  votes: number;
+  rewardMaterials: number;
+  rewardTickets: number;
+  rewardFrameId?: PhotoFrame;
+  label: string;
+}
+
+export type CoopPhotoTaskKey = 'outfit' | 'decor' | 'vote' | 'submit';
+
+export interface CoopPhotoTaskStep {
+  key: CoopPhotoTaskKey;
+  label: string;
+  emoji: string;
+  progress: number;
+  target: number;
+  contributorUserIds: string[];
+  contributorNames: string[];
+}
+
+export interface CoopPhotoSession {
+  id: string;
+  contestWeekKey: string;
+  themeId: PhotoContestId;
+  steps: CoopPhotoTaskStep[];
+  draftPoseId: PhotoPose;
+  draftBackgroundId: PhotoBackground;
+  draftFilterId: PhotoFilter;
+  draftFrameId: PhotoFrame;
+  draftStickers: PhotoStickerId[];
+  submittedPhotoId: string | null;
+  completed: boolean;
+  completedAt: number | null;
+  claimedByUserIds: string[];
+  lastUpdatedByName: string | null;
+  lastUpdatedAt: number | null;
+}
+
+export interface PhotoContestSettlementRecord {
+  weekKey: string;
+  themeId: PhotoContestId;
+  themeName: string;
+  bestScore: number;
+  bestRank: PhotoContestRank | null;
+  submissionsCount: number;
+  votesCastCount: number;
+  ticketsEarned: number;
+  rewardSummary: string;
+  settledAt: number;
+}
+
+export interface PhotoContestState {
+  currentWeekKey: string;
+  currentThemeId: PhotoContestId;
+  tickets: PhotoCurrency;
+  submissions: PhotoSubmission[];
+  bestSubmissionByWeek: Record<string, string>;
+  votes: PhotoVote[];
+  votedPairKeys: string[];
+  dailyVoteDate: string;
+  dailyVoteCount: number;
+  weeklyVoteWeekKey: string;
+  weeklyVoteCount: number;
+  claimedVoteMilestones: number[];
+  purchasedShopItemIds: string[];
+  settledWeeks: PhotoContestSettlementRecord[];
+  lastSeenWeekKey: string | null;
+  pendingWeekSettlementNotice: PhotoContestSettlementRecord | null;
+}
+
 
 

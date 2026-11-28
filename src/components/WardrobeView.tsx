@@ -46,6 +46,8 @@ interface WardrobeViewProps {
   onChangeSpecies?: (species: PetSpecies) => void;
   onOpenPhotoStudio?: () => void;
   onOpenStudioTab?: (tab: 'shoot' | 'shop' | 'challenge' | 'duo' | 'catalog') => void;
+  onOpenPhotoContest?: () => void;
+  photoContestThemeLabel?: string;
   weeklyThemeLabel?: string;
   studioCollectionText?: string;
   onOpenEncyclopedia?: () => void;
@@ -64,6 +66,8 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
   onChangeSpecies,
   onOpenPhotoStudio,
   onOpenStudioTab,
+  onOpenPhotoContest,
+  photoContestThemeLabel,
   weeklyThemeLabel,
   studioCollectionText,
   onOpenEncyclopedia,
@@ -333,6 +337,18 @@ export const WardrobeView: React.FC<WardrobeViewProps> = ({
                     📖 圖鑑合成
                   </button>
                 </div>
+              )}
+              {onOpenPhotoContest && (
+                <button
+                  type="button"
+                  onClick={onOpenPhotoContest}
+                  className="w-full min-h-[40px] px-3 rounded-xl bg-gradient-to-r from-[#FFF0D8] via-[#FFE6EC] to-[#F3E8FF] border border-[#F0B865] text-xs font-extrabold text-[#7D4B16] flex items-center justify-between gap-2 shadow-sm hover:brightness-95 active:scale-[0.99] transition"
+                >
+                  <span>🏆 每週攝影比賽＆穿搭評分</span>
+                  <span className="px-2 py-0.5 rounded-lg bg-white/90 text-[10px] font-extrabold text-[#B83B64] shrink-0">
+                    {photoContestThemeLabel ? `${photoContestThemeLabel} · 立即參賽` : '前往參賽 / 投票'}
+                  </span>
+                </button>
               )}
             </section>
           )}

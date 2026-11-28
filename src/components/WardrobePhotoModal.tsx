@@ -157,6 +157,14 @@ interface WardrobePhotoModalProps {
   }) => RoomPhotoRecord | null;
   onClaimDuoChallengeReward?: () => void;
   onOpenSharedPet?: () => void;
+  onOpenPhotoContest?: (draft?: {
+    poseId: PhotoPose;
+    backgroundId: PhotoBackground;
+    filterId: PhotoFilter;
+    frameId: PhotoFrame;
+    stickers: PhotoStickerId[];
+    facing: PetViewDirection;
+  }) => void;
   seasonSystem?: SeasonSystemState;
   weather?: WeatherState;
   onOpenWeatherCenter?: () => void;
@@ -200,6 +208,7 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
   onSubmitDuoChallenge,
   onClaimDuoChallengeReward,
   onOpenSharedPet,
+  onOpenPhotoContest,
   seasonSystem,
   weather,
   onOpenWeatherCenter,
@@ -969,6 +978,35 @@ export const WardrobePhotoModal: React.FC<WardrobePhotoModalProps> = ({
           {/* TAB 1: STUDIO SHOOT */}
           {studioTab === 'shoot' && (
             <>
+              {onOpenPhotoContest && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenPhotoContest({
+                      poseId,
+                      backgroundId,
+                      filterId,
+                      frameId,
+                      stickers,
+                      facing,
+                    })
+                  }
+                  className="w-full min-h-[44px] rounded-2xl bg-gradient-to-r from-[#FFEAF2] via-[#FFF6DC] to-[#EEF8FF] border border-[#F3C8D7] px-3 py-2 flex items-center justify-between gap-2 text-left hover:brightness-[0.99] transition"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold text-[#B83B64] truncate">
+                      🏆 每週攝影比賽＆穿搭評分
+                    </p>
+                    <p className="text-[10px] font-bold text-[#7D635D] truncate">
+                      將目前造型帶入本週大賽投稿、匿名投票賺攝影券
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl bg-white border border-[#F2D5DF] text-[11px] font-extrabold text-[#B83B64] shrink-0">
+                    去參賽 ›
+                  </span>
+                </button>
+              )}
+
               {(primaryBirthdayStatus.isTodayBirthday ||
                 primaryBirthdayStatus.isCountdown ||
                 primaryBirthdayStatus.isReviewPeriod) && (

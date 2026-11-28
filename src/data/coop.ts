@@ -203,6 +203,14 @@ export const COOP_BADGES: Record<CoopBadgeId, CoopBadgeDefinition> = {
     conditionText: '連續完成 3 次共養生日任務',
     badgeClass: 'bg-[#FFEAF2] border-[#F4B4CB] text-[#B83B64]',
   },
+  photo_partner: {
+    id: 'photo_partner',
+    name: '攝影搭檔',
+    emoji: '📸',
+    description: '連續 3 週攜手完成共養攝影比賽穿搭、佈置、投票與提交作品！',
+    conditionText: '連續 3 週完成共養攝影比賽任務',
+    badgeClass: 'bg-[#FFF3D8] border-[#E8AE38] text-[#8A520E]',
+  },
 };
 
 export const COOP_MESSAGE_CARD_TEMPLATES: Omit<

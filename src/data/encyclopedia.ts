@@ -330,6 +330,22 @@ export const TITLE_DEFINITIONS: Record<TitleId, TitleDefinition> = {
     unlockCondition: '連續完成 5 次共養生日任務',
     badgeClass: 'bg-[#FFF3D8] border-[#F2CE6D] text-[#8A5610]',
   },
+  contest_photographer: {
+    id: 'contest_photographer',
+    name: '攝影師',
+    emoji: '📷',
+    description: '攝影比賽商店榮譽兌換稱號！用鏡頭與穿搭美感記錄小鎮最耀眼的每一個瞬間。',
+    unlockCondition: '於攝影比賽「攝影券商店」兌換（400 攝影券）',
+    badgeClass: 'bg-[#FFF3D8] border-[#E8AE38] text-[#8A520E]',
+  },
+  best_photo_partner: {
+    id: 'best_photo_partner',
+    name: '最佳攝影搭檔',
+    emoji: '📸',
+    description: '連續 5 週攜手完成共養攝影比賽合作任務，兩人對光影與造型的默契無人能敵！',
+    unlockCondition: '連續 5 週完成共養攝影比賽任務',
+    badgeClass: 'bg-[#FFEAF2] border-[#F4A6C2] text-[#B83B64]',
+  },
 };
 
 export const ACCESSORY_MILESTONE_STEP = 5;

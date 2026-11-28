@@ -1205,6 +1205,7 @@ export function syncCollectionProgress(
     { id: 'badge_house_master', condition: (roomCat?.percent ?? 0) >= 60 },
     { id: 'badge_town_explorer', condition: (visitorsCat?.collected ?? 0) >= 8 },
     { id: 'badge_studio_director', condition: (studioCat?.percent ?? 0) >= 60 },
+    { id: 'badge_photo_partner', condition: state.coop.unlockedBadges.includes('photo_partner') },
   ];
   let badgesChanged = false;
   for (const br of badgeRules) {

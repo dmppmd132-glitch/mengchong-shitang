@@ -1020,6 +1020,110 @@ export const StudioBackgroundArt: React.FC<StudioBackgroundArtProps> = ({
           </svg>
         );
 
+      case 'contest_cloud_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgContestCloud" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#9FD6FF" />
+                <stop offset="55%" stopColor="#E1F2FF" />
+                <stop offset="100%" stopColor="#FFE9F4" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgContestCloud)" />
+            <circle cx="290" cy="46" r="24" fill="#FFF2B8" opacity="0.9" />
+            <g fill="#FFFFFF" opacity="0.95">
+              <ellipse cx="64" cy="68" rx="34" ry="18" />
+              <ellipse cx="94" cy="66" rx="24" ry="15" />
+              <ellipse cx="268" cy="84" rx="36" ry="18" />
+              <ellipse cx="238" cy="86" rx="24" ry="14" />
+              <ellipse cx="180" cy="186" rx="140" ry="38" />
+              <ellipse cx="74" cy="196" rx="76" ry="30" />
+              <ellipse cx="286" cy="196" rx="76" ry="30" />
+            </g>
+            <circle cx="136" cy="48" r="3" fill="#FFF7C8" />
+            <circle cx="204" cy="36" r="3.5" fill="#FFF7C8" />
+          </svg>
+        );
+
+      case 'contest_starry_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgContestStarry" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#1B1C4A" />
+                <stop offset="55%" stopColor="#352D78" />
+                <stop offset="100%" stopColor="#5D4199" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgContestStarry)" />
+            <ellipse cx="180" cy="100" rx="150" ry="62" fill="#9A7CE8" opacity="0.16" />
+            <circle cx="68" cy="54" r="18" fill="#FFE68C" />
+            <circle cx="76" cy="49" r="16" fill="#222058" />
+            <polyline points="236,42 268,60 302,38 320,76" fill="none" stroke="#CFE3FF" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
+            {[
+              [236, 42],
+              [268, 60],
+              [302, 38],
+              [320, 76],
+              [142, 34],
+              [184, 52],
+              [42, 112],
+              [318, 128],
+            ].map(([sx, sy], idx) => (
+              <circle key={idx} cx={sx} cy={sy} r={idx % 2 === 0 ? 3.2 : 2.2} fill="#FFF4B8" />
+            ))}
+            <ellipse cx="180" cy="198" rx="146" ry="26" fill="#3D317A" stroke="#CBB7FF" strokeWidth="2" />
+          </svg>
+        );
+
+      case 'contest_halloween_bg':
+        return (
+          <svg
+            viewBox="0 0 360 220"
+            preserveAspectRatio="xMidYMid slice"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bgContestHalloween" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2A1D42" />
+                <stop offset="65%" stopColor="#56316E" />
+                <stop offset="100%" stopColor="#7C435F" />
+              </linearGradient>
+            </defs>
+            <rect width="360" height="220" fill="url(#bgContestHalloween)" />
+            <circle cx="292" cy="48" r="24" fill="#FFE282" opacity="0.92" />
+            <path d="M0,158 Q180,144 360,158 L360,220 L0,220 Z" fill="#412456" />
+            <g transform="translate(56, 152)">
+              <ellipse cx="0" cy="0" rx="22" ry="17" fill="#FF8C2E" stroke="#3D1F0D" strokeWidth="2.2" />
+              <rect x="-3" y="-23" width="6" height="8" rx="2" fill="#4C9A4A" />
+              <polygon points="-9,-4 -4,-10 0,-4" fill="#FFE885" />
+              <polygon points="9,-4 4,-10 0,-4" fill="#FFE885" />
+              <path d="M-9,5 Q0,11 9,5" stroke="#FFE885" strokeWidth="2.5" fill="none" />
+            </g>
+            <g transform="translate(304, 154)">
+              <ellipse cx="0" cy="0" rx="18" ry="14" fill="#FFA238" stroke="#3D1F0D" strokeWidth="2.2" />
+              <rect x="-2.5" y="-19" width="5" height="7" rx="2" fill="#4C9A4A" />
+              <circle cx="-6" cy="-2" r="2.2" fill="#FFE885" />
+              <circle cx="6" cy="-2" r="2.2" fill="#FFE885" />
+            </g>
+            <circle cx="110" cy="44" r="2.5" fill="#FFD166" />
+            <circle cx="176" cy="30" r="3" fill="#FF9ED2" />
+            <circle cx="228" cy="64" r="2.5" fill="#FFD166" />
+          </svg>
+        );
+
       case 'christmas_cabin':
       default:
         return (

@@ -189,7 +189,7 @@ export interface RoomPhotoRecord {
   flooringId: FlooringId;
   placedItems: PlacedRoomItem[];
   noteHighlight?: string;
-  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album' | 'visitor' | 'town' | 'birthday';
+  photoKind?: 'room' | 'wardrobe' | 'farm' | 'album' | 'visitor' | 'town' | 'birthday' | 'contest';
   visitorId?: VisitorId;
   townLocationId?: TownLocationId;
   townVisitorId?: TownVisitorId;
